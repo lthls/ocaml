@@ -70,6 +70,10 @@ type letrec = {
   pre : Lambda.lambda -> Lambda.lambda;
   effects : Lambda.lambda;
   functions : (Ident.t * Lambda.lfunction) list;
+  substitution : Lambda.lambda Ident.tbl;
+  (* Alias to recursive variables should be forbidden, but they are
+     not really. To prevent any problem, we apply a substitution
+     to every expression *)
 }
 
 let lsequence (lam1, lam2) : L.lambda =
@@ -92,6 +96,11 @@ let build_block var size block_type expr letrec =
   in
   { letrec with blocks; effects }
 
+let is_a_variable (lam:Lambda.lambda) =
+  match lam with
+  | Lvar _ -> true
+  | _ -> false
+
 let rec prepare_letrec recursive_set current_var (lam:Lambda.lambda) letrec =
   let module T = Types in
   match lam with
@@ -108,6 +117,31 @@ let rec prepare_letrec recursive_set current_var (lam:Lambda.lambda) letrec =
     | T.Record_float ->
       build_block current_var size Float lam letrec
     end
+  | Lprim ((Pmakeblock _ | Pmakearray (_, _)) as prim, args, dbg)
+    when not (List.for_all is_a_variable args) ->
+    (* Primitive arguments are not dissected. When it could matter, (i.e.
+       if it contain an effect, or a let binding a variable that will end
+       in the recursive set), it must be dissected before the primitive, to
+       avoid messing with the evaluation order or ensure that blocks are
+       preallocated then patched.
+
+       This is done by lifting every expression (except variables) to
+       a let binding before. *)
+    let defs, args =
+      List.fold_right (fun (def:Lambda.lambda) (defs, args) ->
+        match def with
+        | Lvar _ -> defs, def :: args
+        | _ ->
+          let id = Ident.create "lift_in_letrec" in
+          (id, def) :: defs, (Lambda.Lvar id) :: args)
+        args ([], [])
+    in
+    let lam =
+      List.fold_right (fun (id, def) body : Lambda.lambda ->
+        Llet (Strict, Pgenval, id, def, body))
+        defs (Lambda.Lprim (prim, args, dbg))
+    in
+    prepare_letrec recursive_set current_var lam letrec
   | Lprim(Pmakeblock _, args, _)
   | Lprim (Pmakearray ((Paddrarray|Pintarray), _), args, _) ->
     build_block current_var (List.length args) Normal lam letrec
@@ -167,7 +201,15 @@ let rec prepare_letrec recursive_set current_var (lam:Lambda.lambda) letrec =
           letrec
       in
       prepare_letrec recursive_set current_var body letrec
+  | Lvar _ ->
+    (* This cannot be a mutable variable: it is ok to copy it *)
+    { letrec with substitution = Ident.add current_var lam letrec.substitution }
   | _ ->
+    (* This cannot be recursive, otherwise it should have been caught
+       by the well formedness check. Hence it is ok to evaluate it
+       before anything else. *)
+    let free_vars = Lambda.free_variables lam in
+    assert(Ident.Set.is_empty (Ident.Set.inter free_vars recursive_set));
     let pre tail : Lambda.lambda =
       Llet (Strict, Pgenval, current_var, lam, letrec.pre tail)
     in
@@ -189,7 +231,9 @@ let dissect_letrec ~bindings ~body =
         consts = [];
         pre = (fun x -> x);
         effects = body;
-        functions = [] }
+        functions = [];
+        substitution = Ident.empty;
+      }
   in
   let preallocations =
     let loc = Location.none in
@@ -231,11 +275,14 @@ let dissect_letrec ~bindings ~body =
       with_non_rec
       letrec.consts
   in
+  let substituted =
+    Lambda.subst_lambda letrec.substitution with_constants
+  in
 (*
   Format.printf "dissected@ %a@.@."
-    Printlambda.lambda with_constants;
+    Printlambda.lambda substituted;
 *)
-  with_constants
+  substituted
 
 module Env : sig
   type t
