@@ -1511,6 +1511,12 @@ let transl_extension_constructor env type_path type_params
       Typedtree.ext_loc = sext.pext_loc;
       Typedtree.ext_attributes = sext.pext_attributes; }
 
+let transl_extension_constructor env type_path type_params
+    typext_params priv sext =
+  Builtin_attributes.warning_scope sext.pext_attributes
+    (fun () -> transl_extension_constructor env type_path type_params
+        typext_params priv sext)
+
 let transl_type_extension check_open env loc styext =
   reset_type_variables();
   Ctype.begin_def();
@@ -1600,6 +1606,10 @@ let transl_type_extension check_open env loc styext =
       tyext_attributes = styext.ptyext_attributes; }
   in
     (tyext, newenv)
+
+let transl_type_extension check_open env loc styext =
+  Builtin_attributes.warning_scope styext.ptyext_attributes
+    (fun () -> transl_type_extension check_open env loc styext)
 
 let transl_exception env sext =
   reset_type_variables();
