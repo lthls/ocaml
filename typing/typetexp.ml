@@ -378,7 +378,14 @@ and transl_type_aux env policy styp =
       ctyp (Ttyp_constr (path, lid, args)) constr
   | Ptyp_object (fields, o) ->
       let fields =
-        List.map (fun (s, a, t) -> (s.txt, a, transl_poly_type env policy t))
+        List.map
+          (fun (s, a, t) ->
+             let t =
+               Builtin_attributes.warning_scope a
+                 (fun () -> transl_poly_type env policy t)
+             in
+             (s.txt, a, t)
+          )
           fields
       in
       let ty = newobj (transl_fields loc env policy [] o fields) in
@@ -524,7 +531,10 @@ and transl_type_aux env policy styp =
       let add_field = function
           Rtag (l, attrs, c, stl) ->
             name := None;
-            let tl = List.map (transl_type env policy) stl in
+            let tl =
+              Builtin_attributes.warning_scope attrs
+                (fun () -> List.map (transl_type env policy) stl)
+            in
             let f = match present with
               Some present when not (List.mem l present) ->
                 let ty_tl = List.map (fun cty -> cty.ctyp_type) tl in
