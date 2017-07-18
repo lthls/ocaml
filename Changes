@@ -42,7 +42,7 @@ Working version
   Mark Shinwell and Leo White)
 
 - MPR#7531, GPR#1162: Erroneous code transformation at partial applications
-  (Mark Shinwell) 
+  (Mark Shinwell)
 
 ### Standard library:
 
@@ -97,6 +97,11 @@ Working version
 - MPR#7444, GPR#1138: trigger deprecation warning when a "deprecated"
   attribute is hidden by signature coercion
   (Alain Frisch, report by bmillwood, review by Leo White)
+
+- GPR#1248: support "ocaml.warning" in all attribute contexts, and
+  arrange so that "ocaml.ppwarning" is correctly scoped by surrounding
+  "ocaml.warning" attributes
+  (Alain Frisch, review by ...)
 
 ### Manual and documentation:
 
