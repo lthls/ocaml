@@ -216,6 +216,21 @@ let backup () = !current
 
 let restore x = current := x
 
+let mk_lazy f =
+  let state = backup () in
+  lazy
+    (
+      let prev = backup () in
+      restore state;
+      try
+        let r = f () in
+        restore prev;
+        r
+      with exn ->
+        restore prev;
+        raise exn
+    )
+
 let is_active x = (!current).active.(number x);;
 let is_error x = (!current).error.(number x);;
 
