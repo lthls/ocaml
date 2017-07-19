@@ -737,9 +737,11 @@ let rec check_recordwith_updates id e =
   | _ -> false
 ;;
 
-let rec size_of_lambda lam =
+let rec size_of_lambda_ env lam =
   let module T = Types in
   match lam with
+  | Lvar id ->
+      begin try Ident.find_same id env with Not_found -> RHS_nonrec end
   | Lfunction ({params} as funct) ->
       RHS_function (1 + IdentSet.cardinal(free_variables lam),
                     List.length params, funct)
@@ -751,8 +753,14 @@ let rec size_of_lambda lam =
       | T.Record_float -> RHS_floatblock size
       | T.Record_extension -> RHS_block (size + 1)
       end
-  | Llet(_str, _k, _id, _arg, body) -> size_of_lambda body
-  | Lletrec(_bindings, body) -> size_of_lambda body
+  | Llet(_str, _k, id, arg, body) ->
+      size_of_lambda_ (Ident.add id (size_of_lambda_ env arg) env) body
+  | Lletrec(bindings, body) ->
+      let env = List.fold_right
+        (fun (id, e) env -> Ident.add id (size_of_lambda_ env e) env)
+        bindings env
+      in
+      size_of_lambda_ env body
   | Lprim(Pmakeblock _, args, _) -> RHS_block (List.length args)
   | Lprim (Pmakearray ((Paddrarray|Pintarray), _), args, _) ->
       RHS_block (List.length args)
@@ -766,9 +774,11 @@ let rec size_of_lambda lam =
   | Lprim (Pduprecord (T.Record_extension, size), _, _) ->
       RHS_block (size + 1)
   | Lprim (Pduprecord (T.Record_float, size), _, _) -> RHS_floatblock size
-  | Levent (lam, _) -> size_of_lambda lam
-  | Lsequence (_lam, lam') -> size_of_lambda lam'
+  | Levent (lam, _) -> size_of_lambda_ env lam
+  | Lsequence (_lam, lam') -> size_of_lambda_ env lam'
   | _ -> RHS_nonrec
+
+let size_of_lambda lam = size_of_lambda_ Ident.empty lam
 
 let reset () =
   Continuation.reset ()
