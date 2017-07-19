@@ -136,10 +136,13 @@ let rec prepare_letrec recursive_set current_var (lam:Lambda.lambda) letrec =
           (id, def) :: defs, (Lambda.Lvar id) :: args)
         args ([], [])
     in
+    (* Bytecode evaluates effects in blocks from right to left,
+       so reverse defs to preserve evaluation order.
+       Relevant test: letrec/evaluation_order_3 *)
     let lam =
       List.fold_right (fun (id, def) body : Lambda.lambda ->
         Llet (Strict, Pgenval, id, def, body))
-        defs (Lambda.Lprim (prim, args, dbg))
+        (List.rev defs) (Lambda.Lprim (prim, args, dbg))
     in
     prepare_letrec recursive_set current_var lam letrec
   | Lprim(Pmakeblock _, args, _)
