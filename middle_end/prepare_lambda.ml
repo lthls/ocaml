@@ -17,6 +17,19 @@
 [@@@ocaml.warning "+a-4-9-30-40-41-42"]
 [@@@ocaml.warning "-32"] (* XXX temporary *)
 
+(* CR vlaviron: There are different invariants on the lambda code before
+   and after this pass, and they interact in tricky ways.
+   Before my patch, dissect_letrec relied on invariants on letrec
+   definitions that are _not_ preserved by this pass, and also on invariants
+   that do not hold before this pass, like the fact that all Lvar constructs
+   point to immutable variables.
+   This has been fixed by interleaving more finely calls to prepare and
+   prepare_letrec, but this means more complicated control flow.
+   I would feel more confident in the ability to maintain this code if
+   those invariants were reflected by different types, but it seems a bit
+   wasteful to reproduce the whole lambda type definition for just this one
+   file. *)
+
 module L = Lambda
 
 let stub_hack_prim_name = "*stub*"
@@ -96,197 +109,6 @@ let build_block var size block_type expr letrec =
   in
   { letrec with blocks; effects }
 
-let is_a_variable (lam:Lambda.lambda) =
-  match lam with
-  | Lvar _ -> true
-  | _ -> false
-
-let rec prepare_letrec recursive_set current_var (lam:Lambda.lambda) letrec =
-  let module T = Types in
-  match lam with
-  | Lfunction funct ->
-    { letrec with functions = (current_var, funct) :: letrec.functions }
-  | Lprim (Pduprecord (kind, size), _, _) -> begin
-    match kind with
-    | T.Record_regular | T.Record_inlined _ ->
-      build_block current_var size Normal lam letrec
-    | T.Record_extension ->
-      build_block current_var (size + 1) Normal lam letrec
-    | T.Record_unboxed _ ->
-      assert false
-    | T.Record_float ->
-      build_block current_var size Float lam letrec
-    end
-  | Lprim ((Pmakeblock _ | Pmakearray (_, _)) as prim, args, dbg)
-    when not (List.for_all is_a_variable args) ->
-    (* Primitive arguments are not dissected. When it could matter, (i.e.
-       if it contain an effect, or a let binding a variable that will end
-       in the recursive set), it must be dissected before the primitive, to
-       avoid messing with the evaluation order or ensure that blocks are
-       preallocated then patched.
-
-       This is done by lifting every expression (except variables) to
-       a let binding before. *)
-    let defs, args =
-      List.fold_right (fun (def:Lambda.lambda) (defs, args) ->
-        match def with
-        | Lvar _ -> defs, def :: args
-        | _ ->
-          let id = Ident.create "lift_in_letrec" in
-          (id, def) :: defs, (Lambda.Lvar id) :: args)
-        args ([], [])
-    in
-    (* Bytecode evaluates effects in blocks from right to left,
-       so reverse defs to preserve evaluation order.
-       Relevant test: letrec/evaluation_order_3 *)
-    let lam =
-      List.fold_right (fun (id, def) body : Lambda.lambda ->
-        Llet (Strict, Pgenval, id, def, body))
-        (List.rev defs) (Lambda.Lprim (prim, args, dbg))
-    in
-    prepare_letrec recursive_set current_var lam letrec
-  | Lprim(Pmakeblock _, args, _)
-  | Lprim (Pmakearray ((Paddrarray|Pintarray), _), args, _) ->
-    build_block current_var (List.length args) Normal lam letrec
-  | Lprim (Pmakearray (Pfloatarray, _), args, _) ->
-    build_block current_var (List.length args) Float lam letrec
-  | Lconst const ->
-    { letrec with consts = (current_var, const) :: letrec.consts }
-  | Llet (Variable, k, id, def, body) ->
-    let letrec = prepare_letrec recursive_set current_var body letrec in
-    let pre tail : Lambda.lambda =
-      Llet (Variable, k, id, def, letrec.pre tail)
-    in
-    { letrec with pre }
-
-  | Llet ((Strict | Alias | StrictOpt) as let_kind, k, id, def, body) ->
-    let free_vars = Lambda.free_variables def in
-    if Ident.Set.is_empty (Ident.Set.inter free_vars recursive_set) then
-      (* Non recursive let *)
-      let letrec = prepare_letrec recursive_set current_var body letrec in
-      let pre tail : Lambda.lambda =
-        Llet (let_kind, k, id, def, letrec.pre tail)
-      in
-      { letrec with pre }
-    else
-      let letrec =
-        prepare_letrec (Ident.Set.add id recursive_set)
-          current_var body letrec
-      in
-      prepare_letrec recursive_set id def letrec
-  | Lsequence (_lam1, _lam2) ->
-    (* Eliminated by prepare *)
-    assert false
-  | Levent (body, event) ->
-    let letrec = prepare_letrec recursive_set current_var body letrec in
-    { letrec with effects = Levent (letrec.effects, event) }
-  | Lletrec (bindings, body) ->
-    let free_vars =
-      List.fold_left (fun set (_, def) -> Ident.Set.union (Lambda.free_variables def) set)
-        Ident.Set.empty
-        bindings
-    in
-    if Ident.Set.is_empty (Ident.Set.inter free_vars recursive_set) then
-      (* Non recursive relative to top-level letrec *)
-      let letrec = prepare_letrec recursive_set current_var body letrec in
-      let pre tail : Lambda.lambda =
-        Lletrec (bindings, letrec.pre tail)
-      in
-      { letrec with pre }
-    else
-      let recursive_set =
-        Ident.Set.union recursive_set
-          (Ident.Set.of_list (List.map fst bindings))
-      in
-      let letrec =
-        List.fold_right (fun (id, def) letrec -> prepare_letrec recursive_set id def letrec)
-          bindings
-          letrec
-      in
-      prepare_letrec recursive_set current_var body letrec
-  | Lvar _ ->
-    (* This cannot be a mutable variable: it is ok to copy it *)
-    { letrec with substitution = Ident.add current_var lam letrec.substitution }
-  | _ ->
-    (* This cannot be recursive, otherwise it should have been caught
-       by the well formedness check. Hence it is ok to evaluate it
-       before anything else. *)
-    let free_vars = Lambda.free_variables lam in
-    assert(Ident.Set.is_empty (Ident.Set.inter free_vars recursive_set));
-    let pre tail : Lambda.lambda =
-      Llet (Strict, Pgenval, current_var, lam, letrec.pre tail)
-    in
-    { letrec with pre }
-
-let dissect_letrec ~bindings ~body =
-(*
-  Format.printf "dissect@ %a@.@."
-    Printlambda.lambda (L.Lletrec (bindings, Lconst (Const_pointer 0)));
-*)
-  let recursive_set =
-    Ident.Set.of_list (List.map fst bindings)
-  in
-
-  let letrec =
-    List.fold_right (fun (id, def) letrec -> prepare_letrec recursive_set id def letrec)
-      bindings
-      { blocks = [];
-        consts = [];
-        pre = (fun x -> x);
-        effects = body;
-        functions = [];
-        substitution = Ident.empty;
-      }
-  in
-  let preallocations =
-    let loc = Location.none in
-    List.map (fun (id, block_type, size) ->
-      let fn =
-        match block_type with
-        | Normal -> "caml_alloc_dummy"
-        | Float -> "caml_alloc_dummy_float"
-      in
-      let desc = Primitive.simple ~name:fn ~arity:1 ~alloc:true in
-      let size : L.lambda = Lconst (Const_base (Const_int size)) in
-      id, L.Lprim (Pccall desc, [size], loc))
-      letrec.blocks
-  in
-  let functions =
-    match letrec.functions with
-    | [] ->
-      letrec.effects
-    | _ :: _ ->
-      let functions =
-        List.map (fun (id, lfun) -> id, L.Lfunction lfun) letrec.functions
-      in
-      L.Lletrec (functions, letrec.effects)
-  in
-  let with_preallocations =
-    List.fold_left
-      (fun body (id, binding) ->
-         L.Llet (Strict, Pgenval, id, binding, body))
-      functions
-      preallocations
-  in
-  let with_non_rec =
-    letrec.pre with_preallocations
-  in
-  let with_constants =
-    List.fold_left
-      (fun body (id, const) ->
-         L.Llet (Strict, Pgenval, id, Lconst const, body))
-      with_non_rec
-      letrec.consts
-  in
-  let substituted =
-    Lambda.subst_lambda letrec.substitution with_constants
-  in
-(*
-  Format.printf "dissected@ %a@.@."
-    Printlambda.lambda substituted;
-*)
-  substituted
-
 module Env : sig
   type t
 
@@ -356,11 +178,217 @@ end = struct
 
 end
 
-let sequence (lam1, lam2) =
-  let ident = Ident.create "sequence" in
-  L.Llet (Strict, Pgenval, ident, lam1, lam2)
+let is_an_immutable_variable env (lam:Lambda.lambda) =
+  match lam with
+  | Lvar id -> not (Env.is_mutable env id)
+  | _ -> false
 
-let rec simplify_primitive env (prim : L.primitive) args loc =
+let rec prepare_letrec env recursive_set current_var (lam:Lambda.lambda) letrec =
+  let module T = Types in
+  match lam with
+  | Lfunction funct ->
+    let funct = {
+      L.kind = funct.kind;
+      params = funct.params;
+      body = prepare env funct.body (fun lam -> lam);
+      attr = funct.attr;
+      loc = funct.loc;
+    } in
+    { letrec with functions = (current_var, funct) :: letrec.functions }
+  | Lprim (Pduprecord (kind, size), _, _) -> begin
+    match kind with
+    | T.Record_regular | T.Record_inlined _ ->
+      let lam = prepare env lam (fun lam -> lam) in
+      build_block current_var size Normal lam letrec
+    | T.Record_extension ->
+      let lam = prepare env lam (fun lam -> lam) in
+      build_block current_var (size + 1) Normal lam letrec
+    | T.Record_unboxed _ ->
+      assert false
+    | T.Record_float ->
+      let lam = prepare env lam (fun lam -> lam) in
+      build_block current_var size Float lam letrec
+    end
+  | Lprim ((Pmakeblock _ | Pmakearray (_, _)) as prim, args, dbg)
+    when not (List.for_all (is_an_immutable_variable env) args) ->
+    (* Primitive arguments are not dissected. When it could matter, (i.e.
+       if it contain an effect, or a let binding a variable that will end
+       in the recursive set), it must be dissected before the primitive, to
+       avoid messing with the evaluation order or ensure that blocks are
+       preallocated then patched.
+
+       This is done by lifting every expression (except variables) to
+       a let binding before. *)
+    let defs, args =
+      List.fold_right (fun (def:Lambda.lambda) (defs, args) ->
+        match def with
+        | Lvar id when not (Env.is_mutable env id) -> defs, def :: args
+        | _ ->
+          let id = Ident.create "lift_in_letrec" in
+          (id, def) :: defs, (Lambda.Lvar id) :: args)
+        args ([], [])
+    in
+    (* Bytecode evaluates effects in blocks from right to left,
+       so reverse defs to preserve evaluation order.
+       Relevant test: letrec/evaluation_order_3 *)
+    let lam =
+      List.fold_right (fun (id, def) body : Lambda.lambda ->
+        prepare env def (fun def ->
+          L.Llet (Strict, Pgenval, id, def, body)))
+        (List.rev defs) (Lambda.Lprim (prim, args, dbg))
+    in
+    prepare_letrec env recursive_set current_var lam letrec
+  | Lprim(Pmakeblock _, args, _)
+  | Lprim (Pmakearray ((Paddrarray|Pintarray), _), args, _) ->
+    build_block current_var (List.length args) Normal lam letrec
+  | Lprim (Pmakearray (Pfloatarray, _), args, _) ->
+    build_block current_var (List.length args) Float lam letrec
+  | Lconst const ->
+    { letrec with consts = (current_var, const) :: letrec.consts }
+  | Llet (Variable, k, id, def, body) ->
+    let env_body = Env.add_mutable env id in
+    let letrec = prepare_letrec env_body recursive_set current_var body letrec in
+    let pre tail : Lambda.lambda =
+      prepare env def (fun def ->
+        L.Llet (Variable, k, id, def, letrec.pre tail))
+    in
+    { letrec with pre }
+
+  | Llet ((Strict | Alias | StrictOpt) as let_kind, k, id, def, body) ->
+    let free_vars = Lambda.free_variables def in
+    if Ident.Set.is_empty (Ident.Set.inter free_vars recursive_set) then
+      (* Non recursive let *)
+      let letrec = prepare_letrec env recursive_set current_var body letrec in
+      let pre tail : Lambda.lambda =
+        prepare env def (fun def ->
+          L.Llet (let_kind, k, id, def, letrec.pre tail))
+      in
+      { letrec with pre }
+    else
+      let letrec =
+        prepare_letrec env (Ident.Set.add id recursive_set)
+          current_var body letrec
+      in
+      prepare_letrec env recursive_set id def letrec
+  | Lsequence (lam1, lam2) ->
+    prepare_letrec env recursive_set current_var (lsequence (lam1, lam2)) letrec
+  | Levent (body, event) ->
+    let letrec = prepare_letrec env recursive_set current_var body letrec in
+    { letrec with effects = Levent (letrec.effects, event) }
+  | Lletrec (bindings, body) ->
+    let free_vars =
+      List.fold_left (fun set (_, def) -> Ident.Set.union (Lambda.free_variables def) set)
+        Ident.Set.empty
+        bindings
+    in
+    if Ident.Set.is_empty (Ident.Set.inter free_vars recursive_set) then
+      (* Non recursive relative to top-level letrec *)
+      let letrec = prepare_letrec env recursive_set current_var body letrec in
+      let pre tail : Lambda.lambda =
+        let ids, bindings = List.split bindings in
+        prepare_list env bindings (fun bindings ->
+          let bindings = List.combine ids bindings in
+          L.Lletrec (bindings, letrec.pre tail))
+      in
+      { letrec with pre }
+    else
+      let recursive_set =
+        Ident.Set.union recursive_set
+          (Ident.Set.of_list (List.map fst bindings))
+      in
+      let letrec =
+        List.fold_right (fun (id, def) letrec ->
+            prepare_letrec env recursive_set id def letrec)
+          bindings
+          letrec
+      in
+      prepare_letrec env recursive_set current_var body letrec
+  | Lvar _ ->
+    (* This cannot be a mutable variable: it is ok to copy it *)
+    { letrec with substitution = Ident.add current_var lam letrec.substitution }
+  | _ ->
+    (* This cannot be recursive, otherwise it should have been caught
+       by the well formedness check. Hence it is ok to evaluate it
+       before anything else. *)
+    let free_vars = Lambda.free_variables lam in
+    assert(Ident.Set.is_empty (Ident.Set.inter free_vars recursive_set));
+    let pre tail : Lambda.lambda =
+      prepare env lam (fun lam ->
+        L.Llet (Strict, Pgenval, current_var, lam, letrec.pre tail))
+    in
+    { letrec with pre }
+
+and dissect_letrec env ~bindings ~body =
+(*
+  Format.printf "dissect@ %a@.@."
+    Printlambda.lambda (L.Lletrec (bindings, Lconst (Const_pointer 0)));
+*)
+  let recursive_set =
+    Ident.Set.of_list (List.map fst bindings)
+  in
+
+  let letrec =
+    List.fold_right (fun (id, def) letrec ->
+        prepare_letrec env recursive_set id def letrec)
+      bindings
+      { blocks = [];
+        consts = [];
+        pre = (fun x -> x);
+        effects = body;
+        functions = [];
+        substitution = Ident.empty;
+      }
+  in
+  let preallocations =
+    let loc = Location.none in
+    List.map (fun (id, block_type, size) ->
+      let fn =
+        match block_type with
+        | Normal -> "caml_alloc_dummy"
+        | Float -> "caml_alloc_dummy_float"
+      in
+      let desc = Primitive.simple ~name:fn ~arity:1 ~alloc:true in
+      let size : L.lambda = Lconst (Const_base (Const_int size)) in
+      id, L.Lprim (Pccall desc, [size], loc))
+      letrec.blocks
+  in
+  let functions =
+    match letrec.functions with
+    | [] ->
+      letrec.effects
+    | _ :: _ ->
+      let functions =
+        List.map (fun (id, lfun) -> id, L.Lfunction lfun) letrec.functions
+      in
+      L.Lletrec (functions, letrec.effects)
+  in
+  let with_preallocations =
+    List.fold_left
+      (fun body (id, binding) ->
+         L.Llet (Strict, Pgenval, id, binding, body))
+      functions
+      preallocations
+  in
+  let with_non_rec =
+    letrec.pre with_preallocations
+  in
+  let with_constants =
+    List.fold_left
+      (fun body (id, const) ->
+         L.Llet (Strict, Pgenval, id, Lconst const, body))
+      with_non_rec
+      letrec.consts
+  in
+  let substituted =
+    Lambda.subst_lambda letrec.substitution with_constants
+  in
+(*
+  Format.printf "dissected@ %a@.@."
+    Printlambda.lambda substituted;
+*)
+  substituted
+
+and simplify_primitive env (prim : L.primitive) args loc =
   match prim, args with
   | (Pdivint Safe | Pmodint Safe
       | Pdivbint { is_safe = Safe } | Pmodbint { is_safe = Safe }),
@@ -501,11 +529,12 @@ and prepare env (lam : L.lambda) (k : L.lambda -> L.lambda) =
       prepare env body (fun body ->
         k (L.Llet (let_kind, value_kind, id, defining_expr, body))))
   | Lletrec (bindings, body) ->
-    let idents, bindings = List.split bindings in
-    prepare_list env bindings (fun bindings ->
-      let bindings = List.combine idents bindings in
-      prepare env body (fun body ->
-        k (dissect_letrec ~bindings ~body)))
+    (* Calling recursively prepare on the bindings may lead to dissect_letrec
+       being called on an already dissected letrec.
+       This should not happen : the invariants guaranteed by the earlier
+       letrec check are used but not preserved by dissect_letrec. *)
+    prepare env body (fun body ->
+      k (dissect_letrec env ~bindings ~body))
   | Lprim (Pfield _, [Lprim (Pgetglobal id, [],_)], _)
       when Ident.same id (Env.current_unit_id env) ->
     Misc.fatal_error "[Pfield (Pgetglobal ...)] for the current compilation \
