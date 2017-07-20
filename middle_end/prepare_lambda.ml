@@ -103,6 +103,8 @@ let is_a_variable (lam:Lambda.lambda) =
 
 let rec prepare_letrec recursive_set current_var (lam:Lambda.lambda) letrec =
   let module T = Types in
+  (* if !Clflags.dump_rawflambda *)
+  (* then Format.printf "prepare_letrec:@ %a@." Printlambda.lambda lam; *)
   match lam with
   | Lfunction funct ->
     { letrec with functions = (current_var, funct) :: letrec.functions }
@@ -211,8 +213,11 @@ let rec prepare_letrec recursive_set current_var (lam:Lambda.lambda) letrec =
     (* This cannot be recursive, otherwise it should have been caught
        by the well formedness check. Hence it is ok to evaluate it
        before anything else. *)
-    let free_vars = Lambda.free_variables lam in
-    assert(Ident.Set.is_empty (Ident.Set.inter free_vars recursive_set));
+    (* CR vlaviron: This invariant is false when this expression is the result
+       of a previously dissected term, which can contain calls to
+       caml_update_dummy *)
+    (* let free_vars = Lambda.free_variables lam in *)
+    (* assert(Ident.Set.is_empty (Ident.Set.inter free_vars recursive_set)); *)
     let pre tail : Lambda.lambda =
       Llet (Strict, Pgenval, current_var, lam, letrec.pre tail)
     in
