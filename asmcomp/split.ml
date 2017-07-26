@@ -206,7 +206,7 @@ let rec rename i sub =
          (Icatch(rec_flag, is_exn_handler, new_handlers, new_body))
          [||] [||] new_next,
        sub_next)
-  | Iexit nfail ->
+  | Iexit (nfail, _trap_stack) ->
       let r = find_exit_subst nfail in
       r := merge_substs !r sub i;
       (i, None)

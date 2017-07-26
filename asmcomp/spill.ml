@@ -286,7 +286,7 @@ Format.eprintf "NEW: %a\n%!" Printmach.instr new_insn;
          (Icatch(rec_flag, is_exn_handler, new_handlers, new_body))
          i.arg i.res new_next,
        finally)
-  | Iexit nfail ->
+  | Iexit (nfail, _trap_stack) ->
       let set = find_reload_at_exit nfail in
       set := Reg.Set.union !set before;
       (i, Reg.Set.empty)
@@ -470,7 +470,7 @@ let rec spill i finally =
       (instr_cons (Icatch(rec_flag, is_exn_handler, new_handlers, new_body))
          i.arg i.res new_next,
        before)
-  | Iexit nfail ->
+  | Iexit (nfail, _trap_stack) ->
       (i, find_spill_at_exit nfail)
   | Iraise (_, trap_stack) ->
       let spill_at_raise = find_spill_at_raise ~trap_stack in

@@ -19,6 +19,16 @@
 
 module Int = Numbers.Int
 
+(* CR vlaviron: The invariant mentionned below is still checked, but not
+   relied on anymore. More importantly, there was an assumption that
+   all applications of a given continuation must be at the same trap
+   depth as its continuation handler, which should be true in programs
+   compiled from source for now, but does not hold in the test
+   asmcomp/catch-try.cmm of the testsuite.
+   The invariant would have gotten in the way if static exceptions were
+   added to the language anyway, so it might be a good idea to stop
+   checking it completely (and get rid of stacks_at_exit completely).
+*)
 (* The following invariant is relied upon (and checked to a reasonable
    extent): all applications of a given continuation must be at the same
    trap depth.
@@ -181,6 +191,7 @@ let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
           Int.Map.mem cont stacks_at_exit)
         handlers
     in
+    let top_stack = stack in
     let rec process_handlers ~stacks_at_exit ~handlers_with_uses
           ~handlers_without_uses ~output_handlers =
       (* By the invariant above, there is no need to compute a fixpoint. *)
@@ -197,10 +208,10 @@ let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
              in scope. *)
           let stack =
             if not is_exn_handler then
-              stack
+              top_stack
             else
               match stack with
-              | _::stack -> stack
+              | _::stack -> assert (stack = top_stack); stack
               | [] ->
                 Misc.fatal_errorf "Continuation %d is an exception handler \
                     whose trap-stack-at-start is empty"
@@ -241,12 +252,15 @@ let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
         next;
       }, stacks_at_exit
     end
-  | Iexit cont ->
+  | Iexit (cont, _) ->
     let stacks_at_exit = add_stack ~cont ~stack ~stacks_at_exit in
     let next, stacks_at_exit =
       trap_stacks insn.Mach.next ~stack ~stacks_at_exit
     in
-    { insn with next; }, stacks_at_exit
+    { insn with
+      desc = Iexit (cont, stack);
+      next;
+    }, stacks_at_exit
 
 let run (fundecl : Mach.fundecl) =
   let fun_body, _stacks_at_exit =

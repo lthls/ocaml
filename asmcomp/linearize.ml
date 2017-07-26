@@ -259,18 +259,18 @@ let rec linear i n =
       | _, Iend, Lbranch lbl ->
           copy_instr (Lcondbranch(invert_test test, lbl)) i
             (linear ifso n1)
-      | Iexit nfail1, Iexit nfail2, _
+      | Iexit (nfail1, _trap_stack1), Iexit (nfail2, _trap_stack2), _
             when is_next_catch nfail1 ~trap_depth
               && local_exit nfail2 ~trap_depth ->
           let lbl2 = find_exit_label nfail2 in
           copy_instr
             (Lcondbranch (invert_test test, lbl2)) i
             (linear ifso n1)
-      | Iexit nfail, _, _ when local_exit nfail ~trap_depth ->
+      | Iexit (nfail, _trap_stack), _, _ when local_exit nfail ~trap_depth ->
           let n2 = linear ifnot n1
           and lbl = find_exit_label nfail in 
           copy_instr (Lcondbranch(test, lbl)) i n2
-      | _,  Iexit nfail, _ when local_exit nfail ~trap_depth ->
+      | _,  Iexit (nfail, _trap_stack), _ when local_exit nfail ~trap_depth ->
           let n2 = linear ifso n1 in
           let lbl = find_exit_label nfail in
           copy_instr (Lcondbranch(invert_test test, lbl)) i n2
@@ -394,11 +394,13 @@ Format.eprintf "Body of Icatch binding %a will continue at label %d\n%!"
 *)
       exit_label := previous_exit_label;
       n3
-  | Iexit nfail ->
-      let lbl, trap_depth = find_exit_label_trap_depth nfail in
+  | Iexit (nfail, trap_stack) ->
+      let lbl, trap_depth_out = find_exit_label_trap_depth nfail in
+      let trap_depth_in = List.length trap_stack in
       let n1 = linear i.Mach.next n in
-      let n1 = adjust_trap_depth ~before:trap_depth ~after:n1 in
-      add_branch lbl n1
+      let n1 = adjust_trap_depth ~before:trap_depth_out ~after:n1 in
+      let n1 = add_branch lbl n1 in
+      adjust_trap_depth ~before:trap_depth_in ~after:n1
   | Iraise (k, trap_stack) ->
       let trap_depth = List.length trap_stack in
       let n = adjust_trap_depth ~before:trap_depth ~after:n in

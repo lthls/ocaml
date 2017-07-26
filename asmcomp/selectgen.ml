@@ -901,7 +901,7 @@ method emit_expr (env:environment) exp =
           Array.iter (fun reg -> assert(reg.typ <> Addr)) src;
           self#insert_moves src tmp_regs ;
           self#insert_moves tmp_regs (Array.concat dest_args) ;
-          self#insert (Iexit nfail) [||] [||];
+          self#insert (Iexit (nfail, [])) [||] [||];
           None
       end
   | Cunreachable ->

@@ -103,7 +103,7 @@ and instruction_desc =
   (* CR mshinwell: Use Clambda.catch_kind or similar *)
   | Icatch of Cmm.rec_flag * bool * (int * trap_stack * instruction) list
       * instruction
-  | Iexit of int
+  | Iexit of int * trap_stack
   | Iraise of Cmm.raise_kind * trap_stack
   | Iunreachable of trap_stack
 

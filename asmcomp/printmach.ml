@@ -227,8 +227,8 @@ let rec instr ppf i =
       in
       aux handlers;
       fprintf ppf "@]"
-  | Iexit i ->
-      fprintf ppf "exit(%d)" i
+  | Iexit (i, trap_stack) ->
+      fprintf ppf "exit(%d)%a" i print_trap_stack trap_stack
   | Iraise (k, trap_stack) ->
       fprintf ppf "%a%a %a" Printcmm.raise_kind k
         print_trap_stack trap_stack reg i.arg.(0)
