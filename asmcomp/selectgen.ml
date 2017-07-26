@@ -675,7 +675,7 @@ method emit_expr (env:environment) exp =
       end
   | Clet(v, e1, e2) ->
       begin match self#emit_expr env e1 with
-        None -> None
+        None -> self#emit_poptraps e2; None
       | Some r1 -> self#emit_expr (self#bind_let env v r1) e2
       end
   | Cassign(v, e1) ->
@@ -796,7 +796,7 @@ method emit_expr (env:environment) exp =
       end
   | Csequence(e1, e2) ->
       begin match self#emit_expr env e1 with
-        None -> None
+        None -> self#emit_poptraps e2; None
       | Some _ -> self#emit_expr env e2
       end
   | Cifthenelse(econd, eif, eelse) ->
@@ -916,6 +916,16 @@ method private emit_sequence ?at_start env exp =
   end;
   let r = s#emit_expr env exp in
   (r, s)
+
+method private emit_poptraps exp =
+  match exp with
+  | Cop (Cpoptrap cont, _args, dbg) ->
+      ignore (self#insert_op_debug (Ipoptrap cont) dbg [||] [||])
+  | Clet (_id, _arg, body) ->
+      self#emit_poptraps body
+  | Csequence (e1, e2) ->
+      self#emit_poptraps e1; self#emit_poptraps e2
+  | _ -> ()
 
 method private bind_let (env:environment) v r1 =
   if all_regs_anonymous r1 then begin
