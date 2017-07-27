@@ -158,9 +158,7 @@ Format.eprintf "Passing binding of %a\n%!" Continuation.print name;
             let being_placed =
               let handlers_as_map =
                 match new_handlers with
-                | Nonrecursive { name; handler; } ->
-                  Continuation.Map.add name handler Continuation.Map.empty
-                | Recursive handlers -> handlers
+                | Nonrecursive handlers | Recursive handlers -> handlers
                 | Alias _ -> assert false
               in
 (*
@@ -232,10 +230,8 @@ Variable.print var;
           ~state
       in
       find_insertion_points body ~state
-    | Let_cont { body; handlers = Nonrecursive { name; handler; }; } ->
-      let handlers = Continuation.Map.add name handler Continuation.Map.empty in
-      passing_continuation_bindings ~body ~handlers ~state
-    | Let_cont { body; handlers = Recursive handlers; } ->
+    | Let_cont { body; handlers = ( Nonrecursive handlers
+                                  | Recursive handlers); } ->
       passing_continuation_bindings ~body ~handlers ~state
     | Let_cont { body; handlers = Alias _; }
     | Let_mutable { body; _ } -> find_insertion_points body ~state

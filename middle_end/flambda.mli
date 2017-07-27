@@ -277,7 +277,7 @@ and let_cont = {
 and let_cont_handlers =
   (* CR mshinwell: I suspect things might be easier if [Nonrecursive]
      accepted [continuation_handlers]. *)
-  | Nonrecursive of { name : Continuation.t; handler : continuation_handler; }
+  | Nonrecursive of continuation_handlers (*{ name : Continuation.t; handler : continuation_handler; } *)
   | Recursive of continuation_handlers
   | Alias of { name : Continuation.t; alias_of : Continuation.t; }
 

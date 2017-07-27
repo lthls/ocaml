@@ -195,9 +195,15 @@ module Push_pop_invariants = struct
           in
           unify_stack alias_of handler_stack cont_stack;
           define env name handler_stack
-        | Nonrecursive { name; handler; } ->
-          loop env handler_stack handler.handler;
-          define env name handler_stack
+        | Nonrecursive handlers ->
+          Continuation.Map.iter (fun _cont
+                  (handler : Flambda.continuation_handler) ->
+              loop env handler_stack handler.handler)
+            handlers;
+          Continuation.Map.fold (fun cont _handler env ->
+              define env cont handler_stack)
+            handlers
+            env
         | Recursive handlers ->
           let recursive_env =
             Continuation.Map.fold (fun cont _handler env ->
@@ -293,21 +299,8 @@ module Continuation_scoping = struct
     | Let { body; _ } | Let_mutable { body; _ } -> loop env body
     | Let_cont { body; handlers; } ->
       let env =
-        match handlers with
-        | Alias { name; alias_of; } ->
-          begin match Continuation.Map.find alias_of env with
-          | exception Not_found ->
-            raise (Continuation_not_caught (alias_of, "alias"))
-          | arity_and_kind ->
-            Continuation.Map.add name arity_and_kind env
-          end
-        | Nonrecursive { name; handler; } ->
-          let arity = List.length handler.params in
-          let kind = if handler.is_exn_handler then Exn_handler else Normal in
-          loop env handler.handler;
-          Continuation.Map.add name (arity, kind) env
-        | Recursive handlers ->
-          let recursive_env =
+        let process_handlers recursive handlers =
+          let updated_env =
             Continuation.Map.fold (fun cont
                     (handler : Flambda.continuation_handler) env ->
                 let arity = List.length handler.params in
@@ -318,6 +311,7 @@ module Continuation_scoping = struct
               handlers
               env
           in
+          let recursive_env = if recursive then updated_env else env in
           Continuation.Map.iter (fun name
                   ({ params; stub; is_exn_handler; handler; specialised_args; }
                     : Flambda.continuation_handler) ->
@@ -328,15 +322,23 @@ module Continuation_scoping = struct
               ignore_bool is_exn_handler;
               ignore specialised_args (* CR mshinwell: fixme *) )
             handlers;
-          Continuation.Map.fold (fun cont
-                  (handler : Flambda.continuation_handler) env ->
-              let arity = List.length handler.params in
-              let kind =
-                if handler.is_exn_handler then Exn_handler else Normal
-              in
-              Continuation.Map.add cont (arity, kind) env)
-            handlers
-            env
+          (* CR vlaviron: The previous version re-computed the environment
+             to be returned; since the computation looks pure to me, I took
+             the liberty to reuse the previous result instead *)
+          updated_env
+        in
+        match handlers with
+        | Alias { name; alias_of; } ->
+          begin match Continuation.Map.find alias_of env with
+          | exception Not_found ->
+            raise (Continuation_not_caught (alias_of, "alias"))
+          | arity_and_kind ->
+            Continuation.Map.add name arity_and_kind env
+          end
+        | Nonrecursive handlers ->
+          process_handlers false handlers
+        | Recursive handlers ->
+          process_handlers true handlers
       in
       loop env body
     | Apply_cont (cont, exn, args) ->
@@ -494,14 +496,20 @@ let variable_and_symbol_invariants (program : Flambda.program) =
       | Alias { name; alias_of; } ->
         ignore_continuation name;
         ignore_continuation alias_of
-      | Nonrecursive { name; handler = {
-          params; stub; is_exn_handler; handler; specialised_args; }; } ->
-        ignore_continuation name;
-        ignore_bool stub;
-        ignore_bool is_exn_handler;
-        let params = Parameter.List.vars params in
-        loop (add_binding_occurrences env params) handler;
-        ignore specialised_args (* CR mshinwell: fixme *)
+      | Nonrecursive handlers ->
+        begin match Continuation.Map.bindings handlers with
+        | [(name, {
+            params; stub; is_exn_handler; handler; specialised_args; })] ->
+          ignore_continuation name;
+          ignore_bool stub;
+          ignore_bool is_exn_handler;
+          let params = Parameter.List.vars params in
+          loop (add_binding_occurrences env params) handler;
+          ignore specialised_args (* CR mshinwell: fixme *)
+        | _ -> (* CR vlaviron: Think about allowing multiple handlers *)
+          Misc.fatal_errorf "Nonrecursive handlers are expected to contain \
+              exactly one mapping"
+        end
       | Recursive handlers ->
         Continuation.Map.iter (fun name
                 ({ params; stub; is_exn_handler; handler; specialised_args; }

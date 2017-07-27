@@ -117,10 +117,8 @@ and same_let_cont_handlers (handlers1 : Flambda.let_cont_handlers)
       Alias { name = name2; alias_of = alias_of2; } ->
     Continuation.equal name1 name2
       && Continuation.equal alias_of1 alias_of2
-  | Nonrecursive { name = name1; handler = handler1; },
-      Nonrecursive { name = name2; handler = handler2; } ->
-    Continuation.equal name1 name2
-      && same_continuation_handler handler1 handler2
+  | Nonrecursive handlers1, Nonrecursive handlers2 ->
+    same_continuation_handlers handlers1 handlers2
   | Recursive handlers1, Recursive handlers2 ->
     same_continuation_handlers handlers1 handlers2
   | _, _ -> false
@@ -216,6 +214,18 @@ let toplevel_substitution sb tree =
     | None -> None
     | Some v -> Some (sb v)
   in
+  let aux_continuation_handlers handlers =
+    Continuation.Map.map (fun (handler : Flambda.continuation_handler)
+            : Flambda.continuation_handler ->
+        { handler with
+          (* CR mshinwell: share with below *)
+          specialised_args =
+            (Variable.Map.map (fun (spec_to : Flambda.specialised_to) ->
+                { spec_to with var = sb_opt spec_to.var; })
+              handler.specialised_args);
+        })
+      handlers
+  in
   let aux (flam : Flambda.t) : Flambda.t =
     match flam with
     | Let_mutable mutable_let ->
@@ -240,30 +250,11 @@ let toplevel_substitution sb tree =
       Apply_cont (static_exn, trap_action, args)
     | Let _ | Proved_unreachable -> flam
     | Let_cont { body = _; handlers = Alias _; } -> flam
-    | Let_cont { body; handlers = Nonrecursive { name; handler; }; } ->
-      let handler =
-        { handler with
-          (* CR mshinwell: share with below *)
-          specialised_args =
-            (Variable.Map.map (fun (spec_to : Flambda.specialised_to) ->
-                { spec_to with var = sb_opt spec_to.var; })
-              handler.specialised_args);
-        }
-      in
-      Let_cont { body; handlers = Nonrecursive { name; handler; }; }
+    | Let_cont { body; handlers = Nonrecursive handlers; } ->
+      let handlers = aux_continuation_handlers handlers in
+      Let_cont { body; handlers = Nonrecursive handlers; }
     | Let_cont { body; handlers = Recursive handlers; } ->
-      let handlers =
-        Continuation.Map.map (fun (handler : Flambda.continuation_handler)
-                : Flambda.continuation_handler ->
-            { handler with
-              (* CR mshinwell: share with below *)
-              specialised_args =
-                (Variable.Map.map (fun (spec_to : Flambda.specialised_to) ->
-                    { spec_to with var = sb_opt spec_to.var; })
-                  handler.specialised_args);
-            })
-          handlers
-      in
+      let handlers = aux_continuation_handlers handlers in
       Let_cont { body; handlers = Recursive handlers; }
   in
   let aux_named (named : Flambda.named) : Flambda.named =
@@ -854,21 +845,17 @@ let build_let_cont_with_wrappers ~body ~(recursive : Asttypes.rec_flag)
     | [cont, Unchanged { handler; }] ->
       Let_cont {
         body;
-        handlers = Nonrecursive { name = cont; handler; };
+        handlers = Nonrecursive (Continuation.Map.singleton cont handler);
       }
     | [cont, With_wrapper { new_cont; new_handler; wrapper_handler; }] ->
       Let_cont {
         body = Let_cont {
           body;
-          handlers = Nonrecursive {
-            name = cont;
-            handler = wrapper_handler;
-          };
+          handlers = Nonrecursive (
+              Continuation.Map.singleton cont wrapper_handler);
         };
-        handlers = Nonrecursive {
-          name = new_cont;
-          handler = new_handler;
-        };
+        handlers = Nonrecursive (
+            Continuation.Map.singleton new_cont new_handler);
       }
     | _ -> assert false
     end
@@ -951,10 +938,8 @@ let all_defined_continuations_toplevel expr =
   let defined_continuations = ref Continuation.Set.empty in
   Flambda_iterators.iter_toplevel (fun (expr : Flambda.expr) ->
       match expr with
-      | Let_cont { handlers = Nonrecursive { name; _ }; _ } ->
-        defined_continuations :=
-          Continuation.Set.add name !defined_continuations
-      | Let_cont { handlers = Recursive handlers; _ } ->
+      | Let_cont { handlers = ( Recursive handlers
+                              | Nonrecursive handlers); _ } ->
         defined_continuations :=
           Continuation.Set.union (Continuation.Map.keys handlers)
             !defined_continuations

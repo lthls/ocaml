@@ -44,7 +44,13 @@ let for_toplevel_expression expr r =
       | Let_mutable ({ body; _ } as let_mutable) ->
         let body = substitute env body in
         Let_mutable { let_mutable with body; }
-      | Let_cont { body; handlers = Nonrecursive { name; handler; }; } ->
+      | Let_cont { body; handlers = Nonrecursive handlers; } ->
+        let name, handler =
+          match Continuation.Map.bindings handlers with
+          | [binding] -> binding
+          | _ -> (* CR vlaviron: Prepare for multiple handlers *)
+            assert false
+        in
         let handler =
           { handler with
             handler = substitute env handler.handler;
@@ -63,6 +69,7 @@ let for_toplevel_expression expr r =
             Continuation.print name
             Flambda.print expr
         end;
+        let handlers = Continuation.Map.singleton name handler in
         (* Beware: we may have failed to inline---see comment below.
            In that case the [Let_cont] must stay. *)
         if R.continuation_defined !r name then begin
@@ -72,11 +79,11 @@ let for_toplevel_expression expr r =
              must be recorded. *)
           let approx =
             Continuation_approx.create ~name
-              ~handlers:(Nonrecursive handler)
+              ~handlers:(Nonrecursive handlers)
               ~num_params:(List.length handler.params)
           in
           r := R.update_defined_continuation_approx !r name approx;
-          Let_cont { body; handlers = Nonrecursive { name; handler; }; }
+          Let_cont { body; handlers = Nonrecursive handlers; }
         end else begin
           body
         end

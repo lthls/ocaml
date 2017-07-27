@@ -108,10 +108,9 @@ module State = struct
     let continuations_to_remain =
       match thing with
       | Let _ | Let_mutable _ -> t.continuations_to_remain
-      | Let_cont (Alias { name; _ })
-      | Let_cont (Nonrecursive { name; _ }) ->
+      | Let_cont (Alias { name; _ }) ->
         Continuation.Set.add name t.continuations_to_remain
-      | Let_cont (Recursive handlers) ->
+      | Let_cont (Recursive handlers | Nonrecursive handlers) ->
         Continuation.Set.union (Continuation.Map.keys handlers)
           t.continuations_to_remain
     in
@@ -246,10 +245,7 @@ let rec lift_let_cont ~body ~handlers ~state ~(recursive : Asttypes.rec_flag) =
   let handlers : Flambda.let_cont_handlers =
     match recursive with
     | Recursive -> Recursive handlers
-    | Nonrecursive ->
-      match Continuation.Map.bindings handlers with
-      | [name, handler] -> Nonrecursive { name; handler; }
-      | _ -> assert false
+    | Nonrecursive -> Nonrecursive handlers
   in
   let fcs = Flambda.free_continuations_of_let_cont_handlers ~handlers in
   let fvs = Flambda.free_variables_of_let_cont_handlers handlers in
@@ -306,20 +302,23 @@ and lift_expr (expr : Flambda.expr) ~state =
         State.to_remain state (Let_cont handlers)
     in
     lift_expr body ~state
-  | Let_cont { body; handlers = Nonrecursive ({ name; handler; }); }
-      when handler.is_exn_handler ->
+  | Let_cont { body; handlers = Nonrecursive handlers; }
+      when Continuation.Map.exists
+        (fun _ (handler : Flambda.continuation_handler) ->
+          handler.is_exn_handler)
+        handlers ->
     (* Don't lift anything out of the scope of an exception handler.
        Otherwise we might end up with lifted blocks that could jump (in the
        case of an exception) to a continuation that isn't in scope. *)
     (* CR mshinwell: Maybe we should think about this some more *)
     let handlers : Flambda.let_cont_handlers =
-      Nonrecursive {
-        name;
-        handler = {
-          handler with
-          handler = lift handler.handler;
-        }
-      }
+      Nonrecursive (Continuation.Map.map (
+          fun (handler : Flambda.continuation_handler)
+                  : Flambda.continuation_handler ->
+            { handler with
+              handler = lift handler.handler;
+            })
+        handlers)
     in
     let body = lift body in
     Flambda.Let_cont { body; handlers; }, state
@@ -339,8 +338,7 @@ and lift_expr (expr : Flambda.expr) ~state =
     in
     let body = lift body in
     Flambda.Let_cont { body; handlers; }, state
-  | Let_cont { body; handlers = Nonrecursive { name; handler; }; } ->
-    let handlers = Continuation.Map.add name handler Continuation.Map.empty in
+  | Let_cont { body; handlers = Nonrecursive handlers; } ->
     lift_let_cont ~body ~handlers ~state ~recursive:Asttypes.Nonrecursive
   | Let_cont { body; handlers = Recursive handlers; } ->
     lift_let_cont ~body ~handlers ~state ~recursive:Asttypes.Recursive

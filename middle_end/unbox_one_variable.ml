@@ -211,23 +211,23 @@ let how_to_unbox_core ~constant_ctors ~blocks ~being_unboxed
               fields
               filler
           in
+          let handler : Flambda.continuation_handler = {
+            params = [];
+            (* CR mshinwell: All of the "stub" settings in this file are
+               "true" so we don't try to unbox their arguments over and
+               over.  Maybe instead we should have a "kind" field which
+               could include the stub, is_exn_handler, etc data plus
+               something saying not to unbox *)
+            stub = true;
+            is_exn_handler = false;
+            handler = filler;
+            specialised_args = Variable.Map.empty;
+          }
+          in
           Let_cont {
             body = expr;
-            handlers = Nonrecursive {
-              name = filler_cont;
-              handler = {
-                params = [];
-                (* CR mshinwell: All of the "stub" settings in this file are
-                   "true" so we don't try to unbox their arguments over and
-                   over.  Maybe instead we should have a "kind" field which
-                   could include the stub, is_exn_handler, etc data plus
-                   something saying not to unbox *)
-                stub = true;
-                is_exn_handler = false;
-                handler = filler;
-                specialised_args = Variable.Map.empty;
-              };
-            }
+            handlers = Nonrecursive (
+                Continuation.Map.singleton filler_cont handler);
           })
         sizes_to_filler_conts
         expr      
@@ -266,10 +266,10 @@ let how_to_unbox_core ~constant_ctors ~blocks ~being_unboxed
           body = Let_cont {
             body = Let_cont {
               body = is_int_switch;
-              handlers = Nonrecursive {
-                name = is_int_cont;
-                handler = {
-                  params = [];
+              handlers = Nonrecursive (Continuation.Map.singleton
+                is_int_cont
+                {
+                  Flambda.params = [];
                   handler =
                     (let is_int_in_wrapper =
                       if no_constant_ctors then [] else [is_int_in_wrapper]
@@ -284,13 +284,13 @@ let how_to_unbox_core ~constant_ctors ~blocks ~being_unboxed
                   stub = true;
                   is_exn_handler = false;
                   specialised_args = Variable.Map.empty;
-                };
-              };
+                }
+              );
             };
-            handlers = Nonrecursive {
-              name = is_block_cont;
-              handler = {
-                params = [];
+            handlers = Nonrecursive (Continuation.Map.singleton
+              is_block_cont
+              {
+                Flambda.params = [];
                 handler =
                   Flambda.create_let tag
                     (match discriminant_known_value with
@@ -301,19 +301,19 @@ let how_to_unbox_core ~constant_ctors ~blocks ~being_unboxed
                 stub = true;
                 is_exn_handler = false;
                 specialised_args = Variable.Map.empty;
-              };
-            };
+              }
+            );
           };
-          handlers = Nonrecursive {
-            name = join_cont;
-            handler = {
-              params = Parameter.List.wrap new_arguments_for_call_in_wrapper;
+          handlers = Nonrecursive (Continuation.Map.singleton
+            join_cont
+            {
+              Flambda.params = Parameter.List.wrap new_arguments_for_call_in_wrapper;
               handler = expr;
               stub = true;
               is_exn_handler = false;
               specialised_args = Variable.Map.empty;
-            };
-          }
+            }
+          );
         }))
   in
   let fields_with_projections =
@@ -374,16 +374,16 @@ let how_to_unbox_core ~constant_ctors ~blocks ~being_unboxed
             Flambda.create_let ctor_index_var (Const (Int ctor_index))
               (Let_cont {
                 body = expr;
-                handlers = Nonrecursive {
-                  name = cont;
-                  handler = {
-                    handler = Apply_cont (join_cont, None, [ctor_index_var]);
+                handlers = Nonrecursive (Continuation.Map.singleton
+                  cont
+                  {
+                    Flambda.handler = Apply_cont (join_cont, None, [ctor_index_var]);
                     params = [];
                     stub = true;
                     is_exn_handler = false;
                     specialised_args = Variable.Map.empty;
-                  };
-                };
+                  }
+                );
               }))
           expr
           consts
@@ -409,16 +409,16 @@ let how_to_unbox_core ~constant_ctors ~blocks ~being_unboxed
             in
             Let_cont {
               body = expr;
-              handlers = Nonrecursive {
-                name = boxing_cont;
-                handler = {
-                  params = [];
+              handlers = Nonrecursive (Continuation.Map.singleton
+                boxing_cont
+                {
+                  Flambda.params = [];
                   handler;
                   stub = true;
                   is_exn_handler = false;
                   specialised_args = Variable.Map.empty;
-                };
-              };
+                }
+              );
             })
           tags_to_sizes_and_boxing_conts
           expr
@@ -428,21 +428,21 @@ let how_to_unbox_core ~constant_ctors ~blocks ~being_unboxed
           body = Let_cont {
             body = Let_cont {
               body = boxing_is_int_switch;
-              handlers = Nonrecursive {
-                name = boxing_is_block_cont;
-                handler = {
-                  params = [];
+              handlers = Nonrecursive (Continuation.Map.singleton
+                boxing_is_block_cont
+                {
+                  Flambda.params = [];
                   handler = add_boxing_conts boxing_switch;
                   stub = true;
                   is_exn_handler = false;
                   specialised_args = Variable.Map.empty;
-                };
-              };
+                }
+              );
             };
-            handlers = Nonrecursive {
-              name = boxing_is_int_cont;
-              handler = {
-                params = [];
+            handlers = Nonrecursive (Continuation.Map.singleton
+              boxing_is_int_cont
+              {
+                Flambda.params = [];
                 (* We could just call [join_cont] with [discriminant] as the
                    argument, but that wouldn't pass on the knowledge to the
                    place in which this stub gets inlined that [discriminant]
@@ -458,19 +458,19 @@ let how_to_unbox_core ~constant_ctors ~blocks ~being_unboxed
                 stub = true;
                 is_exn_handler = false;
                 specialised_args = Variable.Map.empty;
-              };
-            };
+              }
+            );
           };
-          handlers = Nonrecursive {
-            name = join_cont;
-            handler = {
-              params = [Parameter.wrap boxed];
+          handlers = Nonrecursive (Continuation.Map.singleton
+            join_cont
+            {
+              Flambda.params = [Parameter.wrap boxed];
               handler = expr;
               stub = true;
               is_exn_handler = false;
               specialised_args = Variable.Map.empty;
-            };
-          };
+            }
+          );
         }
       in
       let body =

@@ -54,11 +54,8 @@ let variables_not_used_as_local_reference (tree:Flambda.t) =
     | Let_mutable { initial_value = v; body } ->
       set := Variable.Set.add v !set;
       loop body
-    | Let_cont { body; handlers =
-        Nonrecursive { name = _; handler = { handler; _ }; }; } ->
-      loop body;
-      loop handler
-    | Let_cont { body; handlers = Recursive handlers; } ->
+    | Let_cont { body; handlers = ( Nonrecursive handlers
+                                  | Recursive handlers); } ->
       loop body;
       Continuation.Map.iter (fun _cont
             (handler : Flambda.continuation_handler) ->

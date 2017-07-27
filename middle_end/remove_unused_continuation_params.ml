@@ -132,21 +132,28 @@ let run program ~backend =
   Flambda_iterators.map_exprs_at_toplevel_of_program program ~f:(fun expr ->
     Flambda_iterators.map_expr (fun (expr : Flambda.expr) ->
         match expr with
-        | Let_cont { body = _; handlers = Nonrecursive { name = _; handler = {
-            is_exn_handler = true; _ }; }; } -> expr
-        | Let_cont { body; handlers = Nonrecursive { name; handler; } } ->
-          let unused =
-            let fvs = Flambda.free_variables handler.handler in
-            let params = Parameter.Set.of_list handler.params in
-            Parameter.Set.filter (fun param ->
-                not (Variable.Set.mem (Parameter.var param) fvs))
-              params
-          in
-          let handlers =
-            Continuation.Map.add name handler Continuation.Map.empty
-          in
-          for_continuation ~body ~handlers ~unused ~original:expr
-            ~recursive:Asttypes.Nonrecursive
+        | Let_cont { body; handlers = Nonrecursive handlers; } ->
+          begin
+            match Continuation.Map.bindings handlers with
+            | [ name, handler ] ->
+              if handler.is_exn_handler then expr
+              else
+                let unused =
+                  let fvs = Flambda.free_variables handler.handler in
+                  let params = Parameter.Set.of_list handler.params in
+                  Parameter.Set.filter (fun param ->
+                      not (Variable.Set.mem (Parameter.var param) fvs))
+                    params
+                in
+                let handlers =
+                  Continuation.Map.add name handler Continuation.Map.empty
+                in
+                for_continuation ~body ~handlers ~unused ~original:expr
+                  ~recursive:Asttypes.Nonrecursive
+            | _ -> (* CR vlaviron: handle general case *)
+              Misc.fatal_errorf "Let_cont nonrecursive handlers are expected \
+                  to have exactly one handler"
+          end
         | Let_cont { body; handlers = Recursive handlers; } ->
           let unused =
             Invariant_params.Continuations.unused_arguments handlers ~backend

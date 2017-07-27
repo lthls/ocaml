@@ -136,7 +136,7 @@ and let_cont = {
 }
 
 and let_cont_handlers =
-  | Nonrecursive of { name : Continuation.t; handler : continuation_handler; }
+  | Nonrecursive of continuation_handlers
   | Recursive of continuation_handlers
   | Alias of { name : Continuation.t; alias_of : Continuation.t; }
 
@@ -384,20 +384,9 @@ let rec lam ppf (flam : t) =
       in
       let let_conts, body = gather_let_conts [] flam in
       let print_let_cont ppf { handlers; body = _; } =
-        match handlers with
-        | Nonrecursive { name; handler = {
-            params; stub; handler; specialised_args; }; } ->
-          fprintf ppf "@[<v 2>where %a%s%s@[%a@]%s%a =@ %a@]"
-            Continuation.print name
-            (if stub then " *stub*" else "")
-            (match params with [] -> "" | _ -> " (")
-            Parameter.List.print params
-            (match params with [] -> "" | _ -> ")")
-            print_specialised_args' specialised_args
-            lam handler
-        | Recursive handlers ->
+        let print_handlers recursive handlers =
           let first = ref true in
-          fprintf ppf "@[<v 2>where rec ";
+          fprintf ppf "@[<v 2>where %s" recursive;
           Continuation.Map.iter (fun name
                   { params; stub; is_exn_handler; handler;
                     specialised_args; } ->
@@ -415,6 +404,12 @@ let rec lam ppf (flam : t) =
               first := false)
             handlers;
           fprintf ppf "@]"
+        in
+        match handlers with
+        | Nonrecursive handlers ->
+          print_handlers "" handlers
+        | Recursive handlers ->
+          print_handlers "rec " handlers
         | Alias { name; alias_of; } ->
           fprintf ppf "@[<v 2>where %a = %a@]"
             Continuation.print name
@@ -470,23 +465,12 @@ and print_switch ppf (sw : switch) =
   end
 
 and print_let_cont_handlers ppf (handler : let_cont_handlers) =
-  match handler with
-  | Nonrecursive { name; handler = {
-      params; stub; handler; specialised_args; }; } ->
-    fprintf ppf "%a@ %s%s%a%s%a=@ %a"
-      Continuation.print name
-      (if stub then "*stub* " else "")
-      (match params with [] -> "" | _ -> "(")
-      Parameter.List.print params
-      (match params with [] -> "" | _ -> ") ")
-      print_specialised_args specialised_args
-      lam handler
-  | Recursive handlers ->
+  let print_generic recursive handlers =
     let first = ref true in
     Continuation.Map.iter (fun name
             { params; stub; is_exn_handler; handler; specialised_args; } ->
         if !first then begin
-          fprintf ppf "@;rec "
+          fprintf ppf "@;%s" recursive
         end else begin
           fprintf ppf "@;and "
         end;
@@ -501,6 +485,12 @@ and print_let_cont_handlers ppf (handler : let_cont_handlers) =
           lam handler;
         first := false)
       handlers
+  in
+  match handler with
+  | Nonrecursive handlers ->
+    print_generic "" handlers
+  | Recursive handlers ->
+    print_generic "rec " handlers
   | Alias { name; alias_of; } ->
     fprintf ppf "%a = %a" Continuation.print name Continuation.print alias_of
 
@@ -727,13 +717,7 @@ let rec variables_usage ?ignore_uses_as_callee
       aux body;
       begin match handlers with
       | Alias _ -> ()
-      | Nonrecursive { name = _; handler = {
-          params; handler; specialised_args; _ }; } ->
-        List.iter (fun param -> bound_variable (Parameter.var param)) params;
-        free_variables
-          (free_variables_of_specialised_args specialised_args);
-        aux handler
-      | Recursive handlers ->
+      | Nonrecursive handlers | Recursive handlers ->
         Continuation.Map.iter (fun _name { params; handler;
                 specialised_args; _ } ->
             List.iter (fun param -> bound_variable (Parameter.var param))
@@ -915,9 +899,7 @@ let iter_general ~toplevel f f_named maybe_named =
       | Let_cont { body; handlers; _ } ->
         aux body;
         begin match handlers with
-        | Nonrecursive { name = _; handler = { handler; _ }; } ->
-          aux handler
-        | Recursive handlers ->
+        | Nonrecursive handlers | Recursive handlers ->
           Continuation.Map.iter (fun _cont { handler; } -> aux handler)
             handlers
         | Alias _ -> ()
@@ -1113,14 +1095,22 @@ and free_continuations_of_let_cont_handlers' ~(handlers : let_cont_handlers) =
   match handlers with
   | Alias { name; alias_of; } ->
     Continuation.Set.singleton alias_of, Continuation.Set.singleton name
-  | Nonrecursive { name; handler = { handler; _ }; } ->
-    let fcs = free_continuations handler in
-    if Continuation.Set.mem name fcs then begin
+  | Nonrecursive nonrec_handlers ->
+    let bound_conts = Continuation.Map.keys nonrec_handlers in
+    let fcs =
+      Continuation.Map.fold (fun _name { handler; _ } fcs ->
+          Continuation.Set.union fcs
+            (free_continuations handler))
+        nonrec_handlers
+        Continuation.Set.empty
+    in
+    if not (Continuation.Set.is_empty
+              (Continuation.Set.inter bound_conts fcs)) then begin
       Misc.fatal_errorf "Nonrecursive [Let_cont] handler appears to be \
           recursive:@ \n%a"
         print_let_cont_handlers handlers
     end;
-    fcs, Continuation.Set.singleton name
+    fcs, bound_conts
   | Recursive handlers ->
     let bound_conts = Continuation.Map.keys handlers in
     let fcs =
@@ -1138,13 +1128,7 @@ let free_continuations_of_let_cont_handlers ~(handlers : let_cont_handlers) =
 let free_variables_of_let_cont_handlers (handlers : let_cont_handlers) =
   match handlers with
   | Alias _ -> Variable.Set.empty
-  | Nonrecursive { name = _; handler = {
-      params; handler; specialised_args; _ }; } ->
-    Variable.Set.union
-      (free_variables_of_specialised_args specialised_args)
-      (Variable.Set.diff (free_variables handler)
-        (Parameter.Set.vars params))
-  | Recursive handlers ->
+  | Nonrecursive handlers | Recursive handlers ->
     Continuation.Map.fold (fun _name { params; handler; specialised_args; _ }
             fvs ->
         Variable.Set.union fvs

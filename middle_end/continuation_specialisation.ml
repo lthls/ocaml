@@ -221,11 +221,7 @@ let try_specialising ~cont ~(old_handlers : Flambda.continuation_handlers)
        but it's nicer for debugging to check now. *)
     let handlers : Flambda.let_cont_handlers =
       match recursive with
-      | Nonrecursive ->
-        begin match Continuation.Map.bindings new_handlers with
-        | [name, handler] -> Nonrecursive { name; handler; }
-        | _ -> assert false
-        end
+      | Nonrecursive -> Nonrecursive new_handlers
       | Recursive -> Recursive new_handlers
     in
     let free_conts =
@@ -261,8 +257,7 @@ let try_specialising ~cont ~(old_handlers : Flambda.continuation_handlers)
       in
       let new_handlers =
         match (new_handlers : Flambda.let_cont_handlers) with
-        | Nonrecursive { handler; _ } -> [handler.handler]
-        | Recursive handlers ->
+        | Nonrecursive handlers | Recursive handlers ->
           List.map (fun (handler : Flambda.continuation_handler) ->
               handler.handler)
             (Continuation.Map.data handlers)
@@ -285,13 +280,15 @@ let try_specialising ~cont ~(old_handlers : Flambda.continuation_handlers)
 let handlers_and_invariant_params ~cont ~approx ~backend =
   match Continuation_approx.handlers approx with
   | None -> None
-  | Some (Nonrecursive { is_exn_handler = true; _ }) -> None
   | Some handlers ->
     match handlers with
-    | Nonrecursive handler ->
-      let handlers =
-        Continuation.Map.add cont handler Continuation.Map.empty
+    | Nonrecursive handlers ->
+      let handler = match Continuation.Map.data handlers with
+        | [handler] -> handler
+        | _ -> (* CR vlaviron: handle multiple handlers *)
+          Misc.fatal_errorf "Multiple handlers in nonrecursive approx"
       in
+      if handler.is_exn_handler then None else begin
       (* Non-recursive continuation: all parameters are invariant. *)
       let invariant_params =
         List.fold_left (fun invariant_params param ->
@@ -303,6 +300,7 @@ let handlers_and_invariant_params ~cont ~approx ~backend =
       in
       let invariant_params_flow = Variable.Map.empty in
       Some (handlers, invariant_params, invariant_params_flow)
+      end
     | Recursive handlers ->
       let invariant_params =
         Invariant_params.Continuations.invariant_params_in_recursion

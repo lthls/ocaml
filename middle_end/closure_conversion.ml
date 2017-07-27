@@ -235,7 +235,8 @@ let rec close t env (lam : Ilambda.t) : Flambda.t =
       in
       let handlers : Flambda.let_cont_handlers =
         match let_cont.recursive with
-        | Nonrecursive -> Nonrecursive { name = let_cont.name; handler; }
+        | Nonrecursive ->
+          Nonrecursive (Continuation.Map.singleton let_cont.name handler)
         | Recursive ->
           Recursive (Continuation.Map.add let_cont.name handler
             Continuation.Map.empty)

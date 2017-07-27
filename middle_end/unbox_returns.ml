@@ -76,16 +76,16 @@ let unbox_function_decl ~fun_var ~(function_decl : Flambda.function_declaration)
   let new_function_body : Flambda.expr =
     Let_cont {
       body = function_decl.body;
-      handlers = Nonrecursive {
-        name = function_decl.continuation_param;
-        handler = {
-          params = cont_wrapper_params;
+      handlers = Nonrecursive (Continuation.Map.singleton
+        function_decl.continuation_param
+        {
+          Flambda.params = cont_wrapper_params;
           stub = true;
           is_exn_handler = false;
           handler = wrapper_body;
           specialised_args = cont_wrapper_specialised_args;
-        };
-      };
+        }
+      );
     }
   in
   let new_fun_var = Variable.rename fun_var in
@@ -134,16 +134,16 @@ let unbox_function_decl ~fun_var ~(function_decl : Flambda.function_declaration)
         inline = Lambda.Default_inline;
         specialise = Lambda.Default_specialise;
       };
-      handlers = Nonrecursive {
-        name = receive_results;
-        handler = {
-          params = Parameter.List.wrap results;
+      handlers = Nonrecursive (Continuation.Map.singleton
+        receive_results
+        {
+          Flambda.params = Parameter.List.wrap results;
           handler = box_results_and_call_return_cont;
           stub = true;
           is_exn_handler = false;
           specialised_args = Variable.Map.empty;
-        };
-      };
+        }
+      );
     };
   in
   let function_stub_decl =

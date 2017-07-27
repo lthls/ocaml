@@ -17,7 +17,7 @@
 [@@@ocaml.warning "+a-4-9-30-40-41-42"]
 
 type continuation_handlers =
-  | Nonrecursive of Flambda.continuation_handler
+  | Nonrecursive of Flambda.continuation_handlers
   | Recursive of Flambda.continuation_handlers
 
 type t = {
@@ -47,9 +47,8 @@ let print ppf t =
     | None -> Format.fprintf ppf "<handlers not known>"
     | Some handlers ->
       match handlers with
-      | Nonrecursive handler ->
-        Flambda.print_let_cont_handlers ppf
-          (Nonrecursive { name = t.name; handler; })
+      | Nonrecursive handlers ->
+        Flambda.print_let_cont_handlers ppf (Nonrecursive handlers)
       | Recursive handlers ->
         Flambda.print_let_cont_handlers ppf (Recursive handlers)
   in

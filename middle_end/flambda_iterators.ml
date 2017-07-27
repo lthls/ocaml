@@ -24,11 +24,7 @@ let apply_on_subexpressions f f_named (flam : Flambda.t) =
     f body
   | Let_mutable { body; _ } ->
     f body
-  | Let_cont { body; handlers =
-      Nonrecursive { handler = { handler; _ }; _ } } ->
-    f body;
-    f handler
-  | Let_cont { body; handlers = Recursive handlers; } ->
+  | Let_cont { body; handlers = (Recursive handlers | Nonrecursive handlers); } ->
     f body;
     Continuation.Map.iter
       (fun _cont ({ handler; _ } : Flambda.continuation_handler) -> f handler)
@@ -53,26 +49,7 @@ let map_subexpressions f f_named (tree:Flambda.t) : Flambda.t =
       Let_mutable { mutable_let with body = new_body }
   | Let_cont ({ body; handlers; } as let_cont) ->
     let new_body = f body in
-    match handlers with
-    | Alias _ ->
-      if new_body == body then
-        tree
-      else
-        Let_cont { let_cont with body = new_body; }
-    | Nonrecursive { name; handler =
-        ({ handler = handler_expr; _ } as handler); } ->
-      let new_handler_expr = f handler_expr in
-      if new_body == body && new_handler_expr == handler_expr then
-        tree
-      else
-        Let_cont {
-          body = new_body;
-          handlers = Nonrecursive {
-            name;
-            handler = { handler with handler = new_handler_expr; }
-          };
-        }
-    | Recursive handlers ->
+    let map_handlers make_handlers handlers : Flambda.t =
       let something_changed = ref false in
       let candidate_handlers =
         Continuation.Map.map
@@ -87,10 +64,21 @@ let map_subexpressions f f_named (tree:Flambda.t) : Flambda.t =
       if !something_changed || not (new_body == body) then
         Let_cont {
           body = new_body;
-          handlers = Recursive candidate_handlers;
+          handlers = make_handlers candidate_handlers;
         }
       else
         tree
+    in
+    match handlers with
+    | Alias _ ->
+      if new_body == body then
+        tree
+      else
+        Let_cont { let_cont with body = new_body; }
+    | Nonrecursive handlers ->
+      map_handlers (fun handlers -> Nonrecursive handlers) handlers
+    | Recursive handlers ->
+      map_handlers (fun handlers -> Recursive handlers) handlers
 
 let iter_general = Flambda.iter_general
 
@@ -258,26 +246,7 @@ let map_general ~toplevel f f_named tree =
            [map_subexpressions]. *)
         | Let_cont ({ body; handlers; } as let_cont) ->
           let new_body = aux body in
-          match handlers with
-          | Alias _ ->
-            if new_body == body then
-              tree
-            else
-              Let_cont { let_cont with body = new_body; }
-          | Nonrecursive { name; handler =
-              ({ handler = handler_expr; _ } as handler); } ->
-            let new_handler_expr = aux handler_expr in
-            if new_body == body && new_handler_expr == handler_expr then
-              tree
-            else
-              Let_cont {
-                body = new_body;
-                handlers = Nonrecursive {
-                  name;
-                  handler = { handler with handler = new_handler_expr; }
-                };
-              }
-          | Recursive handlers ->
+          let map_handlers make_handlers handlers : Flambda.t =
             let something_changed = ref false in
             let candidate_handlers =
               Continuation.Map.map
@@ -292,10 +261,21 @@ let map_general ~toplevel f f_named tree =
             if !something_changed || not (new_body == body) then
               Let_cont {
                 body = new_body;
-                handlers = Recursive candidate_handlers;
+                handlers = make_handlers candidate_handlers;
               }
             else
               tree
+          in
+          match handlers with
+          | Alias _ ->
+            if new_body == body then
+              tree
+            else
+              Let_cont { let_cont with body = new_body; }
+          | Nonrecursive handlers ->
+            map_handlers (fun handlers -> Nonrecursive handlers) handlers
+          | Recursive handlers ->
+            map_handlers (fun handlers -> Recursive handlers) handlers
       in
       f exp
   and aux_named (id : Variable.t) (named : Flambda.named) =

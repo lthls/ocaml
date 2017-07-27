@@ -283,9 +283,14 @@ let rec sink_expr (expr : Flambda.expr) ~state : Flambda.expr * State.t =
         ~candidates_to_sink:(Flambda.free_variables body)
     in
     Let_cont { body; handlers = Recursive handlers; }, state
-  | Let_cont { body; handlers =
-      Nonrecursive { name; handler = {
-        params; stub; is_exn_handler; handler; specialised_args; }; }; } ->
+  | Let_cont { body; handlers = Nonrecursive handlers; } ->
+    let name, ({ params; stub; is_exn_handler;
+                 handler; specialised_args; } : Flambda.continuation_handler) =
+      match Continuation.Map.bindings handlers with
+      | [name, handler] -> name, handler
+      | _ -> (* CR vlaviron: support multiple handlers *)
+        Misc.fatal_errorf "Multiple handlers in nonrecursive let_cont"
+    in
     let params_set = Variable.Set.of_list (Parameter.List.vars params) in
     let body, state = sink_expr body ~state in
     let handler, handler_state =
@@ -304,9 +309,11 @@ let rec sink_expr (expr : Flambda.expr) ~state : Flambda.expr * State.t =
         ~candidates_to_sink:
           (Flambda.free_variables_of_specialised_args specialised_args)
     in
-    Let_cont { body; handlers =
-      Nonrecursive { name; handler = {
-        params; stub; is_exn_handler; handler; specialised_args; }; }; }, state
+    let (handlers : Flambda.continuation_handlers) =
+      Continuation.Map.singleton name
+        { Flambda.params; stub; is_exn_handler; handler; specialised_args; }
+    in
+    Let_cont { body; handlers = Nonrecursive handlers; }, state
   | Apply _ | Apply_cont _ | Switch _ | Proved_unreachable ->
     let state =
       State.add_candidates_to_sink state
@@ -349,8 +356,14 @@ and sink (expr : Flambda.t) =
     | Let_cont { body; handlers = (Alias _) as handlers; } ->
       let body = sink body in
       Let_cont { body; handlers; }
-    | Let_cont { body; handlers = Nonrecursive { name; handler = {
-        params; stub; is_exn_handler; handler; specialised_args; }; }; } ->
+    | Let_cont { body; handlers = Nonrecursive handlers; } ->
+      let name, ({ params; stub; is_exn_handler;
+                   handler; specialised_args; } : Flambda.continuation_handler) =
+        match Continuation.Map.bindings handlers with
+        | [name, handler] -> name, handler
+        | _ -> (* CR vlaviron: support multiple handlers *)
+          Misc.fatal_errorf "Multiple handlers in nonrecursive let_cont"
+      in
       let body = sink body in
       let handler =
         let handler = sink handler in
@@ -360,8 +373,10 @@ and sink (expr : Flambda.t) =
           handler
           (List.rev bindings)
       in
-      Let_cont { body; handlers = Nonrecursive { name; handler =
-        { params; stub; is_exn_handler; handler; specialised_args; }; }; }
+      let handlers = Continuation.Map.singleton name
+        { Flambda.params; stub; is_exn_handler; handler; specialised_args; }
+      in
+      Let_cont { body; handlers = Nonrecursive handlers; }
     | Let_cont { body; handlers = Recursive handlers; } ->
       let body = sink body in
       let handlers =

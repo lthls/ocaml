@@ -239,13 +239,8 @@ module Inconstants (P:Param) (Backend:Backend_intf.S) = struct
     | Let_cont { body; handlers = Alias _; _ } ->
       mark_loop ~toplevel [] body;
       mark_curr curr
-    | Let_cont { body; handlers = Nonrecursive { handler; _ }; } ->
-      mark_curr curr;
-      mark_loop ~toplevel [] body;
-      List.iter (fun param -> mark_curr [Var (Parameter.var param)])
-        handler.params;
-      mark_loop ~toplevel:false [] handler.handler
-    | Let_cont { body; handlers = Recursive handlers; } ->
+    | Let_cont { body; handlers = ( Nonrecursive handlers
+                                  | Recursive handlers); } ->
       mark_curr curr;
       mark_loop ~toplevel [] body;
       Continuation.Map.iter (fun _cont
