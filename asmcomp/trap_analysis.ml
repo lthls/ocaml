@@ -73,12 +73,14 @@ let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
     let stack, stacks_at_exit =
       match op with
       | Ipushtrap cont ->
-        (* CR pchambart: This shouldn't keep the handler alive. If
-           there is no raise the handler should be eliminated. *)
-        let stacks_at_exit =
-          add_stack ~cont ~stack:(cont :: stack) ~stacks_at_exit
-        in
-        cont :: stack, stacks_at_exit
+        begin
+          (* In nested try..with, there is a possibility that a pushtrap
+             instruction gets pushed through another catch handler,
+             so checking that the top of the stack is cont would be incorrect.
+          *)
+          assert (List.mem cont stack);
+          stack, stacks_at_exit
+        end
       | Ipoptrap cont ->
         begin match stack with
         | [] ->
@@ -177,7 +179,16 @@ let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
     }, stacks_at_exit
   | Icatch (rec_flag, is_exn_handler, handlers, body) ->
     assert (not is_exn_handler || List.length handlers = 1);
-    let body, stacks_at_exit = trap_stacks body ~stack ~stacks_at_exit in
+    let top_stack = stack in
+    let body_stack =
+      match is_exn_handler, handlers with
+      | false, _ -> stack
+      | true, [cont, _, _] -> cont :: stack
+      | true, ([] | _ :: _ :: _) -> assert false (* see earlier assert *)
+    in
+    let body, stacks_at_exit =
+      trap_stacks body ~stack:body_stack ~stacks_at_exit
+    in
     let handlers =
       let handlers =
         List.map (fun (cont, _trap_stack, handler) ->
@@ -191,7 +202,6 @@ let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
           Int.Map.mem cont stacks_at_exit)
         handlers
     in
-    let top_stack = stack in
     let rec process_handlers ~stacks_at_exit ~handlers_with_uses
           ~handlers_without_uses ~output_handlers =
       (* By the invariant above, there is no need to compute a fixpoint. *)
