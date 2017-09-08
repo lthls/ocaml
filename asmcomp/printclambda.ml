@@ -154,20 +154,26 @@ and lam ppf = function
       let lams ppf largs =
         List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
       fprintf ppf "@[<2>(exit@ %d%a)@]" i lams ls;
-  | Ucatch(i, vars, lbody, lhandler) ->
-      fprintf ppf "@[<2>(catch@ %a@;<1 -1>with (%d%a)@ %a)@]"
-        lam lbody i
-        (fun ppf vars -> match vars with
-          | [] -> ()
-          | _ ->
-              List.iter
-                (fun x -> fprintf ppf " %a" Ident.print x)
-                vars)
-        vars
-        lam lhandler
-  | Utrywith(lbody, param, lhandler) ->
-      fprintf ppf "@[<2>(try@ %a@;<1 -1>with %a@ %a)@]"
-        lam lbody Ident.print param lam lhandler
+  | Ucatch(kind, handlers, lbody) ->
+      let print_handler ppf (cont, params, lhandler) =
+        fprintf ppf "@[<2>(%d%a)@ %a@]"
+          cont
+          (fun ppf vars -> match vars with
+             | [] -> ()
+             | _ ->
+                 List.iter
+                   (fun x -> fprintf ppf " %a" Ident.print x)
+                   vars)
+          params
+          lam lhandler
+      in
+      fprintf ppf "@[<2>(catch%s@ %a@;<1 -1>with %a)@]"
+        (match kind with
+          | Normal Asttypes.Nonrecursive -> ""
+          | Normal Asttypes.Recursive -> "_rec"
+          | Exn_handler -> "_exn")
+        lam lbody
+        (Format.pp_print_list print_handler) handlers
   | Uifthenelse(lcond, lif, lelse) ->
       fprintf ppf "@[<2>(if@ %a@ %a@ %a)@]" lam lcond lam lif lam lelse
   | Usequence(l1, l2) ->
@@ -191,6 +197,10 @@ and lam ppf = function
       fprintf ppf "@[<2>(send%s@ %a@ %a%a)@]" kind lam obj lam met args largs
   | Uunreachable ->
       fprintf ppf "unreachable"
+  | Upushtrap trap ->
+      fprintf ppf "pushtrap %d" trap
+  | Upoptrap trap ->
+      fprintf ppf "poptrap %d" trap
 
 and sequence ppf ulam = match ulam with
   | Usequence(l1, l2) ->

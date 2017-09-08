@@ -68,6 +68,7 @@ let oper_result_type = function
   | Cintoffloat -> typ_int
   | Craise _ -> typ_void
   | Ccheckbound -> typ_void
+  | Cpushtrap _ | Cpoptrap _ -> typ_void
 
 (* Infer the size in bytes of the result of an expression whose evaluation
    may be deferred (cf. [emit_parts]). *)
@@ -294,15 +295,16 @@ method is_simple_expr = function
   | Cop(op, args, _) ->
       begin match op with
         (* The following may have side effects *)
-      | Capply _ | Cextcall _ | Calloc | Cstore _ | Craise _ -> false
+      | Capply _ | Cextcall _ | Calloc | Cstore _ | Craise _
+      | Cpushtrap _ | Cpoptrap _ -> false
         (* The remaining operations are simple if their args are *)
       | Cload _ | Caddi | Csubi | Cmuli | Cmulhi | Cdivi | Cmodi | Cand | Cor
       | Cxor | Clsl | Clsr | Casr | Ccmpi _ | Caddv | Cadda | Ccmpa _ | Cnegf
       | Cabsf | Caddf | Csubf | Cmulf | Cdivf | Cfloatofint | Cintoffloat
       | Ccmpf _ | Ccheckbound -> List.for_all self#is_simple_expr args
       end
-  | Cassign _ | Cifthenelse _ | Cswitch _ | Cloop _ | Ccatch _ | Cexit _
-  | Ctrywith _ -> false
+  | Cassign _ | Cifthenelse _ | Cswitch _ | Cloop _ | Ccatch _
+  | Cexit _ -> false
 
 (* Analyses the effects and coeffects of an expression.  This is used across
    a whole list of expressions with a view to determining which expressions
@@ -333,7 +335,7 @@ method effects_of exp =
   | Cop (op, args, _) ->
     let from_op =
       match op with
-      | Capply _ | Cextcall _ -> EC.arbitrary
+      | Capply _ | Cextcall _ | Cpushtrap _ | Cpoptrap _ -> EC.arbitrary
       | Calloc -> EC.none
       | Cstore _ -> EC.effect_only Effect.Arbitrary
       | Craise _ | Ccheckbound -> EC.effect_only Effect.Raise
@@ -345,7 +347,7 @@ method effects_of exp =
         EC.none
     in
     EC.join from_op (EC.join_list_map args self#effects_of)
-  | Cassign _ | Cswitch _ | Cloop _ | Ccatch _ | Cexit _ | Ctrywith _ ->
+  | Cassign _ | Cswitch _ | Cloop _ | Ccatch _ | Cexit _ ->
     EC.arbitrary
 
 (* Says whether an integer constant is a suitable immediate argument *)
@@ -380,7 +382,7 @@ method mark_instr = function
       self#mark_call (* caml_alloc*, caml_garbage_collection *)
   | Iop (Iintop (Icheckbound _) | Iintop_imm(Icheckbound _, _)) ->
       self#mark_c_tailcall (* caml_ml_array_bound_error *)
-  | Iraise raise_kind ->
+  | Iraise (raise_kind, _) ->
     begin match raise_kind with
       | Cmm.Raise_notrace -> ()
       | Cmm.Raise_withtrace ->
@@ -389,35 +391,35 @@ method mark_instr = function
              #mark_c_tailcall to get a good stack backtrace *)
           self#mark_call
     end
-  | Itrywith _ ->
-    self#mark_call
   | _ -> ()
 
 (* Default instruction selection for operators *)
 
 method select_allocation words =
-  Ialloc { words; spacetime_index = 0; label_after_call_gc = None; }
+  Ialloc { words; spacetime_index = 0; label_after_call_gc = None;
+    trap_stack = []; }
 method select_allocation_args _env = [| |]
 
 method select_checkbound () =
-  Icheckbound { spacetime_index = 0; label_after_error = None; }
+  Icheckbound { spacetime_index = 0; label_after_error = None;
+    trap_stack = []; }
 method select_checkbound_extra_args () = []
 
 method select_operation op args _dbg =
   match (op, args) with
   | (Capply _, Cconst_symbol func :: rem) ->
     let label_after = Cmm.new_label () in
-    (Icall_imm { func; label_after; }, rem)
+    (Icall_imm { func; label_after; trap_stack = []; }, rem)
   | (Capply _, _) ->
     let label_after = Cmm.new_label () in
-    (Icall_ind { label_after; }, args)
+    (Icall_ind { label_after; trap_stack = []; }, args)
   | (Cextcall(func, _ty, alloc, label_after), _) ->
     let label_after =
       match label_after with
       | None -> Cmm.new_label ()
       | Some label_after -> label_after
     in
-    Iextcall { func; alloc; label_after; }, args
+    Iextcall { func; alloc; label_after; trap_stack = []; }, args
   | (Cload (chunk, _mut), [arg]) ->
       let (addr, eloc) = self#select_addressing chunk arg in
       (Iload(chunk, addr), [eloc])
@@ -465,6 +467,8 @@ method select_operation op args _dbg =
     let extra_args = self#select_checkbound_extra_args () in
     let op = self#select_checkbound () in
     self#select_arith op (args @ extra_args)
+  | (Cpushtrap cont, _) -> (Ipushtrap cont, args)
+  | (Cpoptrap cont, _) -> (Ipoptrap cont, args)
   | _ -> fatal_error "Selection.select_oper"
 
 method private select_arith_comm op = function
@@ -686,7 +690,7 @@ method emit_expr (env:environment) exp =
       | Some r1 ->
           let rd = [|Proc.loc_exn_bucket|] in
           self#insert (Iop Imove) r1 rd;
-          self#insert_debug (Iraise k) dbg rd [||];
+          self#insert_debug (Iraise (k, [])) dbg rd [||];
           None
       end
   | Cop(Ccmpf _, _, _) ->
@@ -743,7 +747,8 @@ method emit_expr (env:environment) exp =
               let rd = self#regs_for typ_val in
               let size = size_expr env (Ctuple new_args) in
               let op =
-                Ialloc { words = size; spacetime_index; label_after_call_gc; }
+                Ialloc { words = size; spacetime_index; label_after_call_gc;
+                  trap_stack = []; }
               in
               let args = self#select_allocation_args env in
               self#insert_debug (Iop op) dbg args rd;
@@ -788,7 +793,8 @@ method emit_expr (env:environment) exp =
       Some [||]
   | Ccatch(_, [], e1) ->
       self#emit_expr env e1
-  | Ccatch(rec_flag, handlers, body) ->
+  | Ccatch(kind, handlers, body) ->
+      assert (kind <> Clambda.Exn_handler || List.length handlers = 1);
       let handlers =
         List.map (fun (nfail, ids, e2) ->
             let rs =
@@ -815,14 +821,28 @@ method emit_expr (env:environment) exp =
           List.fold_left (fun env (id, r) -> env_add id r env)
             env (List.combine ids rs)
         in
-        let (r, s) = self#emit_sequence new_env e2 in
+        let (r, s) =
+          self#emit_sequence new_env e2 ~at_start:(fun seq ->
+            match kind with
+            | Clambda.Normal _ -> ()
+            | Clambda.Exn_handler ->
+              seq#insert_moves [| Proc.loc_exn_bucket |] (Array.concat rs))
+        in
         (nfail, (r, s))
       in
       let l = List.map translate_one_handler handlers in
       let a = Array.of_list ((r_body, s_body) :: List.map snd l) in
       let r = join_array a in
-      let aux (nfail, (_r, s)) = (nfail, s#extract) in
-      self#insert (Icatch (rec_flag, List.map aux l, s_body#extract)) [||] [||];
+      let aux (nfail, (_r, s)) = (nfail, [], s#extract) in
+      let rec_flag, is_exn_handler =
+        match kind with
+        | Clambda.Normal Asttypes.Nonrecursive -> Cmm.Nonrecursive, false
+        | Clambda.Normal Asttypes.Recursive -> Cmm.Recursive, false
+        | Clambda.Exn_handler -> Cmm.Nonrecursive, true
+      in
+      self#insert
+        (Icatch (rec_flag, is_exn_handler, List.map aux l, s_body#extract))
+        [||] [||];
       r
   | Cexit (nfail,args) ->
       begin match self#emit_parts_list env args with
@@ -846,20 +866,13 @@ method emit_expr (env:environment) exp =
           self#insert (Iexit nfail) [||] [||];
           None
       end
-  | Ctrywith(e1, v, e2) ->
-      let (r1, s1) = self#emit_sequence env e1 in
-      let rv = self#regs_for typ_val in
-      let (r2, s2) = self#emit_sequence (env_add v rv env) e2 in
-      let r = join r1 s1 r2 s2 in
-      self#insert
-        (Itrywith(s1#extract,
-                  instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] rv
-                             (s2#extract)))
-        [||] [||];
-      r
 
-method private emit_sequence (env:environment) exp =
+method private emit_sequence ?at_start (env:environment) exp =
   let s = {< instr_seq = dummy_instr >} in
+  begin match at_start with
+  | None -> ()
+  | Some f -> f s
+  end;
   let r = s#emit_expr env exp in
   (r, s)
 
@@ -1120,9 +1133,10 @@ method emit_tail (env:environment) exp =
             (Iswitch(index, Array.map (self#emit_tail_sequence env) ecases))
             rsel [||]
       end
-  | Ccatch(_, [], e1) ->
+  | Ccatch(Clambda.Normal Asttypes.Nonrecursive, [], e1) ->
       self#emit_tail env e1
-  | Ccatch(rec_flag, handlers, e1) ->
+  | Ccatch(kind, handlers, e1) ->
+      assert (kind <> Clambda.Exn_handler || List.length handlers = 1);
       let handlers =
         List.map (fun (nfail, ids, e2) ->
             let rs =
@@ -1142,29 +1156,31 @@ method emit_tail (env:environment) exp =
           List.fold_left
             (fun env (id,r) -> env_add id r env)
             env (List.combine ids rs) in
-        nfail, self#emit_tail_sequence new_env e2
+        nfail, [],
+          self#emit_tail_sequence new_env e2 ~at_start:(fun seq ->
+            match kind with
+            | Clambda.Normal _ -> ()
+            | Clambda.Exn_handler ->
+              seq#insert_moves [| Proc.loc_exn_bucket |] (Array.concat rs))
       in
-      self#insert (Icatch(rec_flag, List.map aux handlers, s_body)) [||] [||]
-  | Ctrywith(e1, v, e2) ->
-      let (opt_r1, s1) = self#emit_sequence env e1 in
-      let rv = self#regs_for typ_val in
-      let s2 = self#emit_tail_sequence (env_add v rv env) e2 in
+      let rec_flag, is_exn_handler =
+        match kind with
+        | Clambda.Normal Asttypes.Nonrecursive -> Cmm.Nonrecursive, false
+        | Clambda.Normal Asttypes.Recursive -> Cmm.Recursive, false
+        | Clambda.Exn_handler -> Cmm.Nonrecursive, true
+      in
       self#insert
-        (Itrywith(s1#extract,
-                  instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] rv s2))
-        [||] [||];
-      begin match opt_r1 with
-        None -> ()
-      | Some r1 ->
-          let loc = Proc.loc_results r1 in
-          self#insert_moves r1 loc;
-          self#insert Ireturn loc [||]
-      end
+        (Icatch(rec_flag, is_exn_handler, List.map aux handlers, s_body))
+        [||] [||]
   | _ ->
       self#emit_return env exp
 
-method private emit_tail_sequence env exp =
+method private emit_tail_sequence ?at_start env exp =
   let s = {< instr_seq = dummy_instr >} in
+  begin match at_start with
+  | None -> ()
+  | Some f -> f s
+  end;
   s#emit_tail env exp;
   s#extract
 
