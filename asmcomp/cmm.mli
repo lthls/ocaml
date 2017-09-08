@@ -123,6 +123,8 @@ and operation =
   | Ccmpf of comparison
   | Craise of raise_kind
   | Ccheckbound
+  | Cpushtrap of int
+  | Cpoptrap of int
 
 (** Not all cmm expressions currently have [Debuginfo.t] values attached to
     them.  The ones that do are those that are likely to generate code that
@@ -145,9 +147,9 @@ and expression =
   | Cifthenelse of expression * expression * expression
   | Cswitch of expression * int array * expression array * Debuginfo.t
   | Cloop of expression
-  | Ccatch of rec_flag * (int * Ident.t list * expression) list * expression
+  | Ccatch of Clambda.catch_kind * (int * Ident.t list * expression) list
+      * expression
   | Cexit of int * expression list
-  | Ctrywith of expression * Ident.t * expression
 
 type fundecl =
   { fun_name: string;
@@ -174,7 +176,5 @@ type data_item =
 type phrase =
     Cfunction of fundecl
   | Cdata of data_item list
-
-val ccatch : int * Ident.t list * expression * expression -> expression
 
 val reset : unit -> unit

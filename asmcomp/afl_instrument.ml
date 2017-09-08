@@ -57,8 +57,6 @@ and instrument = function
      Cifthenelse (instrument cond, with_afl_logging t, with_afl_logging f)
   | Cloop e ->
      Cloop (with_afl_logging e)
-  | Ctrywith (e, ex, handler) ->
-     Ctrywith (instrument e, ex, with_afl_logging handler)
   | Cswitch (e, cases, handlers, dbg) ->
      Cswitch (instrument e, cases, Array.map with_afl_logging handlers, dbg)
 

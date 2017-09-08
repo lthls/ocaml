@@ -21,6 +21,8 @@ open Lambda
 
 type function_label = string
 
+type catch_kind = Normal of Asttypes.rec_flag | Exn_handler
+
 type ustructured_constant =
   | Uconst_float of float
   | Uconst_int32 of int32
@@ -49,8 +51,7 @@ and ulambda =
   | Uswitch of ulambda * ulambda_switch * Debuginfo.t
   | Ustringswitch of ulambda * (string * ulambda) list * ulambda option
   | Ustaticfail of int * ulambda list
-  | Ucatch of int * Ident.t list * ulambda * ulambda
-  | Utrywith of ulambda * Ident.t * ulambda
+  | Ucatch of catch_kind * (int * Ident.t list * ulambda) list * ulambda
   | Uifthenelse of ulambda * ulambda * ulambda
   | Usequence of ulambda * ulambda
   | Uwhile of ulambda * ulambda
@@ -58,6 +59,8 @@ and ulambda =
   | Uassign of Ident.t * ulambda
   | Usend of meth_kind * ulambda * ulambda * ulambda list * Debuginfo.t
   | Uunreachable
+  | Upushtrap of int
+  | Upoptrap of int
 
 and ufunction = {
   label  : function_label;

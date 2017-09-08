@@ -77,8 +77,9 @@ let occurs_var var u =
         List.exists (fun (_,e) -> occurs e) sw ||
         (match d with None -> false | Some d -> occurs d)
     | Ustaticfail (_, args) -> List.exists occurs args
-    | Ucatch(_, _, body, hdlr) -> occurs body || occurs hdlr
-    | Utrywith(body, _exn, hdlr) -> occurs body || occurs hdlr
+    | Ucatch(_, handlers, body) ->
+        occurs body
+          || List.exists (fun (_, _, handler) -> occurs handler) handlers
     | Uifthenelse(cond, ifso, ifnot) ->
         occurs cond || occurs ifso || occurs ifnot
     | Usequence(u1, u2) -> occurs u1 || occurs u2
@@ -88,6 +89,7 @@ let occurs_var var u =
     | Usend(_, met, obj, args, _) ->
         occurs met || occurs obj || List.exists occurs args
     | Uunreachable -> false
+    | Upushtrap _ | Upoptrap _ -> false
   and occurs_array a =
     try
       for i = 0 to Array.length a - 1 do
@@ -176,10 +178,9 @@ let lambda_smaller lam threshold =
           sw ;
         Misc.may lambda_size d
     | Ustaticfail (_,args) -> lambda_list_size args
-    | Ucatch(_, _, body, handler) ->
-        incr size; lambda_size body; lambda_size handler
-    | Utrywith(body, _id, handler) ->
-        size := !size + 8; lambda_size body; lambda_size handler
+    | Ucatch(_, handlers, body) ->
+        incr size; lambda_size body;
+        List.iter (fun (_, _, handler) -> lambda_size handler) handlers
     | Uifthenelse(cond, ifso, ifnot) ->
         size := !size + 2;
         lambda_size cond; lambda_size ifso; lambda_size ifnot
@@ -195,6 +196,7 @@ let lambda_smaller lam threshold =
         size := !size + 8;
         lambda_size met; lambda_size obj; lambda_list_size args
     | Uunreachable -> ()
+    | Upushtrap _ | Upoptrap _ -> assert false
   and lambda_list_size l = List.iter lambda_size l
   and lambda_array_size a = Array.iter lambda_size a in
   try
@@ -607,18 +609,18 @@ let rec substitute loc fpc sb ulam =
          Misc.may_map (substitute loc fpc sb) d)
   | Ustaticfail (nfail, args) ->
       Ustaticfail (nfail, List.map (substitute loc fpc sb) args)
-  | Ucatch(nfail, ids, u1, u2) ->
-      let ids' = List.map Ident.rename ids in
-      let sb' =
-        List.fold_right2
-          (fun id id' s -> Tbl.add id (Uvar id') s)
-          ids ids' sb
+  | Ucatch(kind, handlers, body) ->
+      let subst_handler (nfail, ids, handler) =
+        let ids' = List.map Ident.rename ids in
+        let sb' =
+          List.fold_right2
+            (fun id id' s -> Tbl.add id (Uvar id') s)
+            ids ids' sb
+        in
+        nfail, ids', substitute loc fpc sb' handler
       in
-      Ucatch(nfail, ids', substitute loc fpc sb u1, substitute loc fpc sb' u2)
-  | Utrywith(u1, id, u2) ->
-      let id' = Ident.rename id in
-      Utrywith(substitute loc fpc sb u1, id',
-               substitute loc fpc (Tbl.add id (Uvar id') sb) u2)
+      let handlers = List.map subst_handler handlers in
+      Ucatch(kind, handlers, substitute loc fpc sb body)
   | Uifthenelse(u1, u2, u3) ->
       begin match substitute loc fpc sb u1 with
         Uconst (Uconst_ptr n) ->
@@ -649,6 +651,8 @@ let rec substitute loc fpc sb ulam =
             List.map (substitute loc fpc sb) ul, dbg)
   | Uunreachable ->
       Uunreachable
+  | Upushtrap cont -> Upushtrap cont
+  | Upoptrap cont -> Upoptrap cont
 
 (* Perform an inline expansion *)
 
@@ -773,7 +777,12 @@ let excessive_function_nesting_depth = 5
    The approximation environment [fenv] maps idents to approximations.
    Idents not bound in [fenv] approximate to [Value_unknown].
    The closure environment [cenv] maps idents to [ulambda] terms.
-   It is used to substitute environment accesses for free identifiers. *)
+   It is used to substitute environment accesses for free identifiers.
+   The exception stacks [estacks] is a couple [(cur_stack, cont_stacks)]
+   where [cur_stack] is the current exception stack and [cont_stacks] maps
+   continuations to the exception stack of the handler.
+   It is used to insert push/poptrap instructions at staticraise points
+   that cross a trywith boundary. *)
 
 exception NotClosed
 
@@ -788,7 +797,36 @@ let close_approx_var fenv cenv id =
 let close_var fenv cenv id =
   let (ulam, _app) = close_approx_var fenv cenv id in ulam
 
-let rec close fenv cenv = function
+let init_stacks = ([], Tbl.empty)
+
+let wrap_staticfail i (cur_stack, cont_stacks) ulam =
+  let cont_stack =
+    try
+      Tbl.find i cont_stacks
+    with
+    | Not_found ->
+        Misc.fatal_errorf "Missing stack context for continuation %d" i
+  in
+  let rec diff acc stack =
+    if stack = cont_stack then acc
+    else
+      match stack with
+      | j :: tl -> diff (j :: acc) tl
+      | [] ->
+          Misc.fatal_errorf "Mismatching stacks for continuation %d:@.\
+                             [%a] is not a suffix of [%a]."
+            i
+            (Format.pp_print_list Format.pp_print_int) cont_stack
+            (Format.pp_print_list Format.pp_print_int) cur_stack
+  in
+  let rec wrap conts ulam =
+    match conts with
+    | [] -> ulam
+    | j :: tl -> wrap tl (Usequence (Upoptrap j, ulam))
+  in
+  wrap (diff [] cur_stack) ulam
+
+let rec close fenv cenv estacks = function
     Lvar id ->
       close_approx_var fenv cenv id
   | Lconst cst ->
@@ -831,7 +869,9 @@ let rec close fenv cenv = function
   | Lapply{ap_func = funct; ap_args = args; ap_loc = loc;
         ap_inlined = attribute} ->
       let nargs = List.length args in
-      begin match (close fenv cenv funct, close_list fenv cenv args) with
+      let ufunct = close fenv cenv estacks funct in
+      let uargs = close_list fenv cenv estacks args in
+      begin match (ufunct, uargs) with
         ((ufunct, Value_closure(fundesc, approx_res)),
          [Uprim(Pmakeblock _, uargs, _)])
         when List.length uargs = - fundesc.fun_arity ->
@@ -864,7 +904,7 @@ let rec close fenv cenv = function
         in
         let funct_var = Ident.create "funct" in
         let fenv = Tbl.add funct_var fapprox fenv in
-        let (new_fun, approx) = close fenv cenv
+        let (new_fun, approx) = close fenv cenv estacks
           (Lfunction{
                kind = Curried;
                params = final_args;
@@ -910,22 +950,22 @@ let rec close fenv cenv = function
           (Ugeneric_apply(ufunct, uargs, dbg), Value_unknown)
       end
   | Lsend(kind, met, obj, args, loc) ->
-      let (umet, _) = close fenv cenv met in
-      let (uobj, _) = close fenv cenv obj in
+      let (umet, _) = close fenv cenv estacks met in
+      let (uobj, _) = close fenv cenv estacks obj in
       let dbg = Debuginfo.from_location loc in
-      (Usend(kind, umet, uobj, close_list fenv cenv args, dbg),
+      (Usend(kind, umet, uobj, close_list fenv cenv estacks args, dbg),
        Value_unknown)
   | Llet(str, kind, id, lam, body) ->
-      let (ulam, alam) = close_named fenv cenv id lam in
+      let (ulam, alam) = close_named fenv cenv estacks id lam in
       begin match (str, alam) with
         (Variable, _) ->
-          let (ubody, abody) = close fenv cenv body in
+          let (ubody, abody) = close fenv cenv estacks body in
           (Ulet(Mutable, kind, id, ulam, ubody), abody)
       | (_, Value_const _)
         when str = Alias || is_pure lam ->
-          close (Tbl.add id alam fenv) cenv body
+          close (Tbl.add id alam fenv) cenv estacks body
       | (_, _) ->
-          let (ubody, abody) = close (Tbl.add id alam fenv) cenv body in
+          let (ubody, abody) = close (Tbl.add id alam fenv) cenv estacks body in
           (Ulet(Immutable, kind, id, ulam, ubody), abody)
       end
   | Lletrec(defs, body) ->
@@ -940,7 +980,7 @@ let rec close fenv cenv = function
           List.fold_right
             (fun (id, _pos, approx) fenv -> Tbl.add id approx fenv)
             infos fenv in
-        let (ubody, approx) = close fenv_body cenv body in
+        let (ubody, approx) = close fenv_body cenv estacks body in
         let sb =
           List.fold_right
             (fun (id, pos, _approx) sb ->
@@ -955,53 +995,53 @@ let rec close fenv cenv = function
           [] -> ([], fenv)
         | (id, lam) :: rem ->
             let (udefs, fenv_body) = clos_defs rem in
-            let (ulam, approx) = close_named fenv cenv id lam in
+            let (ulam, approx) = close_named fenv cenv estacks id lam in
             ((id, ulam) :: udefs, Tbl.add id approx fenv_body) in
         let (udefs, fenv_body) = clos_defs defs in
-        let (ubody, approx) = close fenv_body cenv body in
+        let (ubody, approx) = close fenv_body cenv estacks body in
         (Uletrec(udefs, ubody), approx)
       end
   | Lprim(Pdirapply,[funct;arg], loc)
   | Lprim(Prevapply,[arg;funct], loc) ->
-      close fenv cenv (Lapply{ap_should_be_tailcall=false;
-                              ap_loc=loc;
-                              ap_func=funct;
-                              ap_args=[arg];
-                              ap_inlined=Default_inline;
-                              ap_specialised=Default_specialise})
+      close fenv cenv estacks (Lapply{ap_should_be_tailcall=false;
+                                      ap_loc=loc;
+                                      ap_func=funct;
+                                      ap_args=[arg];
+                                      ap_inlined=Default_inline;
+                                      ap_specialised=Default_specialise})
   | Lprim(Pgetglobal id, [], loc) as lam ->
       let dbg = Debuginfo.from_location loc in
       check_constant_result lam
                             (getglobal dbg id)
                             (Compilenv.global_approx id)
   | Lprim(Pfield n, [lam], loc) ->
-      let (ulam, approx) = close fenv cenv lam in
+      let (ulam, approx) = close fenv cenv estacks lam in
       let dbg = Debuginfo.from_location loc in
       check_constant_result lam (Uprim(Pfield n, [ulam], dbg))
                             (field_approx n approx)
   | Lprim(Psetfield(n, is_ptr, init), [Lprim(Pgetglobal id, [], _); lam], loc)->
-      let (ulam, approx) = close fenv cenv lam in
+      let (ulam, approx) = close fenv cenv estacks lam in
       if approx <> Value_unknown then
         (!global_approx).(n) <- approx;
       let dbg = Debuginfo.from_location loc in
       (Uprim(Psetfield(n, is_ptr, init), [getglobal dbg id; ulam], dbg),
        Value_unknown)
   | Lprim(Praise k, [arg], loc) ->
-      let (ulam, _approx) = close fenv cenv arg in
+      let (ulam, _approx) = close fenv cenv estacks arg in
       let dbg = Debuginfo.from_location loc in
       (Uprim(Praise k, [ulam], dbg),
        Value_unknown)
   | Lprim(p, args, loc) ->
       let dbg = Debuginfo.from_location loc in
       simplif_prim !Clflags.float_const_prop
-                   p (close_list_approx fenv cenv args) dbg
+                   p (close_list_approx fenv cenv estacks args) dbg
   | Lswitch(arg, sw, dbg) ->
       let fn fail =
-        let (uarg, _) = close fenv cenv arg in
+        let (uarg, _) = close fenv cenv estacks arg in
         let const_index, const_actions, fconst =
-          close_switch fenv cenv sw.sw_consts sw.sw_numconsts fail
+          close_switch fenv cenv estacks sw.sw_consts sw.sw_numconsts fail
         and block_index, block_actions, fblock =
-          close_switch fenv cenv sw.sw_blocks sw.sw_numblocks fail in
+          close_switch fenv cenv estacks sw.sw_blocks sw.sw_numblocks fail in
         let ulam =
           Uswitch
             (uarg,
@@ -1023,83 +1063,97 @@ let rec close fenv cenv = function
           then
             let i = next_raise_count () in
             let ubody,_ = fn (Some (Lstaticraise (i,[])))
-            and uhandler,_ = close fenv cenv lamfail in
-            Ucatch (i,[],ubody,uhandler),Value_unknown
+            and uhandler,_ = close fenv cenv estacks lamfail in
+            Ucatch (Normal Nonrecursive, [i, [], uhandler], ubody),
+              Value_unknown
           else fn fail
       end
   | Lstringswitch(arg,sw,d,_) ->
-      let uarg,_ = close fenv cenv arg in
+      let uarg,_ = close fenv cenv estacks arg in
       let usw =
         List.map
           (fun (s,act) ->
-            let uact,_ = close fenv cenv act in
+            let uact,_ = close fenv cenv estacks act in
             s,uact)
           sw in
       let ud =
         Misc.may_map
           (fun d ->
-            let ud,_ = close fenv cenv d in
+            let ud,_ = close fenv cenv estacks d in
             ud) d in
       Ustringswitch (uarg,usw,ud),Value_unknown
   | Lstaticraise (i, args) ->
-      (Ustaticfail (i, close_list fenv cenv args), Value_unknown)
+      let uargs = close_list fenv cenv estacks args in
+      (wrap_staticfail i estacks (Ustaticfail (i, uargs)), Value_unknown)
   | Lstaticcatch(body, (i, vars), handler) ->
-      let (ubody, _) = close fenv cenv body in
-      let (uhandler, _) = close fenv cenv handler in
-      (Ucatch(i, vars, ubody, uhandler), Value_unknown)
+      let cur_stack, cont_stacks = estacks in
+      let estacks_body = (cur_stack, Tbl.add i cur_stack cont_stacks) in
+      let (ubody, _) = close fenv cenv estacks_body body in
+      let (uhandler, _) = close fenv cenv estacks handler in
+      (Ucatch(Normal Nonrecursive, [i, vars, uhandler], ubody),
+        Value_unknown)
   | Ltrywith(body, id, handler) ->
-      let (ubody, _) = close fenv cenv body in
-      let (uhandler, _) = close fenv cenv handler in
-      (Utrywith(ubody, id, uhandler), Value_unknown)
+      let cont = Lambda.next_raise_count () in
+      let cur_stack, cont_stacks = estacks in
+      let (ubody, _) = close fenv cenv (cont :: cur_stack, cont_stacks) body in
+      let (uhandler, _) = close fenv cenv estacks handler in
+      let body_ident = Ident.create "try_body" in
+      let ubody =
+        Usequence (Upushtrap cont,
+          Ulet (Asttypes.Immutable, Lambda.Pgenval, body_ident, ubody,
+            Usequence (Upoptrap cont,
+              Uvar body_ident)))
+      in
+      (Ucatch (Exn_handler, [cont, [id], uhandler], ubody), Value_unknown)
   | Lifthenelse(arg, ifso, ifnot) ->
-      begin match close fenv cenv arg with
+      begin match close fenv cenv estacks arg with
         (uarg, Value_const (Uconst_ptr n)) ->
           sequence_constant_expr arg uarg
-            (close fenv cenv (if n = 0 then ifnot else ifso))
+            (close fenv cenv estacks (if n = 0 then ifnot else ifso))
       | (uarg, _ ) ->
-          let (uifso, _) = close fenv cenv ifso in
-          let (uifnot, _) = close fenv cenv ifnot in
+          let (uifso, _) = close fenv cenv estacks ifso in
+          let (uifnot, _) = close fenv cenv estacks ifnot in
           (Uifthenelse(uarg, uifso, uifnot), Value_unknown)
       end
   | Lsequence(lam1, lam2) ->
-      let (ulam1, _) = close fenv cenv lam1 in
-      let (ulam2, approx) = close fenv cenv lam2 in
+      let (ulam1, _) = close fenv cenv estacks lam1 in
+      let (ulam2, approx) = close fenv cenv estacks lam2 in
       (Usequence(ulam1, ulam2), approx)
   | Lwhile(cond, body) ->
-      let (ucond, _) = close fenv cenv cond in
-      let (ubody, _) = close fenv cenv body in
+      let (ucond, _) = close fenv cenv estacks cond in
+      let (ubody, _) = close fenv cenv estacks body in
       (Uwhile(ucond, ubody), Value_unknown)
   | Lfor(id, lo, hi, dir, body) ->
-      let (ulo, _) = close fenv cenv lo in
-      let (uhi, _) = close fenv cenv hi in
-      let (ubody, _) = close fenv cenv body in
+      let (ulo, _) = close fenv cenv estacks lo in
+      let (uhi, _) = close fenv cenv estacks hi in
+      let (ubody, _) = close fenv cenv estacks body in
       (Ufor(id, ulo, uhi, dir, ubody), Value_unknown)
   | Lassign(id, lam) ->
-      let (ulam, _) = close fenv cenv lam in
+      let (ulam, _) = close fenv cenv estacks lam in
       (Uassign(id, ulam), Value_unknown)
   | Levent(lam, _) ->
-      close fenv cenv lam
+      close fenv cenv estacks lam
   | Lifused _ ->
       assert false
 
-and close_list fenv cenv = function
+and close_list fenv cenv estacks = function
     [] -> []
   | lam :: rem ->
-      let (ulam, _) = close fenv cenv lam in
-      ulam :: close_list fenv cenv rem
+      let (ulam, _) = close fenv cenv estacks lam in
+      ulam :: close_list fenv cenv estacks rem
 
-and close_list_approx fenv cenv = function
+and close_list_approx fenv cenv estacks = function
     [] -> ([], [])
   | lam :: rem ->
-      let (ulam, approx) = close fenv cenv lam in
-      let (ulams, approxs) = close_list_approx fenv cenv rem in
+      let (ulam, approx) = close fenv cenv estacks lam in
+      let (ulams, approxs) = close_list_approx fenv cenv estacks rem in
       (ulam :: ulams, approx :: approxs)
 
-and close_named fenv cenv id = function
+and close_named fenv cenv estacks id = function
     Lfunction _ as funct ->
       close_one_function fenv cenv id funct
   | lam ->
-      close fenv cenv lam
+      close fenv cenv estacks lam
 
 (* Build a shared closure for a set of mutually recursive functions *)
 
@@ -1174,7 +1228,7 @@ and close_functions fenv cenv fun_defs =
         (fun (id, _params, _body, _fundesc, _dbg) pos env ->
           Tbl.add id (Uoffset(Uvar env_param, pos - env_pos)) env)
         uncurried_defs clos_offsets cenv_fv in
-    let (ubody, approx) = close fenv_rec cenv_body body in
+    let (ubody, approx) = close fenv_rec cenv_body init_stacks body in
     if !useless_env && occurs_var env_param ubody then raise NotClosed;
     let fun_params = if !useless_env then params else params @ [env_param] in
     let f =
@@ -1250,7 +1304,7 @@ and close_one_function fenv cenv id funct =
 
 (* Close a switch *)
 
-and close_switch fenv cenv cases num_keys default =
+and close_switch fenv cenv estacks cases num_keys default =
   let ncases = List.length cases in
   let index = Array.make num_keys 0
   and store = Storer.mk_store () in
@@ -1277,10 +1331,10 @@ and close_switch fenv cenv cases num_keys default =
     Array.map
       (function
         | Single lam|Shared (Lstaticraise (_,[]) as lam) ->
-            let ulam,_ = close fenv cenv lam in
+            let ulam,_ = close fenv cenv estacks lam in
             ulam
         | Shared lam ->
-            let ulam,_ = close fenv cenv lam in
+            let ulam,_ = close fenv cenv estacks lam in
             let i = next_raise_count () in
 (*
             let string_of_lambda e =
@@ -1291,7 +1345,8 @@ and close_switch fenv cenv cases num_keys default =
                 (string_of_lambda lam) ;
 *)
             let ohs = !hs in
-            hs := (fun e -> Ucatch (i,[],ohs e,ulam)) ;
+            hs := (fun e ->
+              Ucatch (Normal Nonrecursive, [i, [], ulam], ohs e)) ;
             Ustaticfail (i,[]))
       acts in
   match actions with
@@ -1345,8 +1400,9 @@ let collect_exported_structured_constants a =
         List.iter (fun (_,act) -> ulam act) sw ;
         Misc.may ulam d
     | Ustaticfail (_, ul) -> List.iter ulam ul
-    | Ucatch (_, _, u1, u2)
-    | Utrywith (u1, _, u2)
+    | Ucatch (_, handlers, body) ->
+        List.iter (fun (_, _, handler) -> ulam handler) handlers;
+        ulam body
     | Usequence (u1, u2)
     | Uwhile (u1, u2)  -> ulam u1; ulam u2
     | Uifthenelse (u1, u2, u3)
@@ -1354,6 +1410,7 @@ let collect_exported_structured_constants a =
     | Uassign (_, u) -> ulam u
     | Usend (_, u1, u2, ul, _) -> ulam u1; ulam u2; List.iter ulam ul
     | Uunreachable -> ()
+    | Upushtrap _ | Upoptrap _ -> ()
   in
   approx a
 
@@ -1368,7 +1425,7 @@ let intro size lam =
   let id = Compilenv.make_symbol None in
   global_approx := Array.init size (fun i -> Value_global_field (id, i));
   Compilenv.set_global_approx(Value_tuple !global_approx);
-  let (ulam, _approx) = close Tbl.empty Tbl.empty lam in
+  let (ulam, _approx) = close Tbl.empty Tbl.empty init_stacks lam in
   let opaque =
     !Clflags.opaque
     || Env.is_imported_opaque (Compilenv.current_unit_name ())

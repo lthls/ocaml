@@ -131,6 +131,10 @@ module Env : sig
   val allocated_const_for_symbol : t -> Symbol.t -> Allocated_const.t option
 
   val keep_only_symbols : t -> t
+
+  val enter_trywith_body : t -> int -> t
+  val enter_static_catch_body : t -> Static_exception.t -> t
+  val stack_adjust_at_static_raise : t -> Static_exception.t -> int list
 end = struct
   type t =
     { subst : Clambda.ulambda Variable.Map.t;
@@ -138,6 +142,8 @@ end = struct
       mutable_var : Ident.t Mutable_variable.Map.t;
       toplevel : bool;
       allocated_constant_for_symbol : Allocated_const.t Symbol.Map.t;
+      exception_stack : int list;
+      handler_stacks : int list Static_exception.Map.t;
     }
 
   let empty =
@@ -146,6 +152,8 @@ end = struct
       mutable_var = Mutable_variable.Map.empty;
       toplevel = false;
       allocated_constant_for_symbol = Symbol.Map.empty;
+      exception_stack = [];
+      handler_stacks = Static_exception.Map.empty;
     }
 
   let add_subst t id subst =
@@ -182,7 +190,47 @@ end = struct
     { empty with
       allocated_constant_for_symbol = t.allocated_constant_for_symbol;
     }
+
+  let enter_trywith_body t cont =
+    { t with
+      exception_stack = cont :: t.exception_stack;
+    }
+
+  let enter_static_catch_body t static_exn =
+    { t with
+      handler_stacks =
+        Static_exception.Map.add static_exn t.exception_stack t.handler_stacks;
+    }
+
+  let stack_adjust_at_static_raise t static_exn =
+    let handler_stack =
+      try
+        Static_exception.Map.find static_exn t.handler_stacks
+      with
+      | Not_found ->
+          Misc.fatal_errorf "Missing stack context for static exception %a"
+            Static_exception.print static_exn
+    in
+    let rec diff acc stack =
+      if stack = handler_stack then acc
+      else
+        match stack with
+        | j :: tl -> diff (j :: acc) tl
+        | [] ->
+            Misc.fatal_errorf "Mismatching stacks for static exception %a:@.\
+                               [%a] is not a suffix of [%a]."
+              Static_exception.print static_exn
+              (Format.pp_print_list Format.pp_print_int) handler_stack
+              (Format.pp_print_list Format.pp_print_int) t.exception_stack
+    in
+    diff [] t.exception_stack
 end
+
+let rec wrap_static_fail ulam stack =
+  match stack with
+  | [] -> ulam
+  | cont :: tl ->
+    wrap_static_fail (Usequence (Upoptrap cont, ulam): Clambda.ulambda) tl
 
 let subst_var env var : Clambda.ulambda =
   try Env.find_subst_exn env var
@@ -309,8 +357,12 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
     let def = Misc.may_map (to_clambda t env) def in
     Ustringswitch (arg, sw, def)
   | Static_raise (static_exn, args) ->
-    Ustaticfail (Static_exception.to_int static_exn,
-      List.map (subst_var env) args)
+    let adjust = Env.stack_adjust_at_static_raise env static_exn in
+    let ulam =
+      Clambda.Ustaticfail (Static_exception.to_int static_exn,
+        List.map (subst_var env) args)
+    in
+    wrap_static_fail ulam adjust
   | Static_catch (static_exn, vars, body, handler) ->
     let env_handler, ids =
       List.fold_right (fun var (env, ids) ->
@@ -318,11 +370,24 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
           env, id :: ids)
         vars (env, [])
     in
-    Ucatch (Static_exception.to_int static_exn, ids,
-      to_clambda t env body, to_clambda t env_handler handler)
+    let env_body = Env.enter_static_catch_body env static_exn in
+    Ucatch (Normal Asttypes.Nonrecursive,
+      [Static_exception.to_int static_exn, ids,
+       to_clambda t env_handler handler],
+      to_clambda t env_body body)
   | Try_with (body, var, handler) ->
     let id, env_handler = Env.add_fresh_ident env var in
-    Utrywith (to_clambda t env body, id, to_clambda t env_handler handler)
+    let cont = Lambda.next_raise_count () in
+    let body_ident = Ident.create "try_body" in
+    let env_body = Env.enter_trywith_body env cont in
+    let ubody = to_clambda t env_body body in
+    let ubody =
+      Clambda.Usequence (Upushtrap cont,
+        Ulet (Asttypes.Immutable, Lambda.Pgenval, body_ident, ubody,
+          Usequence (Upoptrap cont,
+            Uvar body_ident)))
+    in
+    Ucatch (Exn_handler, [cont, [id], to_clambda t env_handler handler], ubody)
   | If_then_else (arg, ifso, ifnot) ->
     Uifthenelse (subst_var env arg, to_clambda t env ifso,
       to_clambda t env ifnot)
