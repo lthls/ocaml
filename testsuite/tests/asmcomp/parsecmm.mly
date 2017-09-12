@@ -191,20 +191,29 @@ expr:
   | LPAREN IF expr expr expr RPAREN { Cifthenelse($3, $4, $5) }
   | LPAREN SWITCH INTCONST expr caselist RPAREN { make_switch $3 $4 $5 }
   | LPAREN WHILE expr sequence RPAREN
-      { let body =
+      { let cont = Lambda.next_raise_count () in
+        let body =
           match $3 with
             Cconst_int x when x <> 0 -> $4
-          | _ -> Cifthenelse($3, $4, (Cexit(0,[]))) in
-        Ccatch(Recursive, [0, [], Cloop body], Ctuple []) }
+          | _ -> Cifthenelse($3, $4, (Cexit(cont,[]))) in
+        Ccatch(Normal Recursive, [cont, [], Cloop body], Ctuple []) }
   | LPAREN EXIT IDENT exprlist RPAREN
     { Cexit(find_label $3, List.rev $4) }
   | LPAREN CATCH sequence WITH catch_handlers RPAREN
     { let handlers = $5 in
       List.iter (fun (_, l, _) -> List.iter unbind_ident l) handlers;
-      Ccatch(Recursive, handlers, $3) }
+      Ccatch(Normal Recursive, handlers, $3) }
   | EXIT        { Cexit(0,[]) }
   | LPAREN TRY sequence WITH bind_ident sequence RPAREN
-                { unbind_ident $5; Ctrywith($3, $5, $6) }
+    { unbind_ident $5;
+      let cont = Lambda.next_raise_count () in
+      let result = bind_ident "result" in
+      Ccatch (Exn_handler, [cont, [$5], $6],
+        Csequence (Cop (Cpushtrap cont, [], debuginfo ()),
+          Clet (result, $3,
+            Csequence (Cop (Cpoptrap cont, [], debuginfo ()),
+              Cvar result))))
+    }
   | LPAREN VAL expr expr RPAREN
       { Cop(Cload (Word_val, Mutable), [access_array $3 $4 Arch.size_addr],
           debuginfo ()) }
