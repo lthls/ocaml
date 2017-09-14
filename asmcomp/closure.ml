@@ -196,7 +196,7 @@ let lambda_smaller lam threshold =
         size := !size + 8;
         lambda_size met; lambda_size obj; lambda_list_size args
     | Uunreachable -> ()
-    | Upushtrap _ | Upoptrap _ -> assert false
+    | Upushtrap _ | Upoptrap _ -> size := !size + 4
   and lambda_list_size l = List.iter lambda_size l
   and lambda_array_size a = Array.iter lambda_size a in
   try
@@ -1036,7 +1036,7 @@ let rec close fenv cenv estacks = function
       simplif_prim !Clflags.float_const_prop
                    p (close_list_approx fenv cenv estacks args) dbg
   | Lswitch(arg, sw, dbg) ->
-      let fn fail =
+      let fn estacks fail =
         let (uarg, _) = close fenv cenv estacks arg in
         let const_index, const_actions, fconst =
           close_switch fenv cenv estacks sw.sw_consts sw.sw_numconsts fail
@@ -1055,18 +1055,20 @@ let rec close fenv cenv estacks = function
 (* NB: failaction might get copied, thus it should be some Lstaticraise *)
       let fail = sw.sw_failaction in
       begin match fail with
-      | None|Some (Lstaticraise (_,_)) -> fn fail
+      | None|Some (Lstaticraise (_,_)) -> fn estacks fail
       | Some lamfail ->
           if
             (sw.sw_numconsts - List.length sw.sw_consts) +
             (sw.sw_numblocks - List.length sw.sw_blocks) > 1
           then
             let i = next_raise_count () in
-            let ubody,_ = fn (Some (Lstaticraise (i,[])))
+            let cur_stack, cont_stacks = estacks in
+            let estacks_body = (cur_stack, Tbl.add i cur_stack cont_stacks) in
+            let ubody,_ = fn estacks_body (Some (Lstaticraise (i,[])))
             and uhandler,_ = close fenv cenv estacks lamfail in
             Ucatch (Normal Nonrecursive, [i, [], uhandler], ubody),
               Value_unknown
-          else fn fail
+          else fn estacks fail
       end
   | Lstringswitch(arg,sw,d,_) ->
       let uarg,_ = close fenv cenv estacks arg in
