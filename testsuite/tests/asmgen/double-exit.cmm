@@ -1,0 +1,14 @@
+
+(function "double_exit" (b:val)
+  (let
+    x
+      (catch
+        (if (and b 1) (exit l 1a)
+          3a)
+      with (l x) x)
+    (try
+      (catch
+        (if (and b 1) (exit l 1a)
+          3a)
+      with (l x) x)
+     with var 456)))

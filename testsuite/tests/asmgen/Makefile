@@ -73,6 +73,7 @@ ARGS_catch-rec=-DINT_INT -DFUN=catch_fact main.c
 ARGS_even-odd=-DINT_INT -DFUN=is_even main.c
 ARGS_even-odd-spill=-DINT_INT -DFUN=is_even main.c
 ARGS_pgcd=-DINT_INT -DFUN=pgcd_30030 main.c
+ARGS_double-exit=-DINT_INT -DFUN=double_exit main.c
 
 skips:
 	@for c in $(CASES); do \
