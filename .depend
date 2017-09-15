@@ -716,7 +716,7 @@ asmcomp/afl_instrument.cmx : bytecomp/lambda.cmx typing/ident.cmx \
 asmcomp/afl_instrument.cmi : asmcomp/cmm.cmi
 asmcomp/arch.cmo : utils/config.cmi utils/clflags.cmi
 asmcomp/arch.cmx : utils/config.cmx utils/clflags.cmx
-asmcomp/asmgen.cmo : asmcomp/un_anf.cmi asmcomp/trap_analysis.cmo \
+asmcomp/asmgen.cmo : asmcomp/un_anf.cmi asmcomp/trap_analysis.cmi \
     bytecomp/translmod.cmi middle_end/base_types/symbol.cmi asmcomp/split.cmi \
     asmcomp/spill.cmi asmcomp/selection.cmi asmcomp/scheduling.cmi \
     asmcomp/reload.cmi asmcomp/reg.cmi utils/profile.cmi asmcomp/proc.cmi \
@@ -724,7 +724,7 @@ asmcomp/asmgen.cmo : asmcomp/un_anf.cmi asmcomp/trap_analysis.cmo \
     asmcomp/printclambda.cmi typing/primitive.cmi utils/misc.cmi \
     asmcomp/mach.cmi parsing/location.cmi asmcomp/liveness.cmi \
     asmcomp/linscan.cmi middle_end/base_types/linkage_name.cmi \
-    asmcomp/linearize.cmi asmcomp/linear_invariants.cmo bytecomp/lambda.cmi \
+    asmcomp/linearize.cmi asmcomp/linear_invariants.cmi bytecomp/lambda.cmi \
     asmcomp/interval.cmi asmcomp/interf.cmi typing/ident.cmi \
     asmcomp/flambda_to_clambda.cmi middle_end/flambda.cmi asmcomp/emitaux.cmi \
     asmcomp/emit.cmi asmcomp/deadcode.cmi utils/config.cmi \
@@ -985,8 +985,8 @@ asmcomp/flambda_to_clambda.cmo : middle_end/base_types/variable.cmi \
     middle_end/base_types/set_of_closures_id.cmi typing/primitive.cmi \
     middle_end/parameter.cmi utils/numbers.cmi \
     middle_end/base_types/mutable_variable.cmi utils/misc.cmi \
-    middle_end/base_types/linkage_name.cmi typing/ident.cmi \
-    middle_end/flambda_utils.cmi middle_end/flambda.cmi \
+    middle_end/base_types/linkage_name.cmi bytecomp/lambda.cmi \
+    typing/ident.cmi middle_end/flambda_utils.cmi middle_end/flambda.cmi \
     asmcomp/export_info.cmi middle_end/debuginfo.cmi asmcomp/compilenv.cmi \
     asmcomp/closure_offsets.cmi middle_end/base_types/closure_id.cmi \
     utils/clflags.cmi asmcomp/clambda.cmi parsing/asttypes.cmi \
@@ -998,8 +998,8 @@ asmcomp/flambda_to_clambda.cmx : middle_end/base_types/variable.cmx \
     middle_end/base_types/set_of_closures_id.cmx typing/primitive.cmx \
     middle_end/parameter.cmx utils/numbers.cmx \
     middle_end/base_types/mutable_variable.cmx utils/misc.cmx \
-    middle_end/base_types/linkage_name.cmx typing/ident.cmx \
-    middle_end/flambda_utils.cmx middle_end/flambda.cmx \
+    middle_end/base_types/linkage_name.cmx bytecomp/lambda.cmx \
+    typing/ident.cmx middle_end/flambda_utils.cmx middle_end/flambda.cmx \
     asmcomp/export_info.cmx middle_end/debuginfo.cmx asmcomp/compilenv.cmx \
     asmcomp/closure_offsets.cmx middle_end/base_types/closure_id.cmx \
     utils/clflags.cmx asmcomp/clambda.cmx parsing/asttypes.cmi \
@@ -1035,9 +1035,10 @@ asmcomp/interval.cmx : asmcomp/reg.cmx asmcomp/proc.cmx asmcomp/mach.cmx \
     asmcomp/interval.cmi
 asmcomp/interval.cmi : asmcomp/reg.cmi asmcomp/mach.cmi
 asmcomp/linear_invariants.cmo : asmcomp/printlinear.cmi utils/numbers.cmi \
-    utils/misc.cmi asmcomp/linearize.cmi
+    utils/misc.cmi asmcomp/linearize.cmi asmcomp/linear_invariants.cmi
 asmcomp/linear_invariants.cmx : asmcomp/printlinear.cmx utils/numbers.cmx \
-    utils/misc.cmx asmcomp/linearize.cmx
+    utils/misc.cmx asmcomp/linearize.cmx asmcomp/linear_invariants.cmi
+asmcomp/linear_invariants.cmi : asmcomp/linearize.cmi
 asmcomp/linearize.cmo : asmcomp/reg.cmi asmcomp/proc.cmi utils/misc.cmi \
     asmcomp/mach.cmi middle_end/debuginfo.cmi utils/config.cmi \
     asmcomp/cmm.cmi asmcomp/linearize.cmi
@@ -1173,9 +1174,10 @@ asmcomp/strmatch.cmx : parsing/location.cmx bytecomp/lambda.cmx \
 asmcomp/strmatch.cmi : parsing/location.cmi middle_end/debuginfo.cmi \
     asmcomp/cmm.cmi
 asmcomp/trap_analysis.cmo : utils/numbers.cmi utils/misc.cmi \
-    asmcomp/mach.cmi
+    asmcomp/mach.cmi bytecomp/lambda.cmi asmcomp/trap_analysis.cmi
 asmcomp/trap_analysis.cmx : utils/numbers.cmx utils/misc.cmx \
-    asmcomp/mach.cmx
+    asmcomp/mach.cmx bytecomp/lambda.cmx asmcomp/trap_analysis.cmi
+asmcomp/trap_analysis.cmi : asmcomp/mach.cmi
 asmcomp/un_anf.cmo : bytecomp/semantics_of_primitives.cmi \
     asmcomp/printclambda.cmi utils/misc.cmi bytecomp/lambda.cmi \
     typing/ident.cmi middle_end/debuginfo.cmi utils/clflags.cmi \

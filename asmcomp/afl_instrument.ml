@@ -70,7 +70,7 @@ and instrument = function
      Ccatch (isrec,
              List.map (fun (nfail, ids, e) -> nfail, ids, instrument e) cases,
              instrument body)
-  | Cexit (ex, args) -> Cexit (ex, List.map instrument args)
+  | Cexit (ex, args, conts) -> Cexit (ex, List.map instrument args, conts)
 
   (* these are base cases and have no logging *)
   | Cconst_int _ | Cconst_natint _ | Cconst_float _

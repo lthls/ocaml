@@ -14,7 +14,7 @@ let rec make_letdef def body =
 let make_switch n selector caselist =
   let index = Array.make n 0 in
   let casev = Array.of_list caselist in
-  let actv = Array.make (Array.length casev) (Cexit(0,[])) in
+  let actv = Array.make (Array.length casev) (Cexit(0,[],[])) in
   for i = 0 to Array.length casev - 1 do
     let (posl, e) = casev.(i) in
     List.iter (fun pos -> index.(pos) <- i) posl;
@@ -195,15 +195,15 @@ expr:
         let body =
           match $3 with
             Cconst_int x when x <> 0 -> $4
-          | _ -> Cifthenelse($3, $4, (Cexit(cont,[]))) in
+          | _ -> Cifthenelse($3, $4, (Cexit(cont,[],[]))) in
         Ccatch(Normal Recursive, [cont, [], Cloop body], Ctuple []) }
   | LPAREN EXIT IDENT exprlist RPAREN
-    { Cexit(find_label $3, List.rev $4) }
+    { Cexit(find_label $3, List.rev $4,[]) }
   | LPAREN CATCH sequence WITH catch_handlers RPAREN
     { let handlers = $5 in
       List.iter (fun (_, l, _) -> List.iter unbind_ident l) handlers;
       Ccatch(Normal Recursive, handlers, $3) }
-  | EXIT        { Cexit(0,[]) }
+  | EXIT        { Cexit(0,[],[]) }
   | LPAREN TRY sequence WITH bind_ident sequence RPAREN
     { unbind_ident $5;
       let cont = Lambda.next_raise_count () in

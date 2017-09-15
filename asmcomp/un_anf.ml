@@ -132,9 +132,10 @@ let make_ident_info (clam : Clambda.ulambda) : ident_info =
           loop branch)
         branches;
       Misc.may loop default
-    | Ustaticfail (static_exn, args) ->
+    | Ustaticfail (static_exn, args, conts) ->
       ignore_int static_exn;
-      List.iter loop args
+      List.iter loop args;
+      List.iter ignore_int conts
     | Ucatch (_kind, conts, body) ->
       loop body;
       List.iter (fun (cont, params, handler) ->
@@ -329,9 +330,10 @@ let let_bound_vars_that_can_be_moved ident_info (clam : Clambda.ulambda) =
       let_stack := [];
       Misc.may loop default;
       let_stack := []
-    | Ustaticfail (static_exn, args) ->
+    | Ustaticfail (static_exn, args, conts) ->
       ignore_int static_exn;
-      examine_argument_list args
+      examine_argument_list args;
+      List.iter ignore_int conts
     | Ucatch (_kind, conts, body) ->
       let_stack := [];
       loop body;
@@ -470,9 +472,9 @@ let rec substitute_let_moveable is_let_moveable env (clam : Clambda.ulambda)
       Misc.may_map (substitute_let_moveable is_let_moveable env) default
     in
     Ustringswitch (cond, branches, default)
-  | Ustaticfail (n, args) ->
+  | Ustaticfail (n, args, conts) ->
     let args = substitute_let_moveable_list is_let_moveable env args in
-    Ustaticfail (n, args)
+    Ustaticfail (n, args, conts)
   | Ucatch (kind, conts, body) ->
     let body = substitute_let_moveable is_let_moveable env body in
     let conts =
@@ -667,9 +669,9 @@ let rec un_anf_and_moveable ident_info env (clam : Clambda.ulambda)
     in
     let default = Misc.may_map (un_anf ident_info env) default in
     Ustringswitch (cond, branches, default), Fixed
-  | Ustaticfail (n, args) ->
+  | Ustaticfail (n, args, conts) ->
     let args = un_anf_list ident_info env args in
-    Ustaticfail (n, args), Fixed
+    Ustaticfail (n, args, conts), Fixed
   | Ucatch (kind, conts, body) ->
     let body = un_anf ident_info env body in
     let conts =

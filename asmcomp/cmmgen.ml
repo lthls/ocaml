@@ -577,7 +577,7 @@ let rec remove_unit = function
       Cop(Capply typ_void, args, dbg)
   | Cop(Cextcall(proc, _mty, alloc, label_after), args, dbg) ->
       Cop(Cextcall(proc, typ_void, alloc, label_after), args, dbg)
-  | Cexit (_,_) as c -> c
+  | Cexit (_,_,_) as c -> c
   | Ctuple [] as c -> c
   | c -> Csequence(c, Ctuple [])
 
@@ -1445,7 +1445,7 @@ struct
   let bind arg body = bind "switcher" arg body
 
   let make_catch handler = match handler with
-  | Cexit (i,[]) -> i,fun e -> e
+  | Cexit (i,[],[]) -> i,fun e -> e
   | _ ->
       let i = next_raise_count () in
 (*
@@ -1461,7 +1461,7 @@ struct
           else body
       | _ -> *) Ccatch (Normal Asttypes.Nonrecursive, [i, [], handler], body))
 
-  let make_exit i = Cexit (i,[])
+  let make_exit i = Cexit (i,[],[])
 
 end
 
@@ -1473,7 +1473,7 @@ module StoreExp =
       type t = expression
       type key = int
       let make_key = function
-        | Cexit (i,[]) -> Some i
+        | Cexit (i,[],[]) -> Some i
         | _ -> None
       let compare_key = Pervasives.compare
     end)
@@ -1853,8 +1853,8 @@ let rec transl env e =
         (fun arg ->
           strmatch_compile dbg arg (Misc.may_map (transl env) d)
             (List.map (fun (s,act) -> s,transl env act) sw))
-  | Ustaticfail (nfail, args) ->
-      Cexit (nfail, List.map (transl env) args)
+  | Ustaticfail (nfail, args, conts) ->
+      Cexit (nfail, List.map (transl env) args, conts)
   | Ucatch (kind, conts, body) ->
       let conts =
         List.map (fun (cont, params, handler) ->
@@ -1876,7 +1876,7 @@ let rec transl env e =
            (Normal Asttypes.Nonrecursive, [raise_num, [], Ctuple []],
             Cloop(transl_if env cond dbg Unknown
                     (remove_unit(transl env body))
-                    (Cexit (raise_num,[])))))
+                    (Cexit (raise_num,[],[])))))
   | Ufor(id, low, high, dir, body) ->
       let dbg = Debuginfo.none in
       let tst = match dir with Upto -> Cgt   | Downto -> Clt in
@@ -1891,7 +1891,7 @@ let rec transl env e =
                 (Normal Asttypes.Nonrecursive, [raise_num, [], Ctuple []],
                  Cifthenelse
                    (Cop(Ccmpi tst, [Cvar id; high], dbg),
-                    Cexit (raise_num, []),
+                    Cexit (raise_num, [], []),
                     Cloop
                       (Csequence
                          (remove_unit(transl env body),
@@ -1903,7 +1903,7 @@ let rec transl env e =
                              Cifthenelse
                                (Cop(Ccmpi Ceq, [Cvar id_prev; high],
                                   dbg),
-                                Cexit (raise_num,[]), Ctuple []))))))))))
+                                Cexit (raise_num,[],[]), Ctuple []))))))))))
   | Uassign(id, exp) ->
       let dbg = Debuginfo.none in
       begin match is_unboxed_id id env with
@@ -2637,7 +2637,7 @@ and transl_let env str kind id exp body =
 
 and is_shareable_cont exp =
   match exp with
-  | Cexit (_,[]) -> true
+  | Cexit (_,[],[]) -> true
   | _ -> false
 
 and make_shareable_cont mk exp =
@@ -2647,7 +2647,7 @@ and make_shareable_cont mk exp =
     Ccatch (
       Normal Asttypes.Nonrecursive, (* CR mshinwell: pass as parameter? *)
       [nfail, [], exp],
-      mk (Cexit (nfail,[])))
+      mk (Cexit (nfail,[],[])))
   end
 
 and transl_if env cond dbg approx then_ else_ =
@@ -3104,7 +3104,7 @@ let cache_public_method meths tag cache dbg =
            Cassign(hi, Cop(Csubi, [Cvar mi; Cconst_int 2], dbg)),
            Cassign(li, Cvar mi)),
         Cifthenelse
-          (Cop(Ccmpi Cge, [Cvar li; Cvar hi], dbg), Cexit (raise_num, []),
+          (Cop(Ccmpi Cge, [Cvar li; Cvar hi], dbg), Cexit (raise_num, [], []),
            Ctuple []))))),
   Clet (
     tagged,

@@ -59,8 +59,8 @@ let debuginfo ?(loc=Location.symbol_rloc ()) () =
 let nodebuginfo () =
   Debuginfo.(from_location Location.none)
 
-let adjust_traps exit_stack handler_stack (expr : Cmm.expression)
-  : Cmm.expression =
+let adjust_traps exit_stack handler_stack
+  : int list =
   let rec diff_stack exit_stack handler_stack =
     match exit_stack, handler_stack with
     | stack, [] -> stack
@@ -72,18 +72,7 @@ let adjust_traps exit_stack handler_stack (expr : Cmm.expression)
   let diff_stack =
     List.rev (diff_stack (List.rev exit_stack) (List.rev handler_stack))
   in
-  let rec add_push_pop stack expr =
-    match stack with
-    | [] -> expr
-    | cont :: stack ->
-      let (expr : Cmm.expression) =
-        Csequence (Cop (Cpoptrap cont, [], nodebuginfo ()),
-          Csequence (expr,
-                     Cop (Cpushtrap cont, [], nodebuginfo ())))
-      in
-      add_push_pop stack expr
-  in
-  add_push_pop diff_stack expr
+  diff_stack
 
 let rec adjust_traps_expr env stack (expr : Cmm.expression)
   : Cmm.expression * int list =
@@ -147,15 +136,15 @@ let rec adjust_traps_expr env stack (expr : Cmm.expression)
     in
     let body, stack = adjust_traps_expr body_env stack body in
     Ccatch (kind, handlers, body), stack
-  | Cexit (cont, exprs) ->
+  | Cexit (cont, exprs, _) ->
     let exprs = adjust_traps_expr_list env stack exprs in
     let handler_stack =
       match List.assoc cont env with
       | stack -> stack
       | exception Not_found -> raise (Error (Undefined_continuation cont))
     in
-    match adjust_traps stack handler_stack (Cexit (cont, exprs)) with
-    | expr -> expr, stack
+    match adjust_traps stack handler_stack with
+    | to_pop -> Cexit (cont, exprs, to_pop), stack
     | exception (Error (Inconsistent_stacks _)) ->
       raise (Error (Inconsistent_stacks cont))
 
