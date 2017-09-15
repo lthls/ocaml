@@ -76,7 +76,7 @@ let occurs_var var u =
         occurs arg ||
         List.exists (fun (_,e) -> occurs e) sw ||
         (match d with None -> false | Some d -> occurs d)
-    | Ustaticfail (_, args) -> List.exists occurs args
+    | Ustaticfail (_, args, _) -> List.exists occurs args
     | Ucatch(_, handlers, body) ->
         occurs body
           || List.exists (fun (_, _, handler) -> occurs handler) handlers
@@ -177,7 +177,9 @@ let lambda_smaller lam threshold =
             lambda_size lam)
           sw ;
         Misc.may lambda_size d
-    | Ustaticfail (_,args) -> lambda_list_size args
+    | Ustaticfail (_, args, conts_to_pop) ->
+        size := !size + 4 * (List.length conts_to_pop);
+        lambda_list_size args
     | Ucatch(_, handlers, body) ->
         incr size; lambda_size body;
         List.iter (fun (_, _, handler) -> lambda_size handler) handlers
@@ -196,7 +198,10 @@ let lambda_smaller lam threshold =
         size := !size + 8;
         lambda_size met; lambda_size obj; lambda_list_size args
     | Uunreachable -> ()
-    | Upushtrap _ | Upoptrap _ -> size := !size + 4
+    (* Utrywith had cost 8; to keep a similar cost, the translation into
+       Ucatch + Upushtrap + Upoptrap gets 1 + 3 + 4 *)
+    | Upushtrap _ -> size := !size + 3
+    | Upoptrap _ -> size := !size + 4
   and lambda_list_size l = List.iter lambda_size l
   and lambda_array_size a = Array.iter lambda_size a in
   try
@@ -607,8 +612,8 @@ let rec substitute loc fpc sb ulam =
         (substitute loc fpc sb arg,
          List.map (fun (s,act) -> s,substitute loc fpc sb act) sw,
          Misc.may_map (substitute loc fpc sb) d)
-  | Ustaticfail (nfail, args) ->
-      Ustaticfail (nfail, List.map (substitute loc fpc sb) args)
+  | Ustaticfail (nfail, args, conts_to_pop) ->
+      Ustaticfail (nfail, List.map (substitute loc fpc sb) args, conts_to_pop)
   | Ucatch(kind, handlers, body) ->
       let subst_handler (nfail, ids, handler) =
         let ids' = List.map Ident.rename ids in
@@ -799,7 +804,7 @@ let close_var fenv cenv id =
 
 let init_stacks = ([], Tbl.empty)
 
-let wrap_staticfail i (cur_stack, cont_stacks) ulam =
+let wrap_staticfail i (cur_stack, cont_stacks) =
   let cont_stack =
     try
       Tbl.find i cont_stacks
@@ -819,12 +824,7 @@ let wrap_staticfail i (cur_stack, cont_stacks) ulam =
             (Format.pp_print_list Format.pp_print_int) cont_stack
             (Format.pp_print_list Format.pp_print_int) cur_stack
   in
-  let rec wrap conts ulam =
-    match conts with
-    | [] -> ulam
-    | j :: tl -> wrap tl (Usequence (Upoptrap j, ulam))
-  in
-  wrap (diff [] cur_stack) ulam
+  diff [] cur_stack
 
 let rec close fenv cenv estacks = function
     Lvar id ->
@@ -1086,7 +1086,8 @@ let rec close fenv cenv estacks = function
       Ustringswitch (uarg,usw,ud),Value_unknown
   | Lstaticraise (i, args) ->
       let uargs = close_list fenv cenv estacks args in
-      (wrap_staticfail i estacks (Ustaticfail (i, uargs)), Value_unknown)
+      let conts_to_pop = wrap_staticfail i estacks in
+      (Ustaticfail (i, uargs, conts_to_pop), Value_unknown)
   | Lstaticcatch(body, (i, vars), handler) ->
       let cur_stack, cont_stacks = estacks in
       let estacks_body = (cur_stack, Tbl.add i cur_stack cont_stacks) in
@@ -1349,7 +1350,7 @@ and close_switch fenv cenv estacks cases num_keys default =
             let ohs = !hs in
             hs := (fun e ->
               Ucatch (Normal Nonrecursive, [i, [], ulam], ohs e)) ;
-            Ustaticfail (i,[]))
+            Ustaticfail (i,[],[]))
       acts in
   match actions with
   | [| |] -> [| |], [| |], !hs (* May happen when default is None *)
@@ -1401,7 +1402,7 @@ let collect_exported_structured_constants a =
         ulam u ;
         List.iter (fun (_,act) -> ulam act) sw ;
         Misc.may ulam d
-    | Ustaticfail (_, ul) -> List.iter ulam ul
+    | Ustaticfail (_, ul, _) -> List.iter ulam ul
     | Ucatch (_, handlers, body) ->
         List.iter (fun (_, _, handler) -> ulam handler) handlers;
         ulam body

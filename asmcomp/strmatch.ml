@@ -375,11 +375,11 @@ module Make(I:I) = struct
 (* Module entry point *)
 
     let catch arg k = match arg with
-    | Cexit (_e,[]) ->  k arg
+    | Cexit (_e,[],_) ->  k arg
     | _ ->
         let e =  next_raise_count () in
         Ccatch (Clambda.Normal Asttypes.Nonrecursive,
-          [e, [], arg], k (Cexit (e,[])))
+          [e, [], arg], k (Cexit (e,[],[])))
 
     let compile dbg str default cases =
 (* We do not attempt to really optimise default=None *)

@@ -844,7 +844,7 @@ method emit_expr (env:environment) exp =
         (Icatch (rec_flag, is_exn_handler, List.map aux l, s_body#extract))
         [||] [||];
       r
-  | Cexit (nfail,args) ->
+  | Cexit (nfail,args,conts_to_pop) ->
       begin match self#emit_parts_list env args with
         None -> None
       | Some (simple_list, ext_env) ->
@@ -863,6 +863,9 @@ method emit_expr (env:environment) exp =
           Array.iter (fun reg -> assert(reg.typ <> Addr)) src;
           self#insert_moves src tmp_regs ;
           self#insert_moves tmp_regs (Array.concat dest_args) ;
+          List.iter
+            (fun cont -> self#insert (Iop (Ipoptrap cont)) [||] [||])
+            conts_to_pop;
           self#insert (Iexit nfail) [||] [||];
           None
       end

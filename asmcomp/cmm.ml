@@ -173,7 +173,7 @@ type expression =
   | Cloop of expression
   | Ccatch of Clambda.catch_kind * (int * Ident.t list * expression) list
       * expression
-  | Cexit of int * expression list
+  | Cexit of int * expression list * int list
 
 type fundecl =
   { fun_name: string;

@@ -190,8 +190,15 @@ let rec expr ppf = function
           | Clambda.Exn_handler -> "_exn")
         sequence e1
         print_handlers handlers
-  | Cexit (i, el) ->
+  | Cexit (i, el, conts) ->
       fprintf ppf "@[<2>(exit %d" i;
+      begin match conts with
+      | [] -> ()
+      | l ->
+          fprintf ppf "[pop";
+          List.iter (fun i -> fprintf ppf "@ %d" i) l;
+          fprintf ppf "]"
+      end;
       List.iter (fun e -> fprintf ppf "@ %a" expr e) el;
       fprintf ppf ")@]"
 

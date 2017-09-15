@@ -226,12 +226,6 @@ end = struct
     diff [] t.exception_stack
 end
 
-let rec wrap_static_fail ulam stack =
-  match stack with
-  | [] -> ulam
-  | cont :: tl ->
-    wrap_static_fail (Usequence (Upoptrap cont, ulam): Clambda.ulambda) tl
-
 let subst_var env var : Clambda.ulambda =
   try Env.find_subst_exn env var
   with Not_found ->
@@ -358,11 +352,8 @@ let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
     Ustringswitch (arg, sw, def)
   | Static_raise (static_exn, args) ->
     let adjust = Env.stack_adjust_at_static_raise env static_exn in
-    let ulam =
-      Clambda.Ustaticfail (Static_exception.to_int static_exn,
-        List.map (subst_var env) args)
-    in
-    wrap_static_fail ulam adjust
+    Ustaticfail (Static_exception.to_int static_exn,
+      List.map (subst_var env) args, adjust)
   | Static_catch (static_exn, vars, body, handler) ->
     let env_handler, ids =
       List.fold_right (fun var (env, ids) ->

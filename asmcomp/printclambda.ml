@@ -150,10 +150,18 @@ and lam ppf = function
         end in
       fprintf ppf
         "@[<1>(switch %a@ @[<v 0>%a@])@]" lam larg switch sw
-  | Ustaticfail (i, ls)  ->
+  | Ustaticfail (i, ls, conts)  ->
+      let to_pop ppf conts =
+        match conts with
+        | [] -> ()
+        | l ->
+            fprintf ppf "[pop";
+            List.iter (fun i -> fprintf ppf "@ %d" i) l;
+            fprintf ppf "]"
+      in
       let lams ppf largs =
         List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
-      fprintf ppf "@[<2>(exit@ %d%a)@]" i lams ls;
+      fprintf ppf "@[<2>(exit@ %d%a%a)@]" i to_pop conts lams ls;
   | Ucatch(kind, handlers, lbody) ->
       let print_handler ppf (cont, params, lhandler) =
         fprintf ppf "@[<2>(%d%a)@ %a@]"
