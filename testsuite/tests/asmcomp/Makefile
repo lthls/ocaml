@@ -66,7 +66,7 @@ ARGS_static_float_array_flambda_opaque=\
 
 CASES=fib tak quicksort quicksort2 soli \
       arith checkbound tagged-fib tagged-integr tagged-quicksort tagged-tak \
-      catch-try catch-rec even-odd even-odd-spill pgcd double-exit deep-exit
+      catch-try catch-rec even-odd even-odd-spill pgcd deep-exit
 ARGS_fib=-DINT_INT -DFUN=fib main.c
 ARGS_tak=-DUNIT_INT -DFUN=takmain main.c
 ARGS_quicksort=-DSORT -DFUN=quicksort main.c
@@ -85,7 +85,7 @@ ARGS_catch-rec=-DINT_INT -DFUN=catch_fact main.c
 ARGS_even-odd=-DINT_INT -DFUN=is_even main.c
 ARGS_even-odd-spill=-DINT_INT -DFUN=is_even main.c
 ARGS_pgcd=-DINT_INT -DFUN=pgcd_30030 main.c
-ARGS_double-exit=-DINT_INT -DFUN=double_exit main.c
+#ARGS_double-exit=-DINT_INT -DFUN=double_exit main.c
 ARGS_deep-exit=-DINT_INT -DFUN=deep_exit main.c
 
 skips:
