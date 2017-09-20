@@ -25,18 +25,21 @@ module Int = Numbers.Int
 *)
 
 let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
-      : Mach.instruction * (Mach.trap_stack Int.Map.t) =
+      : Mach.instruction * ((bool * Mach.trap_stack) Int.Map.t) =
   let print_stack ppf stack =
     Format.fprintf ppf "%a"
       (Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf "; ")
         (fun ppf cont -> Format.fprintf ppf "%d" cont))
       stack
   in
-  let add_stack ~cont ~stack ~stacks_at_exit =
+  let print_is_exn ppf is_exn =
+    Format.fprintf ppf "%s" (if is_exn then "exn" else "normal")
+  in
+  let add_stack ~cont ~is_exn ~stack ~stacks_at_exit =
     match Int.Map.find cont stacks_at_exit with
     | exception Not_found ->
-      Int.Map.add cont stack stacks_at_exit
-    | stack' ->
+      Int.Map.add cont (is_exn, stack) stacks_at_exit
+    | is_exn', stack' ->
       if stack <> stack' then begin
         Misc.fatal_errorf "Iexit points for continuation %d disagree on \
             the trap stack: existing = %a new = %a"
@@ -44,12 +47,19 @@ let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
           print_stack stack'
           print_stack stack
       end;
+      if is_exn <> is_exn' then begin
+        Misc.fatal_errorf "Iexit points for continuation %d disagree on \
+            the continuation kind: existing = %a new = %a"
+          cont
+          print_is_exn is_exn'
+          print_is_exn is_exn
+      end;
       stacks_at_exit
   in
   let register_raise ~stack ~stacks_at_exit =
     match stack with
     | [] -> stacks_at_exit  (* raise to toplevel handler *)
-    | cont::_ -> add_stack ~cont ~stack ~stacks_at_exit
+    | cont::_ -> add_stack ~cont ~is_exn:true ~stack ~stacks_at_exit
   in
   match insn.Mach.desc with
   | Iend ->
@@ -66,7 +76,7 @@ let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
         (* CR pchambart: This shouldn't keep the handler alive. If
            there is no raise the handler should be eliminated. *)
         let stacks_at_exit =
-          add_stack ~cont ~stack:(cont :: stack) ~stacks_at_exit
+          add_stack ~cont ~is_exn:true ~stack:(cont :: stack) ~stacks_at_exit
         in
         cont :: stack, stacks_at_exit
       | Ipoptrap cont ->
@@ -186,10 +196,15 @@ let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
         let handlers_with_uses = Int.Map.remove cont handlers_with_uses in
         match Int.Map.find cont stacks_at_exit with
         | exception Not_found -> assert false
-        | stack ->
+        | (is_exn, stack) ->
           (* [handler] is a continuation that is used.  It is called (via
              exit or raise) when the given [stack] of exception handlers are
              in scope. *)
+          if is_exn <> is_exn_handler then begin
+            Misc.fatal_errorf "Continuation %d is an exception handler \
+                but is called via Iexit"
+              cont
+          end;
           let stack =
             if not is_exn_handler then
               stack
@@ -237,7 +252,7 @@ let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
       }, stacks_at_exit
     end
   | Iexit cont ->
-    let stacks_at_exit = add_stack ~cont ~stack ~stacks_at_exit in
+    let stacks_at_exit = add_stack ~cont ~is_exn:false ~stack ~stacks_at_exit in
     let next, stacks_at_exit =
       trap_stacks insn.Mach.next ~stack ~stacks_at_exit
     in
