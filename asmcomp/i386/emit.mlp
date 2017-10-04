@@ -795,6 +795,10 @@ let emit_instr fallthrough i =
       if Array.length i.arg = 2 && is_tos i.arg.(1) then
         I.fxch st1;
       emit_floatspecial s
+  | Lop(Ipushtrap _cont) ->
+      assert false
+  | Lop(Ipoptrap _cont) ->
+      assert false
   | Lreloadretaddr ->
       ()
   | Lreturn ->
@@ -856,9 +860,14 @@ let emit_instr fallthrough i =
         D.long (ConstLabel (emit_label jumptbl.(i)))
       done;
       D.text ()
-  | Lsetuptrap lbl ->
-      I.call (label lbl)
-  | Lpushtrap ->
+  | Lentertrap ->
+      ()
+  | Ladjust_trap_depth delta ->
+      let delta = trap_frame_size * delta in
+      cfi_adjust_cfa_offset delta;
+      stack_offset := !stack_offset + delta
+  | Lpushtrap { handler; } ->
+      I.push (label handler);
       if trap_frame_size > 8 then
         I.sub (int (trap_frame_size - 8)) esp;
       I.push (sym32 "caml_exception_pointer");
