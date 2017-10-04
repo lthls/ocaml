@@ -41,6 +41,7 @@ and instruction_desc =
   | Lcondbranch3 of label option * label option * label option
   | Lswitch of label array
   | Ladjust_trap_depth of int
+  | Lentertrap
   | Lpushtrap of { handler : label; }
   | Lpoptrap
   | Lraise of Cmm.raise_kind
@@ -361,6 +362,12 @@ let rec linear i n =
               let trap_depth = List.length trap_stack in
               let n = adjust_trap_depth ~before:trap_depth ~after:n in
               let handler = linear handler (add_branch lbl_end n) in
+              let handler =
+                if is_exn_handler then
+                  cons_instr Lentertrap handler
+                else
+                  handler
+              in
               cons_instr (Llabel lbl_handler) handler)
           n1 handlers labels_at_entry_to_handlers
       in

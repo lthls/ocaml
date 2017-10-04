@@ -54,7 +54,7 @@ let check_instruction (insn : Linearize.instruction) ~state =
       Printlinear.instr insn
   end;
   match insn.desc with
-  | Lend | Lop _ | Lreloadretaddr | Lraise _ -> state
+  | Lend | Lop _ | Lreloadretaddr | Lraise _ | Lentertrap -> state
   | Lreturn ->
     if state.trap_depth <> 0 then begin
       Misc.fatal_error "Trap depth must be zero at Lreturn"
