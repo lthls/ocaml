@@ -28,9 +28,13 @@ type error = Assembler_error of string
 exception Error of error
 
 let cmm_invariants ppf fd_cmm =
+  let print_fundecl =
+    if !Clflags.dump_cmm then Printcmm.fundecl
+    else fun ppf _ -> Format.fprintf ppf "<shown with -dcmm>"
+  in
   if Cmm_invariants.run ppf fd_cmm then
     Misc.fatal_errorf "Cmm invariants failed on following fundecl:@.%a@."
-      Printcmm.fundecl fd_cmm;
+      print_fundecl fd_cmm;
   fd_cmm
 
 let liveness ppf phrase =
