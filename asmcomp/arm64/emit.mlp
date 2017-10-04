@@ -490,6 +490,7 @@ module BR = Branch_relaxation.Make (struct
         + begin match lbl1 with None -> 0 | Some _ -> 1 end
         + begin match lbl2 with None -> 0 | Some _ -> 1 end
     | Lswitch jumptbl -> 3 + Array.length jumptbl
+    | Lentertrap -> 0
     | Ladjust_trap_depth _ -> 0
     | Lpushtrap _ -> 4
     | Lpoptrap -> 1
@@ -853,6 +854,8 @@ let emit_instr i =
             `	.word	{emit_label jumptbl.(j)} - {emit_label lbltbl}\n`
         done
 *)
+    | Lentertrap ->
+        ()
     | Ladjust_trap_depth delta ->
         let delta = 16 * delta in
         cfi_adjust_cfa_offset delta;

@@ -834,6 +834,8 @@ let emit_instr fallthrough i =
                          ConstLabel lbl))
       done;
       D.text ()
+  | Lentertrap ->
+      ()
   | Ladjust_trap_depth delta ->
       let delta = 16 * delta in
       cfi_adjust_cfa_offset delta;
