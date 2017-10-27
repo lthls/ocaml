@@ -616,9 +616,16 @@ let rec substitute loc fpc sb rn ulam =
          List.map (fun (s,act) -> s,substitute loc fpc sb rn act) sw,
          Misc.may_map (substitute loc fpc sb rn) d)
   | Ustaticfail (nfail, args, conts_to_pop) ->
-      Ustaticfail (Tbl.find nfail rn,
+      (* nfail and conts_to_pop can refer to continuations outside the
+         scope of the call to substitute (e.g. when translating letrecs)
+         so finding a continuation not in the table is not an error. *)
+      let rename_if_possible cont =
+        try Tbl.find cont rn
+        with Not_found -> cont
+      in
+      Ustaticfail (rename_if_possible nfail,
                    List.map (substitute loc fpc sb rn) args,
-                   conts_to_pop)
+                   List.map rename_if_possible conts_to_pop)
   | Ucatch(kind, handlers, body) ->
       let rn' = ref rn in
       let subst_handler (nfail, ids, handler) =
