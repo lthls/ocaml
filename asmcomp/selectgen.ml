@@ -391,6 +391,7 @@ method mark_instr = function
              #mark_c_tailcall to get a good stack backtrace *)
           self#mark_call
     end
+  | Iop (Ipushtrap _) -> self#mark_call
   | _ -> ()
 
 (* Default instruction selection for operators *)
