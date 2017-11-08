@@ -1484,7 +1484,7 @@ module StoreExpForSwitch =
       let make_key index expr =
         let continuation =
           match expr with
-          | Cexit (i,[]) -> Some i
+          | Cexit (i,[],[]) -> Some i
           | _ -> None
         in
         Some (continuation, index)
