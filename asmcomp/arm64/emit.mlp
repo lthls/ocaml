@@ -771,14 +771,11 @@ let emit_instr i =
         | _ ->
             assert false
         end
-<<<<<<< HEAD
     | Lop (Iname_for_debugger _) -> ()
-=======
     | Lop(Ipushtrap _cont) ->
         assert false
     | Lop(Ipoptrap _cont) ->
         assert false
->>>>>>> 37a5d9512... Adapt arm, arm64 and s390x backends
     | Lreloadretaddr ->
         ()
     | Lreturn ->
