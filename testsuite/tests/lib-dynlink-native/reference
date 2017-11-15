@@ -27,7 +27,7 @@ Thread
 Thread
 Loading plugin_exn.so
 Registering module Plugin_exn
-Plugin_exception loaded
+Plugin_exn loaded
 Raising Plugin_exception
 Caught Plugin_exception
 Callback from plugin2
