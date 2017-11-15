@@ -890,7 +890,8 @@ let emit_instr fallthrough i =
           I.pop (sym32 "caml_exception_pointer");
           if trap_frame_size > 8 then
             I.add (int (trap_frame_size - 8)) esp;
-          I.ret ()
+          I.pop ebx;
+          I.jmp ebx
       end
 
 let rec emit_all fallthrough i =
