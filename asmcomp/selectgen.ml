@@ -68,7 +68,6 @@ let oper_result_type = function
   | Cintoffloat -> typ_int
   | Craise _ -> typ_void
   | Ccheckbound -> typ_void
-  | Cpushtrap _ | Cpoptrap _ -> typ_void
 
 (* Infer the size in bytes of the result of an expression whose evaluation
    may be deferred (cf. [emit_parts]). *)
@@ -295,8 +294,7 @@ method is_simple_expr = function
   | Cop(op, args, _) ->
       begin match op with
         (* The following may have side effects *)
-      | Capply _ | Cextcall _ | Calloc | Cstore _ | Craise _
-      | Cpushtrap _ | Cpoptrap _ -> false
+      | Capply _ | Cextcall _ | Calloc | Cstore _ | Craise _ -> false
         (* The remaining operations are simple if their args are *)
       | Cload _ | Caddi | Csubi | Cmuli | Cmulhi | Cdivi | Cmodi | Cand | Cor
       | Cxor | Clsl | Clsr | Casr | Ccmpi _ | Caddv | Cadda | Ccmpa _ | Cnegf
@@ -335,7 +333,7 @@ method effects_of exp =
   | Cop (op, args, _) ->
     let from_op =
       match op with
-      | Capply _ | Cextcall _ | Cpushtrap _ | Cpoptrap _ -> EC.arbitrary
+      | Capply _ | Cextcall _ -> EC.arbitrary
       | Calloc -> EC.none
       | Cstore _ -> EC.effect_only Effect.Arbitrary
       | Craise _ | Ccheckbound -> EC.effect_only Effect.Raise
@@ -467,8 +465,6 @@ method select_operation op args _dbg =
     let extra_args = self#select_checkbound_extra_args () in
     let op = self#select_checkbound () in
     self#select_arith op (args @ extra_args)
-  | (Cpushtrap cont, _) -> (Ipushtrap cont, args)
-  | (Cpoptrap cont, _) -> (Ipoptrap cont, args)
   | _ -> fatal_error "Selection.select_oper"
 
 method private select_arith_comm op = function
@@ -844,7 +840,7 @@ method emit_expr (env:environment) exp =
         (Icatch (rec_flag, is_exn_handler, List.map aux l, s_body#extract))
         [||] [||];
       r
-  | Cexit (nfail,args,conts_to_pop) ->
+  | Cexit (nfail,args,ta) ->
       begin match self#emit_parts_list env args with
         None -> None
       | Some (simple_list, ext_env) ->
@@ -863,10 +859,7 @@ method emit_expr (env:environment) exp =
           Array.iter (fun reg -> assert(reg.typ <> Addr)) src;
           self#insert_moves src tmp_regs ;
           self#insert_moves tmp_regs (Array.concat dest_args) ;
-          List.iter
-            (fun cont -> self#insert (Iop (Ipoptrap cont)) [||] [||])
-            conts_to_pop;
-          self#insert (Iexit nfail) [||] [||];
+          self#insert (Iexit (nfail, ta)) [||] [||];
           None
       end
 

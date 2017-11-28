@@ -89,17 +89,6 @@ let rec adjust_traps_expr env stack (expr : Cmm.expression)
     Cassign (id, expr), stack
   | Ctuple exprs ->
     Ctuple (adjust_traps_expr_list env stack exprs), stack
-  | Cop ((Cpushtrap cont) as op, exprs, dbg) ->
-    let stack = cont :: stack in
-    Cop (op, adjust_traps_expr_list env stack exprs, dbg), stack
-  | Cop ((Cpoptrap cont) as op, exprs, dbg) ->
-    let stack = match stack with
-      | [] -> raise (Error (Wrong_stack_at_poptrap (cont, None)))
-      | cont' :: stack ->
-        if cont = cont' then stack
-        else raise (Error (Wrong_stack_at_poptrap (cont, (Some cont'))))
-    in
-    Cop (op, adjust_traps_expr_list env stack exprs, dbg), stack
   | Cop (op, exprs, dbg) ->
     Cop (op, adjust_traps_expr_list env stack exprs, dbg), stack
   | Csequence (expr1, expr2) ->
@@ -144,7 +133,8 @@ let rec adjust_traps_expr env stack (expr : Cmm.expression)
       | exception Not_found -> raise (Error (Undefined_continuation cont))
     in
     match adjust_traps stack handler_stack with
-    | to_pop -> Cexit (cont, exprs, to_pop), stack
+    | [] -> Cexit (cont, exprs, No_action), stack
+    | to_pop -> Cexit (cont, exprs, Pop to_pop), stack
     | exception (Error (Inconsistent_stacks _)) ->
       raise (Error (Inconsistent_stacks cont))
 

@@ -23,7 +23,7 @@ module Env : sig
 
   val init : unit -> t
 
-  val check_trap : t -> cont:int -> unit
+  val check_trap_action : t -> Lambda.trap_action -> unit
 
   val handler : t -> kind:Clambda.catch_kind -> cont:int -> arg_num:int -> t
 
@@ -87,11 +87,16 @@ end = struct
   let bad_exception_handler cont args =
     record_error (Bad_exception_handler { cont; args; })
 
-  let check_trap t ~cont =
-    match Int.Map.find cont t.bound_handlers with
-    | Exception, _ -> ()
-    | Static, _ -> mismatch cont Static Exception
-    | exception Not_found -> unbound_handler cont
+  let check_trap_action t (ta: Lambda.trap_action) =
+    let check_trap cont =
+      match Int.Map.find cont t.bound_handlers with
+      | Exception, _ -> ()
+      | Static, _ -> mismatch cont Static Exception
+      | exception Not_found -> unbound_handler cont
+    in
+    match ta with
+    | No_action -> ()
+    | Pop cl | Push cl -> List.iter check_trap cl
 
   let init () =
     state.all_handlers <- Int.Set.empty;
@@ -183,14 +188,8 @@ let rec check env (expr : Cmm.expression) =
     check env expr
   | Ctuple exprs ->
     List.iter (check env) exprs
-  | Cop (op, args, _) ->
-    List.iter (check env) args;
-    begin match op with
-    | Cpushtrap cont | Cpoptrap cont ->
-      Env.check_trap env ~cont
-    | _ ->
-      ()
-    end
+  | Cop (_, args, _) ->
+    List.iter (check env) args
   | Csequence (expr1, expr2) ->
     check env expr1;
     check env expr2
@@ -218,9 +217,9 @@ let rec check env (expr : Cmm.expression) =
       | Normal Nonrecursive | Exn_handler -> env
     in
     List.iter (fun (_, _, handler) -> check env_handler handler) handlers
-  | Cexit (cont, args, to_pop) ->
+  | Cexit (cont, args, ta) ->
     Env.jump env ~cont ~arg_num:(List.length args);
-    List.iter (fun cont -> Env.check_trap env ~cont) to_pop
+    Env.check_trap_action env ta
 
 let run ppf (fundecl : Cmm.fundecl) =
   let env = Env.init () in

@@ -94,14 +94,20 @@ let adjust_trap_depth ~before ~after =
   if adjustment = 0 then
     after
   else
-    { desc = Ladjust_trap_depth adjustment;
-      next = after;
-      arg = [||];
-      res = [||];
-      dbg = Debuginfo.none;
-      live = Reg.Set.empty;
-      trap_depth = before;
-    }
+    match after.desc with
+    | Ladjust_trap_depth delta ->
+      if delta + adjustment = 0 then after.next
+      else { after with desc = Ladjust_trap_depth (delta + adjustment);
+                        trap_depth = before; }
+    | _ ->
+      { desc = Ladjust_trap_depth adjustment;
+        next = after;
+        arg = [||];
+        res = [||];
+        dbg = Debuginfo.none;
+        live = Reg.Set.empty;
+        trap_depth = before;
+      }
 
 (* Cons an instruction (live, debug empty) assuming that no trap depth
    adjustments need doing.  (Currently only used by [Branch_relaxation].) *)
@@ -176,8 +182,11 @@ let rec discard_dead_code n =
        as this may cause a stack imbalance later during assembler generation.
        However it's ok to eliminate dead instructions after them. *)
   | Lpoptrap | Lpushtrap _
-  | Lop(Istackoffset _)
-  | Ladjust_trap_depth _ -> { n with next = discard_dead_code n.next; }
+  | Lop(Istackoffset _) -> { n with next = discard_dead_code n.next; }
+  | Ladjust_trap_depth _ ->
+    let before = n.trap_depth in
+    let after = discard_dead_code n.next in
+    adjust_trap_depth ~before ~after
   | _ -> discard_dead_code n.next
 
 (*
@@ -215,9 +224,6 @@ let is_next_catch n ~trap_depth =
   | (n0,(_,t))::_  when n0=n && t = trap_depth -> true
   | _ -> false
 
-let local_exit k ~trap_depth =
-  snd (find_exit_label_trap_depth k) = trap_depth
-
 (* Linearize an instruction [i]: add it in front of the continuation [n] *)
 
 let rec linear i n =
@@ -232,13 +238,6 @@ let rec linear i n =
   | Iop(Imove | Ireload | Ispill)
     when i.Mach.arg.(0).loc = i.Mach.res.(0).loc ->
       linear i.Mach.next n
-  | Iop (Ipushtrap handler) ->
-      let n = linear i.Mach.next n in
-      let handler = find_exit_label handler in
-      copy_instr (Lpushtrap { handler; }) i n
-  | Iop (Ipoptrap _) ->
-      let n = linear i.Mach.next n in
-      copy_instr Lpoptrap i n
   | Iop op ->
       copy_instr (Lop op) i (linear i.Mach.next n)
   | Ireturn ->
@@ -255,17 +254,16 @@ let rec linear i n =
           copy_instr (Lcondbranch(test, lbl)) i (linear ifnot n1)
       | _, Iend, Lbranch lbl ->
           copy_instr (Lcondbranch(invert_test test, lbl)) i (linear ifso n1)
-      | Iexit nfail1, Iexit nfail2, _
-            when is_next_catch nfail1 ~trap_depth
-              && local_exit nfail2 ~trap_depth ->
+      | Iexit (nfail1, Lambda.No_action), Iexit (nfail2, Lambda.No_action), _
+            when is_next_catch nfail1 ~trap_depth ->
           let lbl2 = find_exit_label nfail2 in
           copy_instr
             (Lcondbranch (invert_test test, lbl2)) i (linear ifso n1)
-      | Iexit nfail, _, _ when local_exit nfail ~trap_depth ->
+      | Iexit (nfail, Lambda.No_action), _, _ ->
           let n2 = linear ifnot n1
           and lbl = find_exit_label nfail in
           copy_instr (Lcondbranch(test, lbl)) i n2
-      | _,  Iexit nfail, _ when local_exit nfail ~trap_depth ->
+      | _,  Iexit (nfail, Lambda.No_action), _ ->
           let n2 = linear ifso n1 in
           let lbl = find_exit_label nfail in
           copy_instr (Lcondbranch(invert_test test, lbl)) i n2
@@ -375,11 +373,27 @@ let rec linear i n =
       let n3 = linear body (add_branch lbl_end n2) in
       exit_label := previous_exit_label;
       n3
-  | Iexit nfail ->
+  | Iexit (nfail, ta) ->
       let lbl, trap_depth = find_exit_label_trap_depth nfail in
       let n1 = linear i.Mach.next n in
-      let n1 = adjust_trap_depth ~before:trap_depth ~after:n1 in
-      add_branch lbl n1
+      let n2 = adjust_trap_depth ~before:trap_depth ~after:n1 in
+      let n3 = add_branch lbl n2 in
+      begin match ta with
+      | Lambda.No_action -> n3
+      | Lambda.Pop cl ->
+          let add_poptrap _ n =
+            { (cons_instr Lpoptrap n) with trap_depth = n.trap_depth + 1 }
+          in
+          List.fold_right add_poptrap cl n3
+      | Lambda.Push cl ->
+        let add_pushtrap cont n =
+          assert (n.trap_depth > 0);
+          let handler = find_exit_label cont in
+          { (cons_instr (Lpushtrap { handler; }) n)
+            with trap_depth = n.trap_depth - 1; }
+        in
+        List.fold_right add_pushtrap cl n3
+      end
   | Iraise (k, trap_stack) ->
       let trap_depth = List.length trap_stack in
       let n = adjust_trap_depth ~before:trap_depth ~after:n in

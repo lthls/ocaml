@@ -103,8 +103,6 @@ let operation d = function
   | Ccmpf c -> Printf.sprintf "%sf" (comparison c)
   | Craise k -> Format.asprintf "%a%s" raise_kind k (Debuginfo.to_string d)
   | Ccheckbound -> "checkbound" ^ Debuginfo.to_string d
-  | Cpushtrap cont -> Format.sprintf "pushtrap %d" cont
-  | Cpoptrap cont -> Format.sprintf "poptrap %d" cont
 
 let rec expr ppf = function
   | Cconst_int n -> fprintf ppf "%i" n
@@ -190,15 +188,8 @@ let rec expr ppf = function
           | Clambda.Exn_handler -> "_exn")
         sequence e1
         print_handlers handlers
-  | Cexit (i, el, conts) ->
-      fprintf ppf "@[<2>(exit %d" i;
-      begin match conts with
-      | [] -> ()
-      | l ->
-          fprintf ppf "[pop";
-          List.iter (fun i -> fprintf ppf "@ %d" i) l;
-          fprintf ppf "]"
-      end;
+  | Cexit (i, el, ta) ->
+      fprintf ppf "@[<2>(exit %a%d" Printlambda.trap_action ta i;
       List.iter (fun e -> fprintf ppf "@ %a" expr e) el;
       fprintf ppf ")@]"
 

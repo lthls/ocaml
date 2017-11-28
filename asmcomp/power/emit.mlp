@@ -476,8 +476,6 @@ module BR = Branch_relaxation.Make (struct
     | Lop(Iintoffloat) -> 4
     | Lop(Ispecific _) -> 1
     | Lop (Iname_for_debugger _) -> 0
-    | Lop(Ipushtrap _)
-    | Lop(Ipoptrap _) -> assert false
     | Lreloadretaddr -> 2
     | Lreturn -> 2
     | Llabel _ -> 0
@@ -917,10 +915,6 @@ let emit_instr i =
           done;
           emit_string code_space
         end
-    | Lop(Ipushtrap _cont) ->
-        assert false
-    | Lop(Ipoptrap _cont) ->
-        assert false
     | Lentertrap ->
         begin match abi with
         | ELF32 -> ()

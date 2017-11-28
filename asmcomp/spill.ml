@@ -267,7 +267,7 @@ let rec reload i before =
          (Icatch(rec_flag, is_exn_handler, new_handlers, new_body))
          i.arg i.res new_next,
        finally)
-  | Iexit nfail ->
+  | Iexit (nfail, _ta) ->
       let set = find_reload_at_exit nfail in
       set := Reg.Set.union !set before;
       (i, Reg.Set.empty)
@@ -451,7 +451,7 @@ let rec spill i finally =
       (instr_cons (Icatch(rec_flag, is_exn_handler, new_handlers, new_body))
          i.arg i.res new_next,
        before)
-  | Iexit nfail ->
+  | Iexit (nfail, _ta) ->
       (i, find_spill_at_exit nfail)
   | Iraise (_, trap_stack) ->
       let spill_at_raise = find_spill_at_raise ~trap_stack in

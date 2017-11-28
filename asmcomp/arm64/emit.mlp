@@ -470,7 +470,6 @@ module BR = Branch_relaxation.Make (struct
     | Lop (Ispecific (Ibswap 16)) -> 2
     | Lop (Ispecific (Ibswap _)) -> 1
     | Lop (Iname_for_debugger _) -> 0
-    | Lop (Ipushtrap _ | Ipoptrap _) -> assert false
     | Lreloadretaddr -> 0
     | Lreturn -> epilogue_size ()
     | Llabel _ -> 0
@@ -772,10 +771,6 @@ let emit_instr i =
             assert false
         end
     | Lop (Iname_for_debugger _) -> ()
-    | Lop(Ipushtrap _cont) ->
-        assert false
-    | Lop(Ipoptrap _cont) ->
-        assert false
     | Lreloadretaddr ->
         ()
     | Lreturn ->

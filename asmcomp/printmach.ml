@@ -178,8 +178,6 @@ let operation op arg ppf res =
         | None -> ""
         | Some index -> sprintf "[P%d]" index)
       reg arg.(0)
-  | Ipushtrap cont -> fprintf ppf "pushtrap %d" cont
-  | Ipoptrap cont -> fprintf ppf "poptrap %d" cont
   | Ispecific op ->
       Arch.print_specific_operation reg op ppf arg
 
@@ -242,8 +240,8 @@ let rec instr ppf i =
       in
       aux handlers;
       fprintf ppf "@]"
-  | Iexit i ->
-      fprintf ppf "exit(%d)" i
+  | Iexit (i, ta) ->
+      fprintf ppf "exit%a(%d)" Printlambda.trap_action ta i
   | Iraise (k, trap_stack) ->
       fprintf ppf "%a%a %a" Printcmm.raise_kind k
         print_trap_stack trap_stack reg i.arg.(0)

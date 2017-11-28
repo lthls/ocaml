@@ -37,6 +37,7 @@ let ignore_int (_ : int) = ()
 let ignore_ident (_ : Ident.t) = ()
 let ignore_ident_option (_ : Ident.t option) = ()
 let ignore_primitive (_ : Lambda.primitive) = ()
+let ignore_trap_action (_ : Lambda.trap_action) = ()
 let ignore_string (_ : string) = ()
 let ignore_int_array (_ : int array) = ()
 let ignore_ident_list (_ : Ident.t list) = ()
@@ -132,10 +133,10 @@ let make_ident_info (clam : Clambda.ulambda) : ident_info =
           loop branch)
         branches;
       Misc.may loop default
-    | Ustaticfail (static_exn, args, conts) ->
+    | Ustaticfail (static_exn, args, ta) ->
       ignore_int static_exn;
       List.iter loop args;
-      List.iter ignore_int conts
+      ignore_trap_action ta
     | Ucatch (_kind, conts, body) ->
       loop body;
       List.iter (fun (cont, params, handler) ->
@@ -169,7 +170,7 @@ let make_ident_info (clam : Clambda.ulambda) : ident_info =
       loop e2;
       List.iter loop args;
       ignore_debuginfo dbg
-    | Uunreachable | Upushtrap _ | Upoptrap _ ->
+    | Uunreachable ->
       ()
   in
   loop clam;
@@ -330,10 +331,10 @@ let let_bound_vars_that_can_be_moved ident_info (clam : Clambda.ulambda) =
       let_stack := [];
       Misc.may loop default;
       let_stack := []
-    | Ustaticfail (static_exn, args, conts) ->
+    | Ustaticfail (static_exn, args, ta) ->
       ignore_int static_exn;
       examine_argument_list args;
-      List.iter ignore_int conts
+      ignore_trap_action ta
     | Ucatch (_kind, conts, body) ->
       let_stack := [];
       loop body;
@@ -383,7 +384,7 @@ let let_bound_vars_that_can_be_moved ident_info (clam : Clambda.ulambda) =
       ignore_ulambda_list args;
       let_stack := [];
       ignore_debuginfo dbg
-    | Uunreachable | Upushtrap _ | Upoptrap _ ->
+    | Uunreachable ->
       let_stack := []
   in
   loop clam;
@@ -510,7 +511,7 @@ let rec substitute_let_moveable is_let_moveable env (clam : Clambda.ulambda)
     let e2 = substitute_let_moveable is_let_moveable env e2 in
     let args = substitute_let_moveable_list is_let_moveable env args in
     Usend (kind, e1, e2, args, dbg)
-  | Uunreachable | Upushtrap _ | Upoptrap _ ->
+  | Uunreachable ->
     clam
 
 and substitute_let_moveable_list is_let_moveable env clams =
@@ -711,7 +712,7 @@ let rec un_anf_and_moveable ident_info env (clam : Clambda.ulambda)
     let e2 = un_anf ident_info env e2 in
     let args = un_anf_list ident_info env args in
     Usend (kind, e1, e2, args, dbg), Fixed
-  | Uunreachable | Upushtrap _ | Upoptrap _ ->
+  | Uunreachable ->
     clam, Fixed
 
 and un_anf ident_info env clam : Clambda.ulambda =

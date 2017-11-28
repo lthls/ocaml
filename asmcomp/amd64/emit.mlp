@@ -748,10 +748,6 @@ let emit_instr fallthrough i =
   | Lop(Ispecific(Ifloatsqrtf addr)) ->
       I.sqrtsd (addressing addr REAL8 i 0) (res i 0)
   | Lop (Iname_for_debugger _) -> ()
-  | Lop(Ipushtrap _cont) ->
-      assert false
-  | Lop(Ipoptrap _cont) ->
-      assert false
   | Lreloadretaddr ->
       ()
   | Lreturn ->

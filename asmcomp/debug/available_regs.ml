@@ -298,7 +298,7 @@ let rec available_regs (instr : M.instruction)
             avail_after_handlers
         in
         None, avail_after
-      | Iexit nfail ->
+      | Iexit (nfail, _ta) ->
         let avail_before = ok avail_before in
         let avail_at_top_of_handler =
           match Hashtbl.find avail_at_exit nfail with

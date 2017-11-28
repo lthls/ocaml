@@ -150,18 +150,10 @@ and lam ppf = function
         end in
       fprintf ppf
         "@[<1>(switch %a@ @[<v 0>%a@])@]" lam larg switch sw
-  | Ustaticfail (i, ls, conts)  ->
-      let to_pop ppf conts =
-        match conts with
-        | [] -> ()
-        | l ->
-            fprintf ppf "[pop";
-            List.iter (fun i -> fprintf ppf "@ %d" i) l;
-            fprintf ppf "]"
-      in
+  | Ustaticfail (i, ls, ta) ->
       let lams ppf largs =
         List.iter (fun l -> fprintf ppf "@ %a" lam l) largs in
-      fprintf ppf "@[<2>(exit@ %d%a%a)@]" i to_pop conts lams ls;
+      fprintf ppf "@[<2>(exit@ %a%d%a)@]" Printlambda.trap_action ta i lams ls;
   | Ucatch(kind, handlers, lbody) ->
       let print_handler ppf (cont, params, lhandler) =
         fprintf ppf "@[<2>(%d%a)@ %a@]"
@@ -205,10 +197,6 @@ and lam ppf = function
       fprintf ppf "@[<2>(send%s@ %a@ %a%a)@]" kind lam obj lam met args largs
   | Uunreachable ->
       fprintf ppf "unreachable"
-  | Upushtrap trap ->
-      fprintf ppf "pushtrap %d" trap
-  | Upoptrap trap ->
-      fprintf ppf "poptrap %d" trap
 
 and sequence ppf ulam = match ulam with
   | Usequence(l1, l2) ->

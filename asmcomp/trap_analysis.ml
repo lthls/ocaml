@@ -70,29 +70,6 @@ let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
     | _ -> Misc.fatal_error "Trap depth at Ireturn is non-zero"
     end
   | Iop op ->
-    let stack, stacks_at_exit =
-      match op with
-      | Ipushtrap cont ->
-        (* CR pchambart: This shouldn't keep the handler alive. If
-           there is no raise the handler should be eliminated. *)
-        let stacks_at_exit =
-          add_stack ~cont ~is_exn:true ~stack:(cont :: stack) ~stacks_at_exit
-        in
-        cont :: stack, stacks_at_exit
-      | Ipoptrap cont ->
-        begin match stack with
-        | [] ->
-          Misc.fatal_errorf "Tried to poptrap %d but trap stack is empty" cont
-        | cont' :: stack ->
-          if cont = cont' then
-            stack, stacks_at_exit
-          else
-            Misc.fatal_errorf "Tried to poptrap %d but trap stack has %d \
-                at the top"
-              cont cont'
-        end
-      | _ -> stack, stacks_at_exit
-    in
     let desc, stacks_at_exit =
       match op with
       | Icall_ind call ->
@@ -251,7 +228,36 @@ let rec trap_stacks (insn : Mach.instruction) ~stack ~stacks_at_exit
         next;
       }, stacks_at_exit
     end
-  | Iexit cont ->
+  | Iexit (cont, ta) ->
+    let stack, stacks_at_exit =
+      match ta with
+      | No_action -> stack, stacks_at_exit
+      | Push cl ->
+        let push (stack, stacks_at_exit) cont =
+          let stack = cont :: stack in
+          (* CR vlaviron: This add_stack is necessary because we don't remove
+             Pop/Push annotations for unreachable handlers, which means that
+             we can't remove exception handlers (otherwise we would get errors
+             in Linearize.find_exit_label), and since we can't remove the handler
+             we need to know its trap stack even if there is no raise. *)
+          stack, add_stack ~cont ~is_exn:true ~stack ~stacks_at_exit
+        in
+        List.fold_left push (stack, stacks_at_exit) cl
+      | Pop cl ->
+        let pop (stack, stacks_at_exit) cont =
+          match stack with
+          | [] ->
+            Misc.fatal_errorf "Tried to poptrap %d but trap stack is empty" cont
+          | cont' :: stack ->
+            if cont = cont' then
+              stack, stacks_at_exit
+            else
+              Misc.fatal_errorf "Tried to poptrap %d but trap stack has %d \
+                  at the top"
+                cont cont'
+        in
+        List.fold_left pop (stack, stacks_at_exit) cl
+    in
     let stacks_at_exit = add_stack ~cont ~is_exn:false ~stack ~stacks_at_exit in
     let next, stacks_at_exit =
       trap_stacks insn.Mach.next ~stack ~stacks_at_exit

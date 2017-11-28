@@ -155,7 +155,7 @@ let rec live i finally =
       live_at_exit := live_at_exit_before;
       i.live <- before_body;
       before_body
-  | Iexit nfail ->
+  | Iexit (nfail, _ta) ->
       let this_live = find_live_at_exit nfail in
       i.live <- this_live ;
       this_live

@@ -379,7 +379,7 @@ module Make(I:I) = struct
     | _ ->
         let e =  next_raise_count () in
         Ccatch (Clambda.Normal Asttypes.Nonrecursive,
-          [e, [], arg], k (Cexit (e,[],[])))
+          [e, [], arg], k (Cexit (e,[],No_action)))
 
     let compile dbg str default cases =
 (* We do not attempt to really optimise default=None *)

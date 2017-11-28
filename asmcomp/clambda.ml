@@ -50,7 +50,7 @@ and ulambda =
   | Uprim of primitive * ulambda list * Debuginfo.t
   | Uswitch of ulambda * ulambda_switch * Debuginfo.t
   | Ustringswitch of ulambda * (string * ulambda) list * ulambda option
-  | Ustaticfail of int * ulambda list * int list
+  | Ustaticfail of int * ulambda list * trap_action
   | Ucatch of catch_kind * (int * Ident.t list * ulambda) list * ulambda
   | Uifthenelse of ulambda * ulambda * ulambda
   | Usequence of ulambda * ulambda
@@ -59,8 +59,6 @@ and ulambda =
   | Uassign of Ident.t * ulambda
   | Usend of meth_kind * ulambda * ulambda * ulambda list * Debuginfo.t
   | Uunreachable
-  | Upushtrap of int
-  | Upoptrap of int
 
 and ufunction = {
   label  : function_label;
@@ -176,3 +174,19 @@ let compare_structured_constants c1 c2 =
   | _, _ ->
     (* no overflow possible here *)
     rank_structured_constant c1 - rank_structured_constant c2
+
+let trywith ubody cont id uhandler =
+  let cont1 = Lambda.next_raise_count () in
+  let cont2 = Lambda.next_raise_count () in
+  let ucatch1 =
+    Ucatch (Normal Nonrecursive,
+            [cont1, [], Ustaticfail (cont2, [ubody], Pop [cont])],
+            Ustaticfail (cont1, [], Push [cont]))
+  in
+  let body_ident = Ident.create "try_body" in
+  let ucatch2 =
+    Ucatch (Normal Nonrecursive,
+            [cont2, [body_ident], Uvar body_ident],
+            ucatch1)
+  in
+  Ucatch (Exn_handler, [cont, [id], uhandler], ucatch2)

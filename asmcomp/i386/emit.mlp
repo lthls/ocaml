@@ -796,10 +796,6 @@ let emit_instr fallthrough i =
         I.fxch st1;
       emit_floatspecial s
   | Lop (Iname_for_debugger _) -> ()
-  | Lop(Ipushtrap _cont) ->
-      assert false
-  | Lop(Ipoptrap _cont) ->
-      assert false
   | Lreloadretaddr ->
       ()
   | Lreturn ->

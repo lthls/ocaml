@@ -50,7 +50,7 @@ and ulambda =
   | Uprim of primitive * ulambda list * Debuginfo.t
   | Uswitch of ulambda * ulambda_switch * Debuginfo.t
   | Ustringswitch of ulambda * (string * ulambda) list * ulambda option
-  | Ustaticfail of int * ulambda list * int list
+  | Ustaticfail of int * ulambda list * trap_action
   | Ucatch of catch_kind * (int * Ident.t list * ulambda) list * ulambda
   | Uifthenelse of ulambda * ulambda * ulambda
   | Usequence of ulambda * ulambda
@@ -59,8 +59,6 @@ and ulambda =
   | Uassign of Ident.t * ulambda
   | Usend of meth_kind * ulambda * ulambda * ulambda list * Debuginfo.t
   | Uunreachable
-  | Upushtrap of int
-  | Upoptrap of int
 
 and ufunction = {
   label  : function_label;
@@ -115,3 +113,8 @@ type preallocated_constant = {
   exported : bool;
   definition : ustructured_constant;
 }
+
+(* Convenience function to compile a trywith to catch handlers *)
+
+val trywith:
+        ulambda -> int -> Ident.t -> ulambda -> ulambda

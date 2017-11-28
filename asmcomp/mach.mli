@@ -72,8 +72,6 @@ type operation =
   | Iintop_imm of integer_operation * int
   | Inegf | Iabsf | Iaddf | Isubf | Imulf | Idivf
   | Ifloatofint | Iintoffloat
-  | Ipushtrap of int
-  | Ipoptrap of int
   | Ispecific of Arch.specific_operation
   | Iname_for_debugger of { ident : Ident.t; which_parameter : int option;
       provenance : unit option; is_assignment : bool; }
@@ -111,7 +109,7 @@ and instruction_desc =
   (* CR mshinwell: Use Clambda.catch_kind or similar *)
   | Icatch of Cmm.rec_flag * bool * (int * trap_stack * instruction) list
       * instruction
-  | Iexit of int
+  | Iexit of int * Lambda.trap_action
   | Iraise of Cmm.raise_kind * trap_stack
 
 type spacetime_part_of_shape =

@@ -237,6 +237,11 @@ type function_attribute = {
   stub: bool;
 }
 
+type trap_action =
+  | No_action
+  | Pop of int list
+  | Push of int list
+
 type lambda =
     Lvar of Ident.t
   | Lconst of structured_constant
@@ -250,9 +255,9 @@ type lambda =
    strings are pairwise distinct *)
   | Lstringswitch of
       lambda * (string * lambda) list * lambda option * Location.t
-  | Lstaticraise of int * lambda list
+  | Lstaticraise of int * lambda list * trap_action
   | Lstaticcatch of lambda * (int * Ident.t list) * lambda
-  | Ltrywith of lambda * Ident.t * lambda
+  | Ltrywith of lambda * int * Ident.t * lambda
   | Lifthenelse of lambda * lambda * lambda
   | Lsequence of lambda * lambda
   | Lwhile of lambda * lambda

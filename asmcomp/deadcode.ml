@@ -70,7 +70,7 @@ let rec deadcode i =
       ({i with
         desc = Icatch(rec_flag, is_exn_handler, handlers', body');
         next = s}, i.live)
-  | Iexit _nfail ->
+  | Iexit (_nfail, _ta) ->
       (i, i.live)
 
 let fundecl f =

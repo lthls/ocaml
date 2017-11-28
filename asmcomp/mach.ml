@@ -62,8 +62,6 @@ type operation =
   | Iintop_imm of integer_operation * int
   | Inegf | Iabsf | Iaddf | Isubf | Imulf | Idivf
   | Ifloatofint | Iintoffloat
-  | Ipushtrap of int
-  | Ipoptrap of int
   | Ispecific of Arch.specific_operation
   | Iname_for_debugger of { ident : Ident.t; which_parameter : int option;
       provenance : unit option; is_assignment : bool; }
@@ -88,7 +86,7 @@ and instruction_desc =
   | Iloop of instruction
   | Icatch of Cmm.rec_flag * bool * (int * trap_stack * instruction) list
       * instruction
-  | Iexit of int
+  | Iexit of int * Lambda.trap_action
   | Iraise of Cmm.raise_kind * trap_stack
 
 type spacetime_part_of_shape =
@@ -196,7 +194,7 @@ let spacetime_node_hole_pointer_is_live_before insn =
     | Imove | Ispill | Ireload | Iconst_int _ | Iconst_float _
     | Iconst_symbol _ | Istackoffset _ | Iload _ | Istore _
     | Inegf | Iabsf | Iaddf | Isubf | Imulf | Idivf
-    | Ifloatofint | Iintoffloat | Ipushtrap _ | Ipoptrap _ -> false
+    | Ifloatofint | Iintoffloat -> false
     | Iname_for_debugger _ -> false
     end
   | Iend | Ireturn | Iifthenelse _ | Iswitch _ | Iloop _ | Icatch _
