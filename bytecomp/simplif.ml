@@ -290,7 +290,7 @@ let simplify_exits lam =
   | Lstaticcatch (l1,(i,xs),l2) ->
       begin match count_exit i, has_trap i with
       | 0, false -> simplif l1
-      | 1, false when i >= 0 ->
+      | 1, false ->
           Hashtbl.add subst i (xs,simplif l2) ;
           simplif l1
       | _, _ ->
