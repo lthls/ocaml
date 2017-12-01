@@ -222,7 +222,6 @@ type function_attribute = {
 type trap_action =
   | No_action
   | Pop of int list
-  | Push of int list
 
 type lambda =
     Lvar of Ident.t

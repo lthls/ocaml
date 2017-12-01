@@ -23,7 +23,7 @@ module Env : sig
 
   val init : unit -> t
 
-  val check_trap_action : t -> Lambda.trap_action -> unit
+  val check_trap_action : t -> Clambda.trap_action -> unit
 
   val handler : t -> kind:Clambda.catch_kind -> cont:int -> arg_num:int -> t
 
@@ -87,7 +87,7 @@ end = struct
   let bad_exception_handler cont args =
     record_error (Bad_exception_handler { cont; args; })
 
-  let check_trap_action t (ta: Lambda.trap_action) =
+  let check_trap_action t (ta: Clambda.trap_action) =
     let check_trap cont =
       match Int.Map.find cont t.bound_handlers with
       | Exception, _ -> ()

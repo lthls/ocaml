@@ -1080,6 +1080,11 @@ let rec close fenv cenv = function
       Ustringswitch (uarg,usw,ud),Value_unknown
   | Lstaticraise (i, args, ta) ->
       let uargs = close_list fenv cenv args in
+      let ta: Clambda.trap_action =
+        match ta with
+        | No_action -> No_action
+        | Pop cl -> Pop cl
+      in
       (Ustaticfail (i, uargs, ta), Value_unknown)
   | Lstaticcatch(body, (i, vars), handler) ->
       let (ubody, _) = close fenv cenv body in

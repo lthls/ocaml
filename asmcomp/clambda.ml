@@ -23,6 +23,11 @@ type function_label = string
 
 type catch_kind = Normal of Asttypes.rec_flag | Exn_handler
 
+type trap_action =
+  | No_action
+  | Pop of int list
+  | Push of int list
+
 type ustructured_constant =
   | Uconst_float of float
   | Uconst_int32 of int32

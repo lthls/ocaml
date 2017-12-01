@@ -473,7 +473,6 @@ let conts ppf = function
 let trap_action ppf = function
   | No_action -> ()
   | Pop cl -> fprintf ppf "{pop %a} " conts cl
-  | Push cl -> fprintf ppf "{push %a} " conts cl
 
 let rec lam ppf = function
   | Lvar id ->

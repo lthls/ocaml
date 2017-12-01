@@ -109,7 +109,7 @@ and instruction_desc =
   (* CR mshinwell: Use Clambda.catch_kind or similar *)
   | Icatch of Cmm.rec_flag * bool * (int * trap_stack * instruction) list
       * instruction
-  | Iexit of int * Lambda.trap_action
+  | Iexit of int * Clambda.trap_action
   | Iraise of Cmm.raise_kind * trap_stack
 
 type spacetime_part_of_shape =

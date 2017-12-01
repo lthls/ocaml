@@ -240,7 +240,14 @@ type function_attribute = {
 type trap_action =
   | No_action
   | Pop of int list
-  | Push of int list
+(* Trap actions annotate static raise constructs.
+   No_action means that the raise is under the same trywith context as its
+   handler, Pop l means that the raise is nested within the
+   trywith blocks in l (the head of l being the deepest such block).
+   Pop refers to the operaions Kpoptrap and Lpoptrap (respectively in
+   bytecode and native code) that have to be inserted before the jump.
+   Some optimizations that move code around are only legal on No_action
+   static raises. *)
 
 type lambda =
     Lvar of Ident.t

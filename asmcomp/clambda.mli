@@ -23,6 +23,23 @@ type function_label = string
 
 type catch_kind = Normal of Asttypes.rec_flag | Exn_handler
 
+type trap_action =
+  | No_action
+  | Pop of int list
+  | Push of int list
+(* Same as Lambda.trap_action, with the additional Push action
+   that encodes entering a trywith block.
+   Unlike with trywith blocks, you can have several staticfails
+   annotated with the same traps, as long as:
+   - each Push is in the scope of the corresponding handlers
+   - on each path through the control flow graph, pushes and pops
+   are well-parenthesized
+   - all control flow paths leading to a given expression result in
+   the same trap context
+
+   Those invariants are checked later in the compilation process by
+   Trap_analysis. *)
+
 type ustructured_constant =
   | Uconst_float of float
   | Uconst_int32 of int32

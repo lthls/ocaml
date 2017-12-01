@@ -241,7 +241,7 @@ let rec instr ppf i =
       aux handlers;
       fprintf ppf "@]"
   | Iexit (i, ta) ->
-      fprintf ppf "exit%a(%d)" Printlambda.trap_action ta i
+      fprintf ppf "exit%a(%d)" Printclambda.trap_action ta i
   | Iraise (k, trap_stack) ->
       fprintf ppf "%a%a %a" Printcmm.raise_kind k
         print_trap_stack trap_stack reg i.arg.(0)

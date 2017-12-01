@@ -22,6 +22,20 @@ let rec_flag ppf = function
   | Nonrecursive -> ()
   | Recursive -> fprintf ppf " rec"
 
+let conts ppf = function
+  | [] -> fprintf ppf "(none)"
+  | [c] -> fprintf ppf "%d" c
+  | hd :: tl ->
+      fprintf ppf "[%d" hd;
+      List.iter (fun c -> fprintf ppf ",%d" c) tl;
+      fprintf ppf "]"
+
+(* Copied from Printclambda to avoid changing the linking order *)
+let trap_action ppf = function
+  | Clambda.No_action -> ()
+  | Clambda.Pop cl -> fprintf ppf "{pop %a} " conts cl
+  | Clambda.Push cl -> fprintf ppf "{push %a} " conts cl
+
 let machtype_component ppf = function
   | Val -> fprintf ppf "val"
   | Addr -> fprintf ppf "addr"
@@ -189,7 +203,7 @@ let rec expr ppf = function
         sequence e1
         print_handlers handlers
   | Cexit (i, el, ta) ->
-      fprintf ppf "@[<2>(exit %a%d" Printlambda.trap_action ta i;
+      fprintf ppf "@[<2>(exit %a%d" trap_action ta i;
       List.iter (fun e -> fprintf ppf "@ %a" expr e) el;
       fprintf ppf ")@]"
 

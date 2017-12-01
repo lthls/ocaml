@@ -254,16 +254,16 @@ let rec linear i n =
           copy_instr (Lcondbranch(test, lbl)) i (linear ifnot n1)
       | _, Iend, Lbranch lbl ->
           copy_instr (Lcondbranch(invert_test test, lbl)) i (linear ifso n1)
-      | Iexit (nfail1, Lambda.No_action), Iexit (nfail2, Lambda.No_action), _
+      | Iexit (nfail1, Clambda.No_action), Iexit (nfail2, Clambda.No_action), _
             when is_next_catch nfail1 ~trap_depth ->
           let lbl2 = find_exit_label nfail2 in
           copy_instr
             (Lcondbranch (invert_test test, lbl2)) i (linear ifso n1)
-      | Iexit (nfail, Lambda.No_action), _, _ ->
+      | Iexit (nfail, Clambda.No_action), _, _ ->
           let n2 = linear ifnot n1
           and lbl = find_exit_label nfail in
           copy_instr (Lcondbranch(test, lbl)) i n2
-      | _,  Iexit (nfail, Lambda.No_action), _ ->
+      | _,  Iexit (nfail, Clambda.No_action), _ ->
           let n2 = linear ifso n1 in
           let lbl = find_exit_label nfail in
           copy_instr (Lcondbranch(invert_test test, lbl)) i n2
@@ -379,13 +379,13 @@ let rec linear i n =
       let n2 = adjust_trap_depth ~before:trap_depth ~after:n1 in
       let n3 = add_branch lbl n2 in
       begin match ta with
-      | Lambda.No_action -> n3
-      | Lambda.Pop cl ->
+      | Clambda.No_action -> n3
+      | Clambda.Pop cl ->
           let add_poptrap _ n =
             { (cons_instr Lpoptrap n) with trap_depth = n.trap_depth + 1 }
           in
           List.fold_right add_poptrap cl n3
-      | Lambda.Push cl ->
+      | Clambda.Push cl ->
         let add_pushtrap cont n =
           assert (n.trap_depth > 0);
           let handler = find_exit_label cont in

@@ -163,7 +163,6 @@ let close_trap_action env (ta: Lambda.trap_action) : Flambda.trap_action =
   match ta with
   | No_action -> No_action
   | Pop l -> Pop (close_traps env l)
-  | Push l -> Push (close_traps env l)
 
 let rec close t env (lam : Lambda.lambda) : Flambda.t =
   match lam with

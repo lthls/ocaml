@@ -231,7 +231,7 @@ let to_clambda_const env (const : Flambda.constant_defining_value_block_field)
   | Const (Const_pointer i) -> Uconst_ptr i
 
 let to_clambda_trap_action (ta: Flambda.trap_action)
-      : Lambda.trap_action =
+      : Clambda.trap_action =
   match ta with
   | No_action -> No_action
   | Pop cl -> Pop (List.map Static_exception.to_int cl)

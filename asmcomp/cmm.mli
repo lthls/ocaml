@@ -147,7 +147,7 @@ and expression =
   | Cloop of expression
   | Ccatch of Clambda.catch_kind * (int * Ident.t list * expression) list
       * expression
-  | Cexit of int * expression list * Lambda.trap_action
+  | Cexit of int * expression list * Clambda.trap_action
 
 type fundecl =
   { fun_name: string;
