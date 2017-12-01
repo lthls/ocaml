@@ -19,7 +19,6 @@ type compilation_env =
   { ce_stack: int Ident.tbl;
     ce_heap: int Ident.tbl;
     ce_rec: int Ident.tbl;
-    ce_traps: int list;
     ce_static_raises: (int * int) Numbers.Int.Map.t;
   }
 

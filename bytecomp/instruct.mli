@@ -23,7 +23,6 @@ type compilation_env =
   { ce_stack: int Ident.tbl; (* Positions of variables in the stack *)
     ce_heap: int Ident.tbl;  (* Structure of the heap-allocated env *)
     ce_rec: int Ident.tbl;   (* Functions bound by the same let rec *)
-    ce_traps: int list;      (* Position of traps in the stack *)
     ce_static_raises: (int * int) Numbers.Int.Map.t;
                              (* staticraise number to label and size *)
   }

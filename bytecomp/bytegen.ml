@@ -34,7 +34,7 @@ let new_label () =
 
 let empty_env =
   { ce_stack = Ident.empty; ce_heap = Ident.empty; ce_rec = Ident.empty;
-    ce_traps = []; ce_static_raises = Numbers.Int.Map.empty; }
+    ce_static_raises = Numbers.Int.Map.empty; }
 
 (* Add a stack-allocated variable *)
 
@@ -42,7 +42,6 @@ let add_var id pos env =
   { ce_stack = Ident.add id pos env.ce_stack;
     ce_heap = env.ce_heap;
     ce_rec = env.ce_rec;
-    ce_traps = env.ce_traps;
     ce_static_raises = env.ce_static_raises;
   }
 
@@ -725,21 +724,24 @@ let rec comp_expr env exp sz cont =
         match ta with
         | No_action -> add_pop (sz-size) cont
         | Pop cl ->
-            let rec loop sz cl traps =
-              match cl, traps with
-              | [], _ -> add_pop (sz-size) cont
-              | _ :: cl, trap_sz :: traps ->
-                  add_pop (sz-trap_sz-4) (Kpoptrap :: loop trap_sz cl traps)
-              | _ :: _, [] -> assert false
+            (* Optimization: Bypass all poptraps except the last *)
+            let rec loop cl =
+              match cl with
+              | [] -> add_pop (sz-size) cont
+              | [st_exn] ->
+                  let (_lbl, trap_sz) = find_raise_label st_exn env in
+                  add_pop (sz-trap_sz-4)
+                    (Kpoptrap :: (add_pop (trap_sz - size) cont))
+              | _ :: cl -> loop cl
             in
-            loop sz cl env.ce_traps
+            loop cl
       in
       begin match args with
       | [arg] -> (* optim, argument passed in accumulator *)
           comp_expr env arg sz cont
       | _ -> comp_exit_args env args sz size cont
       end
-  | Ltrywith(body, _c, id, handler) ->
+  | Ltrywith(body, st_exn, id, handler) ->
       let (branch1, cont1) = make_branch cont in
       let lbl_handler = new_label() in
       let body_cont =
@@ -747,7 +749,11 @@ let rec comp_expr env exp sz cont =
         Klabel lbl_handler :: Kpush ::
         comp_expr (add_var id (sz+1) env) handler (sz+1) (add_pop 1 cont1)
       in
-      let env_body = { env with ce_traps = sz :: env.ce_traps } in
+      let env_body =
+        { env with ce_static_raises =
+                     Numbers.Int.Map.add st_exn (lbl_handler, sz)
+                       env.ce_static_raises }
+      in
       let l = comp_expr env_body body (sz+4) body_cont in
       Kpushtrap lbl_handler :: l
   | Lifthenelse(cond, ifso, ifnot) ->
@@ -956,7 +962,6 @@ let comp_function tc cont =
     { ce_stack = positions arity (-1) tc.params;
       ce_heap = positions (2 * (tc.num_defs - tc.rec_pos) - 1) 1 tc.free_vars;
       ce_rec = positions (-2 * tc.rec_pos) 2 tc.rec_vars;
-      ce_traps = [];
       ce_static_raises = Numbers.Int.Map.empty;
     } in
   let cont =
