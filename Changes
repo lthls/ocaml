@@ -137,6 +137,9 @@ Working version
 - MPR#7725, GPR#1754: improve AFL instrumentation for objects and lazy values.
   (Stephen Dolan)
 
+- GPR#1579: Add a separate types for clambda primitives
+  (Pierre Chambart, review by Vincent Laviron and Mark Shinwell)
+
 - GPR#1631: AMD64 code generator: emit shorter instruction sequences for the
   sign-extension operations.
   (LemonBoy, review by Alain Frisch and Xavier Leroy)
