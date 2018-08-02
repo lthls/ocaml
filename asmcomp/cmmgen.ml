@@ -908,15 +908,25 @@ type is_global = Global | Not_global
 
 type symbol_defn = string * is_global
 
+module Symbol_defn = struct
+  type t = symbol_defn
+  let compare (sym1, gl1) (sym2, gl2) =
+    let c = String.compare sym1 sym2 in
+    if c = 0 then Pervasives.compare gl1 gl2
+    else c
+end
+
 type cmm_constant =
-  | Const_closure of symbol_defn * ufunction list * uconstant list
-  | Const_table of symbol_defn * data_item list
+  | Const_closure of ufunction list * uconstant list
+  | Const_table of data_item list
+
+module SymMap = Map.Make(Symbol_defn)
 
 let cmm_constants =
-  ref ([] : cmm_constant list)
+  ref (SymMap.empty : cmm_constant SymMap.t)
 
-let add_cmm_constant c =
-  cmm_constants := c :: !cmm_constants
+let add_cmm_constant sym c =
+  cmm_constants := SymMap.add sym c !cmm_constants
 
 (* Boxed integers *)
 
@@ -1461,8 +1471,9 @@ let make_switch arg cases actions dbg =
       | _ -> assert false in
     let const_actions = Array.map to_data_item actions in
     let table = Compilenv.new_const_symbol () in
-    add_cmm_constant (Const_table ((table, Not_global),
-        Array.to_list (Array.map (fun act ->
+    add_cmm_constant (table, Not_global)
+      (Const_table
+        (Array.to_list (Array.map (fun act ->
           const_actions.(act)) cases)));
     addr_array_ref (Cconst_symbol table) (tag_int arg dbg) dbg
   else
@@ -1748,8 +1759,7 @@ let rec transl env e =
       transl_constant sc
   | Uclosure(fundecls, []) ->
       let lbl = Compilenv.new_const_symbol() in
-      add_cmm_constant (
-        Const_closure ((lbl, Not_global), fundecls, []));
+      add_cmm_constant (lbl, Not_global) (Const_closure (fundecls, []));
       List.iter (fun f -> Queue.add f functions) fundecls;
       Cconst_symbol lbl
   | Uclosure(fundecls, clos_vars) ->
@@ -2901,7 +2911,7 @@ let rec emit_structured_constant symb cst cont =
         (Misc.map_end (fun f -> Cdouble f) fields cont)
   | Uconst_closure(fundecls, lbl, fv) ->
       assert(lbl = fst symb);
-      add_cmm_constant (Const_closure (symb, fundecls, fv));
+      add_cmm_constant symb (Const_closure (fundecls, fv));
       List.iter (fun f -> Queue.add f functions) fundecls;
       cont
 
@@ -3004,14 +3014,14 @@ let emit_constants cont (constants:Clambda.preallocated_constant list) =
        let cst = emit_structured_constant (lbl, global) cst [] in
          c:= Cdata(cst):: !c)
     constants;
-  List.iter
-    (function
-    | Const_closure (symb, fundecls, clos_vars) ->
+  SymMap.iter
+    (fun symb cst -> match cst with
+    | Const_closure (fundecls, clos_vars) ->
         c := Cdata(emit_constant_closure symb fundecls clos_vars []) :: !c
-    | Const_table (symb, elems) ->
+    | Const_table (elems) ->
         c := Cdata(emit_constant_table symb elems) :: !c)
     !cmm_constants;
-  cmm_constants := [];
+  cmm_constants := SymMap.empty;
   !c
 
 let emit_all_constants cont =
