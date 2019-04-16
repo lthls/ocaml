@@ -55,6 +55,9 @@ ARCHES=amd64 i386 arm arm64 power s390x riscv
 INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \
         -I lambda -I middle_end -I middle_end/closure \
         -I middle_end/flambda -I middle_end/flambda/base_types \
+        -I middle_end/flambda2.0 \
+        -I middle_end/flambda2.0/from_lambda \
+        -I middle_end/flambda2.0/language \
         -I asmcomp -I asmcomp/debug \
         -I driver -I toplevel
 
@@ -461,6 +464,15 @@ endif
 	    middle_end/flambda/base_types/*.cmi \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
+	    middle_end/flambda2.0/*.cmi \
+	    "$(INSTALL_COMPLIBDIR)"
+	$(INSTALL_DATA) \
+	    middle_end/flambda2.0/from_lambda/*.cmi \
+	    "$(INSTALL_COMPLIBDIR)"
+	$(INSTALL_DATA) \
+	    middle_end/flambda2.0/language/*.cmi \
+	    "$(INSTALL_COMPLIBDIR)"
+	$(INSTALL_DATA) \
 	    asmcomp/*.cmi \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
@@ -483,6 +495,21 @@ ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
 	    middle_end/flambda/base_types/*.cmt \
             middle_end/flambda/base_types/*.cmti \
 	    middle_end/flambda/base_types/*.mli \
+	    "$(INSTALL_COMPLIBDIR)"
+	$(INSTALL_DATA) \
+	    middle_end/flambda2.0/*.cmt \
+            middle_end/flambda2.0/*.cmti \
+	    middle_end/flambda2.0/*.mli \
+	    "$(INSTALL_COMPLIBDIR)"
+	$(INSTALL_DATA) \
+	    middle_end/flambda2.0/from_lambda/*.cmt \
+            middle_end/flambda2.0/from_lambda/*.cmti \
+	    middle_end/flambda2.0/from_lambda/*.mli \
+	    "$(INSTALL_COMPLIBDIR)"
+	$(INSTALL_DATA) \
+	    middle_end/flambda2.0/language/*.cmt \
+            middle_end/flambda2.0/language/*.cmti \
+	    middle_end/flambda2.0/language/*.mli \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
 	    asmcomp/*.cmt asmcomp/*.cmti \
@@ -537,6 +564,9 @@ installoptopt:
            middle_end/flambda/*.cmx \
            middle_end/flambda/base_types/*.cmx \
 	   asmcomp/debug/*.cmx \
+           middle_end/flambda2.0/*.cmx \
+	   middle_end/flambda2.0/from_lambda/*.cmx \
+	   middle_end/flambda2.0/language/*.cmx \
           "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
 	   compilerlibs/*.cmxa compilerlibs/*.$(A) \
@@ -570,6 +600,9 @@ ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
      middle_end/flambda/*.ml middle_end/flambda/base_types/*.ml \
 	   asmcomp/*.ml \
 	   asmcmp/debug/*.ml \
+	   middle_end/flambda2.0/*.ml \
+	   middle_end/flambda2.0/from_lambda/*.ml \
+	   middle_end/flambda2.0/language/*.ml \
 	   "$(INSTALL_COMPLIBDIR)"
 endif
 
@@ -1060,6 +1093,9 @@ partialclean::
 	for d in utils parsing typing bytecomp asmcomp middle_end file_formats \
            lambda middle_end/closure middle_end/flambda \
            middle_end/flambda/base_types asmcomp/debug \
+           middle_end/flambda2.0 \
+	   middle_end/flambda2.0/from_lambda \
+	   middle_end/flambda2.0/language \
            driver toplevel tools; do \
 	  rm -f $$d/*.cm[ioxt] $$d/*.cmti $$d/*.annot $$d/*.s $$d/*.asm \
 	    $$d/*.o $$d/*.obj $$d/*.so $$d/*.dll; \
@@ -1070,6 +1106,9 @@ depend: beforedepend
 	(for d in utils parsing typing bytecomp asmcomp middle_end \
          lambda file_formats middle_end/closure middle_end/flambda \
          middle_end/flambda/base_types asmcomp/debug \
+         middle_end/flambda2.0 \
+         middle_end/flambda2.0/from_lambda \
+         middle_end/flambda2.0/language \
          driver toplevel; \
          do $(CAMLDEP) $(DEPFLAGS) $(DEPINCLUDES) $$d/*.mli $$d/*.ml || exit; \
          done) > .depend
