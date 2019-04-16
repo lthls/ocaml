@@ -139,6 +139,7 @@ ASMCOMP=\
   asmcomp/cmmgen.cmo \
   asmcomp/interval.cmo \
   asmcomp/printmach.cmo asmcomp/selectgen.cmo \
+  asmcomp/regtype.cmo
   asmcomp/spacetime_profiling.cmo asmcomp/selection.cmo \
   asmcomp/comballoc.cmo \
   asmcomp/CSEgen.cmo asmcomp/CSE.cmo \
@@ -215,6 +216,67 @@ MIDDLE_END_FLAMBDA_CMI=\
   middle_end/flambda/inlining_decision_intf.cmi \
   middle_end/flambda/simplify_boxed_integer_ops_intf.cmi
 
+MIDDLE_END_FLAMBDA2_LANGUAGE=\
+  middle_end/flambda2.0/language/allocated_const.cmo \
+  middle_end/flambda2.0/language/closure_element.cmo \
+  middle_end/flambda2.0/language/closure_id.cmo \
+  middle_end/flambda2.0/language/closure_origin.cmo \
+  middle_end/flambda2.0/language/code_id.cmo \
+  middle_end/flambda2.0/language/compilation_unit.cmo \
+  middle_end/flambda2.0/language/continuation.cmo \
+  middle_end/flambda2.0/language/discriminant.cmo \
+  middle_end/flambda2.0/language/export_id.cmo \
+  middle_end/flambda2.0/language/id_types.cmo \
+  middle_end/flambda2.0/language/immediate.cmo \
+  middle_end/flambda2.0/language/inline_attribute.cmo \
+  middle_end/flambda2.0/language/invalid_term_semantics.cmo \
+  middle_end/flambda2.0/language/kinded_parameter.cmo \
+  middle_end/flambda2.0/language/linkage_name.cmo \
+  middle_end/flambda2.0/language/num_continuation_uses.cmo \
+  middle_end/flambda2.0/language/parameter.cmo \
+  middle_end/flambda2.0/language/recursive.cmo \
+  middle_end/flambda2.0/language/scope_level.cmo \
+  middle_end/flambda2.0/language/set_of_closures_origin.cmo \
+  middle_end/flambda2.0/language/specialise_attribute.cmo \
+  middle_end/flambda2.0/language/tag.cmo \
+  middle_end/flambda2.0/language/var_within_closure.cmo \
+  middle_end/flambda2.0/language/symbol.cmo \
+  middle_end/flambda2.0/language/variable.cmo \
+  middle_end/flambda2.0/language/name.cmo \
+  middle_end/flambda2.0/language/simple.cmo \
+  middle_end/flambda2.0/language/bindable_name.cmo \
+  middle_end/flambda2.0/language/name_permutation.cmo \
+  middle_end/flambda2.0/language/name_occurrences.cmo \
+  middle_end/flambda2.0/language/name_abstraction.cmo \
+  middle_end/flambda2.0/language/continuation_counts.cmo \
+  middle_end/flambda2.0/language/number_adjuncts.cmo \
+  middle_end/flambda2.0/language/flambda_primitive.cmo \
+  middle_end/flambda2.0/language/invariant_env.cmo \
+  middle_end/flambda2.0/language/exn_continuation.cmo \
+  middle_end/flambda2.0/language/expr_std.cmo \
+  middle_end/flambda2.0/language/call_kind.cmo \
+  middle_end/flambda2.0/language/trap_action.cmo \
+  middle_end/flambda2.0/language/apply_cont_expr.cmo \
+  middle_end/flambda2.0/language/apply_expr.cmo \
+  middle_end/flambda2.0/language/switch_expr.cmo \
+  middle_end/flambda2.0/language/flambda.cmo \
+  middle_end/flambda2.0/language/flambda_static.cmo \
+  middle_end/flambda2.0/language/flambda_utils.cmo
+
+MIDDLE_END_FLAMBDA2_FROM_LAMBDA=\
+  middle_end/flambda2.0/from_lambda/prepare_lambda.cmo \
+  middle_end/flambda2.0/from_lambda/ilambda.cmo \
+  middle_end/flambda2.0/from_lambda/cps_conversion.cmo \
+  middle_end/flambda2.0/from_lambda/eliminate_mutable_vars.cmo \
+  middle_end/flambda2.0/from_lambda/lambda_to_flambda_primitives.cmo \
+  middle_end/flambda2.0/from_lambda/closure_conversion_aux.cmo \
+  middle_end/flambda2.0/from_lambda/closure_conversion.cmo
+
+MIDDLE_END_FLAMBDA2=\
+  $(MIDDLE_END_FLAMBDA2_LANGUAGE) \
+  $(MIDDLE_END_FLAMBDA2_FROM_LAMBDA) \
+  middle_end/flambda2.0/flambda2_middle_end.cmo
+
 MIDDLE_END=\
   middle_end/internal_variable_names.cmo \
   middle_end/linkage_name.cmo \
@@ -254,7 +316,8 @@ MIDDLE_END=\
   middle_end/flambda/export_info_for_pack.cmo \
   middle_end/compilenv.cmo \
   $(MIDDLE_END_CLOSURE) \
-  $(MIDDLE_END_FLAMBDA)
+  $(MIDDLE_END_FLAMBDA) \
+  $(MIDDLE_END_FLAMBDA2)
 MIDDLE_END_CMI=\
   middle_end/backend_intf.cmi \
   $(MIDDLE_END_CLOSURE_CMI) \
