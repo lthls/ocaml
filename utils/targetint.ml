@@ -271,6 +271,7 @@ module Int32 = struct
     let to_int32 t = t
     let to_int64 t = Int64.of_int32 t
     let to_targetint t = t
+    let to_tagged_targetint t = add (mul t 2l) 1l
 
     let of_float t = of_int64 (Int64.bits_of_float t)
     let to_float t = Int64.float_of_bits (to_int64 t)
@@ -455,6 +456,7 @@ module Int64 = struct
     let to_int32 t = Int64.to_int32 t
     let to_int64 t = t
     let to_targetint t = t
+    let to_tagged_targetint t = add (mul t 2L) 1L
     let to_float t = Int64.float_of_bits t
 
     let of_int_option i = Some (of_int i)
