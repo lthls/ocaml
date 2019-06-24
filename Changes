@@ -23,6 +23,12 @@ Working version
   [Flambda_middle_end].  Run [Un_anf] from the middle end, not [Cmmgen].
   (Mark Shinwell, review by Pierre Chambart)
 
+### Code generation and optimizations:
+
+- #2322: Add pseudo-instruction `Ladjust_trap_depth` to replace
+  dummy Lpushtrap generated in linearize
+  (Greta Yorsh and Vincent Laviron, review by Xavier Leroy)
+
 ### Runtime system:
 
 - #8619: Ensure Gc.minor_words remains accurate after a GC.
