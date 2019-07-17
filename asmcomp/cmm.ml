@@ -114,6 +114,8 @@ type raise_kind =
   | Raise_withtrace
   | Raise_notrace
 
+type trap_action = Push of label | Pop of label option
+
 type rec_flag = Nonrecursive | Recursive
 
 type phantom_defining_expr =
@@ -183,7 +185,7 @@ type expression =
         * (int * (Backend_var.With_provenance.t * machtype) list
           * expression * Debuginfo.t) list
         * expression
-  | Cexit of int * expression list
+  | Cexit of int * expression list * trap_action list
   | Ctrywith of expression * Backend_var.With_provenance.t * expression
       * Debuginfo.t
 

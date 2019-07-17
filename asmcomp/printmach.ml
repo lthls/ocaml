@@ -222,7 +222,8 @@ let rec instr ppf i =
       in
       aux handlers;
       fprintf ppf "@;<0 -2>endcatch@]"
-  | Iexit i ->
+  | Iexit (i, _traps) ->
+      (* TODO: print traps *)
       fprintf ppf "exit(%d)" i
   | Itrywith(body, handler) ->
       fprintf ppf "@[<v 2>try@,%a@;<0 -2>with@,%a@;<0 -2>endtry@]"

@@ -841,7 +841,7 @@ method emit_expr (env:environment) exp =
       self#insert env (Icatch (rec_flag, List.map aux l, s_body#extract))
         [||] [||];
       r
-  | Cexit (nfail,args) ->
+  | Cexit (nfail,args,traps) ->
       begin match self#emit_parts_list env args with
         None -> None
       | Some (simple_list, ext_env) ->
@@ -859,7 +859,7 @@ method emit_expr (env:environment) exp =
           Array.iter (fun reg -> assert(reg.typ <> Addr)) src;
           self#insert_moves env src tmp_regs ;
           self#insert_moves env tmp_regs (Array.concat dest_args) ;
-          self#insert env (Iexit nfail) [||] [||];
+          self#insert env (Iexit (nfail, traps)) [||] [||];
           None
       end
   | Ctrywith(e1, v, e2, _dbg) ->

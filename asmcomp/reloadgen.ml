@@ -117,8 +117,8 @@ method private reload i =
       instr_cons
         (Icatch(rec_flag, new_handlers, self#reload body)) [||] [||]
         (self#reload i.next)
-  | Iexit i ->
-      instr_cons (Iexit i) [||] [||] dummy_instr
+  | Iexit (i, traps) ->
+      instr_cons (Iexit (i, traps)) [||] [||] dummy_instr
   | Itrywith(body, handler) ->
       instr_cons (Itrywith(self#reload body, self#reload handler)) [||] [||]
         (self#reload i.next)

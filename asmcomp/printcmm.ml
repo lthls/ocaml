@@ -243,7 +243,8 @@ let rec expr ppf = function
         rec_flag flag
         sequence e1
         print_handlers handlers
-  | Cexit (i, el) ->
+  | Cexit (i, el, _traps) ->
+      (* TODO: print traps *)
       fprintf ppf "@[<2>(exit %d" i;
       List.iter (fun e -> fprintf ppf "@ %a" expr e) el;
       fprintf ppf ")@]"

@@ -180,7 +180,7 @@ let rec rename i sub =
       (instr_cons
          (Icatch(rec_flag, new_handlers, new_body)) [||] [||] new_next,
        sub_next)
-  | Iexit nfail ->
+  | Iexit (nfail, _traps) ->
       let r = find_exit_subst nfail in
       r := merge_substs !r sub i;
       (i, None)

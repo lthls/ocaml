@@ -41,17 +41,20 @@ type boxed_number =
 type env = {
   unboxed_ids : (V.t * boxed_number) V.tbl;
   environment_param : V.t option;
+  try_stack : unit list Numbers.Int.Map.t;
 }
 
 let empty_env =
   {
     unboxed_ids =V.empty;
     environment_param = None;
+    try_stack = Numbers.Int.Map.empty;
   }
 
 let create_env ~environment_param =
   { unboxed_ids = V.empty;
     environment_param;
+    try_stack = Numbers.Int.Map.empty;
   }
 
 let is_unboxed_id id env =
@@ -92,6 +95,10 @@ let mut_from_env env ptr =
 let get_field env ptr n dbg =
   let mut = mut_from_env env ptr in
   get_field_gen mut ptr n dbg
+
+let mk_traps env nfail =
+  let l = Numbers.Int.Map.find nfail env.try_stack in
+  List.map (fun () -> Pop None) l
 
 type rhs_kind =
   | RHS_block of int
@@ -581,7 +588,7 @@ let rec transl env e =
           strmatch_compile dbg arg (Misc.may_map (transl env) d)
             (List.map (fun (s,act) -> s,transl env act) sw))
   | Ustaticfail (nfail, args) ->
-      Cexit (nfail, List.map (transl env) args)
+      Cexit (nfail, List.map (transl env) args, mk_traps env nfail)
   | Ucatch(nfail, [], body, handler) ->
       let dbg = Debuginfo.none in
       make_catch nfail (transl env body) (transl env handler) dbg
@@ -611,7 +618,7 @@ let rec transl env e =
            (raise_num, [],
             create_loop(transl_if env Unknown dbg cond
                     dbg (remove_unit(transl env body))
-                    dbg (Cexit (raise_num,[])))
+                    dbg (Cexit (raise_num,[],[])))
               dbg,
             Ctuple [],
             dbg))
@@ -630,7 +637,7 @@ let rec transl env e =
                  Cifthenelse
                    (Cop(Ccmpi tst, [Cvar (VP.var id); high], dbg),
                     dbg,
-                    Cexit (raise_num, []),
+                    Cexit (raise_num, [], []),
                     dbg,
                     create_loop
                       (Csequence
@@ -643,7 +650,7 @@ let rec transl env e =
                              Cifthenelse
                                (Cop(Ccmpi Ceq, [Cvar (VP.var id_prev); high],
                                   dbg),
-                                dbg, Cexit (raise_num,[]),
+                                dbg, Cexit (raise_num,[],[]),
                                 dbg, Ctuple [],
                                 dbg)))))
                       dbg,
@@ -1084,12 +1091,12 @@ and transl_let env str kind id exp body =
            transl (add_unboxed_id (VP.var id) unboxed_id boxed_number env) body)
 
 and make_catch ncatch body handler dbg = match body with
-| Cexit (nexit,[]) when nexit=ncatch -> handler
+| Cexit (nexit,[],[]) when nexit=ncatch -> handler
 | _ ->  ccatch (ncatch, [], body, handler, dbg)
 
 and is_shareable_cont exp =
   match exp with
-  | Cexit (_,[]) -> true
+  | Cexit (_,[],[]) -> true
   | _ -> false
 
 and make_shareable_cont dbg mk exp =
@@ -1098,7 +1105,7 @@ and make_shareable_cont dbg mk exp =
     let nfail = next_raise_count () in
     make_catch
       nfail
-      (mk (Cexit (nfail,[])))
+      (mk (Cexit (nfail,[],[])))
       exp
       dbg
   end

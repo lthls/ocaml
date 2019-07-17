@@ -82,7 +82,7 @@ and instruction_desc =
   | Iifthenelse of test * instruction * instruction
   | Iswitch of int array * instruction array
   | Icatch of Cmm.rec_flag * (int * instruction) list * instruction
-  | Iexit of int
+  | Iexit of int * Cmm.trap_action list
   | Itrywith of instruction * instruction
   | Iraise of Cmm.raise_kind
 
