@@ -153,33 +153,32 @@ let add_branch lbl n =
 
 type env =
   { try_depth : int;
+    (* Association list: exit handler -> (handler label, try-nesting factor) *)
+    exit_label : (Cmm.label * (Cmm.label * int)) list;
   }
 
 let init_env =
   { try_depth = 0;
+    exit_label = [];
   }
 
-(* Association list: exit handler -> (handler label, try-nesting factor) *)
-
-let exit_label = ref []
-
-let find_exit_label_try_depth k =
+let find_exit_label_try_depth env k =
   try
-    List.assoc k !exit_label
+    List.assoc k env.exit_label
   with
   | Not_found -> Misc.fatal_error "Linearize.find_exit_label"
 
 let find_exit_label env k =
-  let (label, t) = find_exit_label_try_depth k in
+  let (label, t) = find_exit_label_try_depth env k in
   assert(t = env.try_depth);
   label
 
-let is_next_catch env n = match !exit_label with
+let is_next_catch env n = match env.exit_label with
 | (n0,(_,t))::_  when n0=n && t = env.try_depth -> true
 | _ -> false
 
 let local_exit env k =
-  snd (find_exit_label_try_depth k) = env.try_depth
+  snd (find_exit_label_try_depth env k) = env.try_depth
 
 (* Linearize an instruction [i]: add it in front of the continuation [n] *)
 
@@ -269,20 +268,20 @@ let rec linear env i n =
       let exit_label_add = List.map2
           (fun (nfail, _) lbl -> (nfail, (lbl, env.try_depth)))
           handlers labels_at_entry_to_handlers in
-      let previous_exit_label = !exit_label in
-      exit_label := exit_label_add @ !exit_label;
+      let inner_env =
+        { env with exit_label = exit_label_add @ env.exit_label; }
+      in
       let n2 = List.fold_left2 (fun n (_nfail, handler) lbl_handler ->
           match handler.Mach.desc with
           | Iend -> n
           | _ -> cons_instr (Llabel lbl_handler)
-                   (linear env handler (add_branch lbl_end n)))
+                   (linear inner_env handler (add_branch lbl_end n)))
           n1 handlers labels_at_entry_to_handlers
       in
-      let n3 = linear env body (add_branch lbl_end n2) in
-      exit_label := previous_exit_label;
+      let n3 = linear inner_env body (add_branch lbl_end n2) in
       n3
   | Iexit nfail ->
-      let lbl, t = find_exit_label_try_depth nfail in
+      let lbl, t = find_exit_label_try_depth env nfail in
       (* We need to re-insert dummy pushtrap (which won't be executed),
          so as to preserve stack offset during assembler generation.
          It would make sense to have a special pseudo-instruction
@@ -308,7 +307,7 @@ let rec linear env i n =
       in
       assert (i.Mach.arg = [| |] || Config.spacetime);
       let n3 = cons_instr (Lpushtrap { lbl_handler; })
-                 (linear { try_depth = succ env.try_depth; } body
+                 (linear { env with try_depth = succ env.try_depth; } body
                     (cons_instr
                        Lpoptrap
                        (add_branch lbl_join n2))) in
