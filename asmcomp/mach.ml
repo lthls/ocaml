@@ -81,10 +81,12 @@ and instruction_desc =
   | Ireturn
   | Iifthenelse of test * instruction * instruction
   | Iswitch of int array * instruction array
-  | Icatch of Cmm.rec_flag * (int * instruction) list * instruction
+  | Icatch of Cmm.catch_flag * (int * instruction) list * instruction
   | Iexit of int
-  | Itrywith of instruction * instruction
+  | Itrywith of instruction * try_handler
   | Iraise of Cmm.raise_kind
+
+and try_handler = Regular of instruction | Shared of int
 
 type spacetime_part_of_shape =
   | Direct_call_point of { callee : string; }
@@ -157,8 +159,10 @@ let rec instr_iter f i =
           List.iter (fun (_n, handler) -> instr_iter f handler) handlers;
           instr_iter f i.next
       | Iexit _ -> ()
-      | Itrywith(body, handler) ->
+      | Itrywith(body, Regular handler) ->
           instr_iter f body; instr_iter f handler; instr_iter f i.next
+      | Itrywith(body, Shared _) ->
+          instr_iter f body; instr_iter f i.next
       | Iraise _ -> ()
       | _ ->
           instr_iter f i.next

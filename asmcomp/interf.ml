@@ -105,15 +105,24 @@ let build_graph fundecl =
           interf cases.(i)
         done;
         interf i.next
+    | Icatch(For_trywith, handlers, body) ->
+        interf body;
+        List.iter (fun (_, handler) ->
+            add_interf_set Proc.destroyed_at_raise handler.live;
+            interf handler)
+          handlers;
+        interf i.next
     | Icatch(_rec_flag, handlers, body) ->
         interf body;
         List.iter (fun (_, handler) -> interf handler) handlers;
         interf i.next
     | Iexit _ ->
         ()
-    | Itrywith(body, handler) ->
+    | Itrywith(body, Regular handler) ->
         add_interf_set Proc.destroyed_at_raise handler.live;
         interf body; interf handler; interf i.next
+    | Itrywith(body, Shared _) ->
+        interf body; interf i.next
     | Iraise _ -> () in
 
   (* Add a preference from one reg to another.
@@ -183,14 +192,16 @@ let build_graph fundecl =
               | Cmm.Recursive ->
                   (* Avoid overflow of weight and spill_cost *)
                   if weight < 1000 then 8 * weight else weight
-              | Cmm.Nonrecursive ->
+              | Cmm.Nonrecursive | Cmm.For_trywith ->
                   weight in
             prefer weight handler) handlers;
         prefer weight i.next
     | Iexit _ ->
         ()
-    | Itrywith(body, handler) ->
+    | Itrywith(body, Regular handler) ->
         prefer weight body; prefer weight handler; prefer weight i.next
+    | Itrywith(body, Shared _) ->
+        prefer weight body; prefer weight i.next
     | Iraise _ -> ()
   in
 

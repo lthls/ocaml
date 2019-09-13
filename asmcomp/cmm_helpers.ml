@@ -532,6 +532,10 @@ let map_ccatch f rec_flag handlers body =
       handlers in
   Ccatch(rec_flag, handlers, f body)
 
+let map_try f = function
+  | Regular e -> Regular (f e)
+  | Shared i -> Shared i
+
 let rec unbox_float dbg cmm =
   match cmm with
   | Cop(Calloc [| Int; Float|],
@@ -549,8 +553,8 @@ let rec unbox_float dbg cmm =
       Array.map (fun (expr, dbg) -> unbox_float dbg expr, dbg) el, dbg')
   | Ccatch(rec_flag, handlers, body) ->
     map_ccatch (unbox_float dbg) rec_flag handlers body
-  | Ctrywith(e1, id, e2, dbg) ->
-      Ctrywith(unbox_float dbg e1, id, unbox_float dbg e2, dbg)
+  | Ctrywith(e1, id, h, dbg) ->
+      Ctrywith(unbox_float dbg e1, id, map_try (unbox_float dbg) h, dbg)
   | c -> Cop(Cload (Double_u, Immutable), [c], dbg)
 
 (* Complex *)
@@ -585,7 +589,7 @@ let rec remove_unit = function
   | Ccatch(rec_flag, handlers, body) ->
       map_ccatch remove_unit rec_flag handlers body
   | Ctrywith(body, exn, handler, dbg) ->
-      Ctrywith(remove_unit body, exn, remove_unit handler, dbg)
+      Ctrywith(remove_unit body, exn, map_try remove_unit handler, dbg)
   | Clet(id, c1, c2) ->
       Clet(id, c1, remove_unit c2)
   | Cop(Capply _mty, args, dbg) ->
@@ -1037,9 +1041,9 @@ let rec unbox_int bi arg dbg =
         dbg')
   | Ccatch(rec_flag, handlers, body) ->
       map_ccatch (fun e -> unbox_int bi e dbg) rec_flag handlers body
-  | Ctrywith(e1, id, e2, handler_dbg) ->
+  | Ctrywith(e1, id, h, handler_dbg) ->
       Ctrywith(unbox_int bi e1 dbg, id,
-        unbox_int bi e2 handler_dbg, handler_dbg)
+        map_try (fun h -> unbox_int bi h handler_dbg) h, handler_dbg)
   | _ ->
       if size_int = 4 && bi = Primitive.Pint64 then
         split_int64_for_32bit_target arg dbg

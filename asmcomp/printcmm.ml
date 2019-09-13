@@ -21,9 +21,10 @@ open Cmm
 module V = Backend_var
 module VP = Backend_var.With_provenance
 
-let rec_flag ppf = function
+let catch_flag ppf = function
   | Nonrecursive -> ()
   | Recursive -> fprintf ppf " rec"
+  | For_trywith -> fprintf ppf " exn"
 
 let machtype_component ppf = function
   | Val -> fprintf ppf "val"
@@ -240,16 +241,19 @@ let rec expr ppf = function
       in
       fprintf ppf
         "@[<2>(catch%a@ %a@;<1 -2>with%a)@]"
-        rec_flag flag
+        catch_flag flag
         sequence e1
         print_handlers handlers
   | Cexit (i, el) ->
       fprintf ppf "@[<2>(exit %d" i;
       List.iter (fun e -> fprintf ppf "@ %a" expr e) el;
       fprintf ppf ")@]"
-  | Ctrywith(e1, id, e2, _dbg) ->
+  | Ctrywith(e1, id, Regular e2, _dbg) ->
       fprintf ppf "@[<2>(try@ %a@;<1 -2>with@ %a@ %a)@]"
              sequence e1 VP.print id sequence e2
+  | Ctrywith(e1, _id, Shared i, _dbg) ->
+      fprintf ppf "@[<2>(try@ %a@;<1 -2>with@ exit@ %d)@]"
+             sequence e1 i
 
 and sequence ppf = function
   | Csequence(e1, e2) -> fprintf ppf "%a@ %a" sequence e1 sequence e2

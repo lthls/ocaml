@@ -594,7 +594,7 @@ let rec transl env e =
       ccatch(nfail, ids_with_types, transl env body, transl env handler, dbg)
   | Utrywith(body, exn, handler) ->
       let dbg = Debuginfo.none in
-      Ctrywith(transl env body, exn, transl env handler, dbg)
+      Ctrywith(transl env body, exn, Regular (transl env handler), dbg)
   | Uifthenelse(cond, ifso, ifnot) ->
       let ifso_dbg = Debuginfo.none in
       let ifnot_dbg = Debuginfo.none in

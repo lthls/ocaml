@@ -17,7 +17,7 @@
 
 open Format
 
-val rec_flag : formatter -> Cmm.rec_flag -> unit
+val catch_flag : formatter -> Cmm.catch_flag -> unit
 val machtype_component : formatter -> Cmm.machtype_component -> unit
 val machtype : formatter -> Cmm.machtype_component array -> unit
 val integer_comparison : Cmm.integer_comparison -> string

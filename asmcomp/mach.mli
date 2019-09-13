@@ -97,10 +97,12 @@ and instruction_desc =
   | Ireturn
   | Iifthenelse of test * instruction * instruction
   | Iswitch of int array * instruction array
-  | Icatch of Cmm.rec_flag * (int * instruction) list * instruction
+  | Icatch of Cmm.catch_flag * (int * instruction) list * instruction
   | Iexit of int
-  | Itrywith of instruction * instruction
+  | Itrywith of instruction * try_handler
   | Iraise of Cmm.raise_kind
+
+and try_handler = Regular of instruction | Shared of int
 
 type spacetime_part_of_shape =
   | Direct_call_point of { callee : string; (* the symbol *) }

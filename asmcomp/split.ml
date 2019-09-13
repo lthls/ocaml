@@ -186,7 +186,16 @@ let rec rename i sub =
       (i, None)
   | Itrywith(body, handler) ->
       let (new_body, sub_body) = rename body sub in
-      let (new_handler, sub_handler) = rename handler sub in
+      let (new_handler, sub_handler) =
+        match handler with
+        | Regular handler ->
+            let (new_handler, sub_handler) = rename handler sub in
+            (Regular new_handler, sub_handler)
+        | Shared n ->
+            let r = find_exit_subst n in
+            r := merge_substs !r sub i;
+            (Shared n, None)
+      in
       let (new_next, sub_next) =
         rename i.next (merge_substs sub_body sub_handler i.next) in
       (instr_cons (Itrywith(new_body, new_handler)) [||] [||] new_next,

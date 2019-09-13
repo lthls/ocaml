@@ -209,7 +209,7 @@ let rec instr ppf i =
       fprintf ppf "@,endswitch"
   | Icatch(flag, handlers, body) ->
       fprintf ppf "@[<v 2>catch%a@,%a@;<0 -2>with"
-        Printcmm.rec_flag flag instr body;
+        Printcmm.catch_flag flag instr body;
       let h (nfail, handler) =
         fprintf ppf "(%d)@,%a@;" nfail instr handler in
       let rec aux = function
@@ -224,9 +224,12 @@ let rec instr ppf i =
       fprintf ppf "@;<0 -2>endcatch@]"
   | Iexit i ->
       fprintf ppf "exit(%d)" i
-  | Itrywith(body, handler) ->
+  | Itrywith(body, Regular handler) ->
       fprintf ppf "@[<v 2>try@,%a@;<0 -2>with@,%a@;<0 -2>endtry@]"
              instr body instr handler
+  | Itrywith(body, Shared i) ->
+      fprintf ppf "@[<v 2>try@,%a@;<0 -2>with@ exit(%d)@;<0 -2>endtry@]"
+             instr body i
   | Iraise k ->
       fprintf ppf "%a %a" Printcmm.raise_kind k reg i.arg.(0)
   end;

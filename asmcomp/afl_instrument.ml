@@ -60,8 +60,10 @@ and instrument = function
   | Cifthenelse (cond, t_dbg, t, f_dbg, f, dbg) ->
      Cifthenelse (instrument cond, t_dbg, with_afl_logging t t_dbg,
        f_dbg, with_afl_logging f f_dbg, dbg)
-  | Ctrywith (e, ex, handler, dbg) ->
-     Ctrywith (instrument e, ex, with_afl_logging handler dbg, dbg)
+  | Ctrywith (e, ex, Regular handler, dbg) ->
+     Ctrywith (instrument e, ex, Regular (with_afl_logging handler dbg), dbg)
+  | Ctrywith (e, ex, Shared i, dbg) ->
+     Ctrywith (instrument e, ex, Shared i, dbg)
   | Cswitch (e, cases, handlers, dbg) ->
      let handlers =
        Array.map (fun (handler, handler_dbg) ->

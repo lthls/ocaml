@@ -106,7 +106,7 @@ let rec live i finally =
         let before_handlers' = List.map2 aux handlers before_handlers in
         live_at_exit := live_at_exit_before;
         match rec_flag with
-        | Cmm.Nonrecursive ->
+        | Cmm.Nonrecursive | Cmm.For_trywith ->
             before_handlers'
         | Cmm.Recursive ->
             if List.for_all2 aux_equal before_handlers before_handlers'
@@ -131,7 +131,11 @@ let rec live i finally =
       this_live
   | Itrywith(body, handler) ->
       let at_join = live i.next finally in
-      let before_handler = live handler at_join in
+      let before_handler =
+        match handler with
+        | Regular handler -> live handler at_join
+        | Shared nfail -> find_live_at_exit nfail
+      in
       let saved_live_at_raise = !live_at_raise in
       live_at_raise := Reg.Set.remove Proc.loc_exn_bucket before_handler;
       let before_body = live body at_join in

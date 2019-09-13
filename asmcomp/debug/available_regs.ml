@@ -258,7 +258,7 @@ let rec available_regs (instr : M.instruction)
               handlers
           in
           match recursive with
-          | Nonrecursive -> avail_after_handlers
+          | Nonrecursive | For_trywith -> avail_after_handlers
           | Recursive ->
             if List.for_all2 aux_equal avail_at_top_of_handlers
               avail_at_top_of_handlers'
@@ -315,9 +315,14 @@ let rec available_regs (instr : M.instruction)
             ok with_anonymous_exn_bucket
         in
         avail_at_raise := saved_avail_at_raise;
+        let after_handler =
+          match handler with
+          | Regular handler ->
+              available_regs handler ~avail_before:avail_before_handler
+          | Shared i -> Hashtbl.find avail_at_exit i (* TODO: Not_found *)
+        in
         let avail_after =
-          RAS.inter after_body
-            (available_regs handler ~avail_before:avail_before_handler)
+          RAS.inter after_body after_handler
         in
         None, avail_after
       | Iraise _ ->

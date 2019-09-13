@@ -120,7 +120,12 @@ method private reload i =
   | Iexit i ->
       instr_cons (Iexit i) [||] [||] dummy_instr
   | Itrywith(body, handler) ->
-      instr_cons (Itrywith(self#reload body, self#reload handler)) [||] [||]
+      let handler =
+        match handler with
+        | Regular handler -> Regular (self#reload handler)
+        | Shared n -> Shared n
+      in
+      instr_cons (Itrywith(self#reload body, handler)) [||] [||]
         (self#reload i.next)
 
 method fundecl f =

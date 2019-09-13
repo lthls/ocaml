@@ -83,7 +83,11 @@ let rec combine i allocstate =
          i.arg i.res newnext, sz)
   | Itrywith(body, handler) ->
       let (newbody, sz) = combine body allocstate in
-      let newhandler = combine_restart handler in
+      let newhandler =
+        match handler with
+        | Regular handler -> Regular (combine_restart handler)
+        | Shared i -> Shared i
+      in
       let newnext = combine_restart i.next in
       (instr_cons (Itrywith(newbody, newhandler)) i.arg i.res newnext, sz)
 

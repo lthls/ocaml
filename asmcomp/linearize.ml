@@ -153,13 +153,18 @@ let add_branch lbl n =
 
 type env =
   { try_depth : int;
+
     (* Association list: exit handler -> (handler label, try-nesting factor) *)
     exit_label : (Cmm.label * (Cmm.label * int)) list;
+
+    (* Association list: exit handler -> exception handler *)
+    exn_handlers : (Cmm.label * Cmm.label) list;
   }
 
 let init_env =
   { try_depth = 0;
     exit_label = [];
+    exn_handlers = [];
   }
 
 let find_exit_label_try_depth env k =
@@ -255,7 +260,7 @@ let rec linear env i n =
                    i !n2
       end else
         copy_instr (Lswitch(Array.map (fun n -> lbl_cases.(n)) index)) i !n2
-  | Icatch(_rec_flag, handlers, body) ->
+  | Icatch(rec_flag, handlers, body) ->
       let (lbl_end, n1) = get_label(linear env i.Mach.next n) in
       (* CR mshinwell for pchambart:
          1. rename "io"
@@ -274,8 +279,17 @@ let rec linear env i n =
       let n2 = List.fold_left2 (fun n (_nfail, handler) lbl_handler ->
           match handler.Mach.desc with
           | Iend -> n
-          | _ -> cons_instr (Llabel lbl_handler)
-                   (linear inner_env handler (add_branch lbl_end n)))
+          | _ ->
+              let handler_body =
+                linear inner_env handler (add_branch lbl_end n)
+              in
+              let handler_body =
+                match rec_flag with
+                | For_trywith ->
+                    cons_instr Lentertrap handler_body
+                | _ -> handler_body
+              in
+              cons_instr (Llabel lbl_handler) handler_body)
           n1 handlers labels_at_entry_to_handlers
       in
       let n3 = linear inner_env body (add_branch lbl_end n2) in
@@ -300,7 +314,7 @@ let rec linear env i n =
         else loop (cons_instr Lpoptrap i) (tt - 1)
       in
       loop (add_branch lbl n1) env.try_depth
-  | Itrywith(body, handler) ->
+  | Itrywith(body, Regular handler) ->
       let (lbl_join, n1) = get_label (linear env i.Mach.next n) in
       let (lbl_handler, n2) =
         get_label (cons_instr Lentertrap (linear env handler n1))
@@ -312,7 +326,22 @@ let rec linear env i n =
                        Lpoptrap
                        (add_branch lbl_join n2))) in
       n3
-
+  | Itrywith(body, Shared nfail) ->
+      let n1 = linear env i.Mach.next n in
+      let lbl_handler, t = find_exit_label_try_depth env nfail in
+      (* If t is different from env.try_depth, this gets tricky:
+         we would have to pop traps before getting into the body,
+         and push back traps after. But unlike the Iexit case,
+         these pushtraps are reachable, so they need to be the right ones,
+         which is currently not something we can get from try_depth.
+         So for now I'm just asserting that it doesn't happen. *)
+      assert (t = env.try_depth);
+      let n2 =
+        cons_instr (Lpushtrap { lbl_handler; })
+          (linear { env with try_depth = succ env.try_depth; } body
+             (cons_instr Lpoptrap n1))
+      in
+      n2
   | Iraise k ->
       copy_instr (Lraise k) i (discard_dead_code n)
 

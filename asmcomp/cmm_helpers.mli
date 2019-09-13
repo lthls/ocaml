@@ -174,7 +174,7 @@ val unbox_float : Debuginfo.t -> expression -> expression
 
 (** Map the given function over a Ccatch expression's handlers and body *)
 val map_ccatch :
-  (expression -> expression) -> rec_flag ->
+  (expression -> expression) -> catch_flag ->
   (int * (Backend_var.With_provenance.t * machtype) list * expression
    * Debuginfo.t) list ->
   expression -> expression

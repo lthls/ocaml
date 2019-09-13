@@ -204,25 +204,37 @@ let rec reload i before =
       let previous_reload_at_exit = !reload_at_exit in
       reload_at_exit := new_sets @ !reload_at_exit ;
       let (new_body, after_body) = reload body before in
-      let rec fixpoint () =
+      let rec compute_res do_fixpoint =
         let at_exits = List.map (fun (nfail, set) -> (nfail, !set)) new_sets in
         let res =
           List.map2 (fun (nfail', handler) (nfail, at_exit) ->
               assert(nfail = nfail');
               reload handler at_exit) handlers at_exits in
-        match rec_flag with
-        | Cmm.Nonrecursive ->
-            res
-        | Cmm.Recursive ->
-            let equal = List.for_all2 (fun (nfail', at_exit) (nfail, new_set) ->
-                assert(nfail = nfail');
-                Reg.Set.equal at_exit !new_set)
-                at_exits new_sets in
-            if equal
-            then res
-            else fixpoint ()
+        if do_fixpoint then begin
+          let equal = List.for_all2 (fun (nfail', at_exit) (nfail, new_set) ->
+              assert(nfail = nfail');
+              Reg.Set.equal at_exit !new_set)
+              at_exits new_sets in
+          if equal
+          then res
+          else compute_res do_fixpoint
+        end else res
       in
-      let res = fixpoint () in
+      let res =
+        match rec_flag with
+        | Cmm.Nonrecursive -> compute_res false
+        | Cmm.Recursive -> compute_res true
+        | Cmm.For_trywith ->
+            List.map (fun (_nfail, handler) ->
+                (* All registers live at the beginning of the handler are
+                   destroyed, except the exception bucket *)
+                let before_handler =
+                  Reg.Set.remove Proc.loc_exn_bucket
+                    (Reg.add_set_array handler.live handler.arg)
+                in
+                reload handler before_handler)
+              handlers
+      in
       reload_at_exit := previous_reload_at_exit;
       let union = List.fold_left
           (fun acc (_, after_handler) -> Reg.Set.union acc after_handler)
@@ -240,12 +252,20 @@ let rec reload i before =
       (i, Reg.Set.empty)
   | Itrywith(body, handler) ->
       let (new_body, after_body) = reload body before in
-      (* All registers live at the beginning of the handler are destroyed,
-         except the exception bucket *)
-      let before_handler =
-        Reg.Set.remove Proc.loc_exn_bucket
-                       (Reg.add_set_array handler.live handler.arg) in
-      let (new_handler, after_handler) = reload handler before_handler in
+      let (new_handler, after_handler) =
+        match handler with
+        | Regular handler ->
+            (* All registers live at the beginning of the handler are destroyed,
+               except the exception bucket *)
+            let before_handler =
+              Reg.Set.remove Proc.loc_exn_bucket
+                (Reg.add_set_array handler.live handler.arg)
+            in
+            let (handler, after_handler) = reload handler before_handler in
+            (Regular handler, after_handler)
+        | Shared _ ->
+            (handler, Reg.Set.empty)
+      in
       let (new_next, finally) =
         reload i.next (Reg.Set.union after_body after_handler) in
       (instr_cons (Itrywith(new_body, new_handler)) i.arg i.res new_next,
@@ -370,7 +390,7 @@ let rec spill i finally =
         in
         spill_at_exit := previous_spill_at_exit;
         match rec_flag with
-        | Cmm.Nonrecursive ->
+        | Cmm.Nonrecursive | Cmm.For_trywith ->
             res
         | Cmm.Recursive ->
             let equal =
@@ -398,7 +418,14 @@ let rec spill i finally =
       (i, find_spill_at_exit nfail)
   | Itrywith(body, handler) ->
       let (new_next, at_join) = spill i.next finally in
-      let (new_handler, before_handler) = spill handler at_join in
+      let (new_handler, before_handler) =
+        match handler with
+        | Regular handler ->
+            let (new_handler, before_handler) = spill handler at_join in
+            (Regular new_handler, before_handler)
+        | Shared n ->
+            (Shared n, find_spill_at_exit n)
+      in
       let saved_spill_at_raise = !spill_at_raise in
       spill_at_raise := before_handler;
       let (new_body, before_body) = spill body at_join in

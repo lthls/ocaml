@@ -202,7 +202,7 @@ val trywith :
   ?dbg:Debuginfo.t ->
   body:Cmm.expression ->
   exn_var:Backend_var.With_provenance.t ->
-  handler:Cmm.expression ->
+  handler:Cmm.try_handler ->
   Cmm.expression
 (** Create a try_with structure. The [exn_var] is the variable bound to the catched
     exception in the handler. *)

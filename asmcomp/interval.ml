@@ -160,7 +160,10 @@ let build_intervals fd =
         insert_destroyed_at_oper intervals i !pos;
         walk_instruction body;
         insert_destroyed_at_raise intervals !pos;
-        walk_instruction handler;
+        begin match handler with
+        | Regular handler -> walk_instruction handler;
+        | Shared _ -> insert_destroyed_at_oper intervals i !pos
+        end;
         walk_instruction i.next
     | Iraise _ ->
         walk_instruction i.next

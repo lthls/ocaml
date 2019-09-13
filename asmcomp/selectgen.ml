@@ -811,12 +811,26 @@ method emit_expr (env:environment) exp =
             env (List.combine ids rs)
         in
         let (r, s) = self#emit_sequence new_env e2 in
-        (nfail, (r, s))
+        let r_opt =
+          match rec_flag, rs with
+          | For_trywith, [r] -> Some r
+          | For_trywith, _ ->
+              Misc.fatal_error "Selection: wrong arguments in trywith handler"
+          | _, _ -> None
+        in
+        ((nfail, r_opt), (r, s))
       in
       let l = List.map translate_one_handler handlers in
       let a = Array.of_list ((r_body, s_body) :: List.map snd l) in
       let r = join_array env a in
-      let aux (nfail, (_r, s)) = (nfail, s#extract) in
+      let aux ((nfail, r_opt), (_r, s)) =
+        match r_opt with
+        | Some rv ->
+            (nfail, instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] rv
+               s#extract)
+        | None ->
+            (nfail, s#extract)
+      in
       self#insert env (Icatch (rec_flag, List.map aux l, s_body#extract))
         [||] [||];
       r
@@ -844,14 +858,22 @@ method emit_expr (env:environment) exp =
   | Ctrywith(e1, v, e2, _dbg) ->
       let (r1, s1) = self#emit_sequence env e1 in
       let rv = self#regs_for typ_val in
-      let (r2, s2) = self#emit_sequence (env_add v rv env) e2 in
-      let r = join env r1 s1 r2 s2 in
-      self#insert env
-        (Itrywith(s1#extract,
-                  instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] rv
-                             (s2#extract)))
-        [||] [||];
-      r
+      begin match e2 with
+      | Regular e2 ->
+          let (r2, s2) = self#emit_sequence (env_add v rv env) e2 in
+          let r = join env r1 s1 r2 s2 in
+          self#insert env
+            (Itrywith(s1#extract,
+                  Regular (instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] rv
+                             (s2#extract))))
+            [||] [||];
+          r
+      | Shared i ->
+          self#insert env
+            (Itrywith(s1#extract, Shared i))
+            [||] [||];
+          r1
+      end
 
 method private emit_sequence (env:environment) exp =
   let s = {< instr_seq = dummy_instr >} in
@@ -1154,17 +1176,32 @@ method emit_tail (env:environment) exp =
           List.fold_left
             (fun env ((id, _typ),r) -> env_add id r env)
             env (List.combine ids rs) in
-        nfail, self#emit_tail_sequence new_env e2
+        let handler = self#emit_tail_sequence new_env e2 in
+        let handler =
+          match rec_flag, rs with
+          | For_trywith, [r] ->
+              instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] r handler
+          | For_trywith, _ ->
+              Misc.fatal_error "Selection: wrong arguments in trywith handler"
+          | _, _ -> handler
+        in
+        nfail, handler
       in
       self#insert env (Icatch(rec_flag, List.map aux handlers, s_body))
         [||] [||]
-  | Ctrywith(e1, v, e2, _dbg) ->
+  | Ctrywith(e1, v, h, _dbg) ->
       let (opt_r1, s1) = self#emit_sequence env e1 in
       let rv = self#regs_for typ_val in
-      let s2 = self#emit_tail_sequence (env_add v rv env) e2 in
+      let handler =
+        match h with
+        | Regular e2 ->
+            let s2 = self#emit_tail_sequence (env_add v rv env) e2 in
+            Regular (instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] rv s2)
+        | Shared n ->
+            Shared n
+      in
       self#insert env
-        (Itrywith(s1#extract,
-                  instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] rv s2))
+        (Itrywith(s1#extract, handler))
         [||] [||];
       begin match opt_r1 with
         None -> ()

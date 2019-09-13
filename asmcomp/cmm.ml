@@ -102,7 +102,7 @@ type raise_kind =
   | Raise_withtrace
   | Raise_notrace
 
-type rec_flag = Nonrecursive | Recursive
+type catch_flag = Nonrecursive | Recursive | For_trywith
 
 type phantom_defining_expr =
   | Cphantom_const_int of Targetint.t
@@ -167,13 +167,15 @@ type expression =
   | Cswitch of expression * int array * (expression * Debuginfo.t) array
       * Debuginfo.t
   | Ccatch of
-      rec_flag
+      catch_flag
         * (int * (Backend_var.With_provenance.t * machtype) list
           * expression * Debuginfo.t) list
         * expression
   | Cexit of int * expression list
-  | Ctrywith of expression * Backend_var.With_provenance.t * expression
+  | Ctrywith of expression * Backend_var.With_provenance.t * try_handler
       * Debuginfo.t
+
+and try_handler = Regular of expression | Shared of int
 
 type codegen_option =
   | Reduce_code_size

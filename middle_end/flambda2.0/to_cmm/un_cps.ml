@@ -811,11 +811,11 @@ and wrap_exn env res e =
         C.trywith
           ~dbg:Debuginfo.none
           ~body:res ~exn_var
-          ~handler:(C.cexit id [C.var v])
+          ~handler:(Cmm.Shared id)
     | Inline ([v], h) ->
         let var = Kinded_parameter.var v in
         let env, exn_var = Env.create_variable env var in
-        let handler = expr env h in
+        let handler = Cmm.Regular (expr env h) in
         C.trywith ~dbg:Debuginfo.none ~body:res ~exn_var ~handler
     | Jump _
     | Inline _ ->
