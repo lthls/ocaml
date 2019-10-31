@@ -443,6 +443,10 @@ let read_one_param ppf position name v =
         let pass = Option.get (P.of_string v)  in
         Clflags.stop_after := Some pass
     end
+
+  | "flambda2-context-on-error" ->
+    set "flambda2-context-on-error" [ flambda2_context_on_error ] v
+
   | _ ->
     if not (List.mem name !can_discard) then begin
       can_discard := name :: !can_discard;
