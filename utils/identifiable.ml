@@ -33,7 +33,6 @@ module type Set = sig
   val to_string : t -> string
   val of_list : elt list -> t
   val map : (elt -> elt) -> t -> t
-  val get_singleton : t -> elt option
 end
 
 module type Map = sig
@@ -43,8 +42,6 @@ module type Map = sig
   module Set : Set with module T := T
 
   val of_list : (key * 'a) list -> 'a t
-
-  val get_singleton : 'a t -> (key * 'a) option
 
   val disjoint_union :
     ?eq:('a -> 'a -> bool) -> ?print:(Format.formatter -> 'a -> unit) -> 'a t ->
@@ -111,22 +108,19 @@ module Make_map (T : Thing) (Set : Set with module T := T) = struct
 
   module Set = Set
 
-  let get_singleton t =
-    match bindings t with
-    | [key, datum] -> Some (key, datum)
-    | _ -> None
-
   let of_list l =
     List.fold_left (fun map (id, v) -> add id v map) empty l
 
   let disjoint_union ?eq ?print m1 m2 =
-    union (fun id v1 v2 ->
+    ignore print;
+    union (fun _id v1 v2 ->
         let ok = match eq with
           | None -> false
           | Some eq -> eq v1 v2
         in
         if not ok then
-          let err =
+(*
+          let _err =
             match print with
             | None ->
               Format.asprintf "Map.disjoint_union %a" T.print id
@@ -134,7 +128,8 @@ module Make_map (T : Thing) (Set : Set with module T := T) = struct
               Format.asprintf "Map.disjoint_union %a => %a <> %a"
                 T.print id print v1 print v2
           in
-          Misc.fatal_error err
+*)
+          invalid_arg "disjoint_union"
         else Some v1)
       m1 m2
 
@@ -237,11 +232,6 @@ module Make_set (T : Thing) = struct
     | t :: q -> List.fold_left (fun acc e -> add e acc) (singleton t) q
 
   let map f s = of_list (List.map f (elements s))
-
-  let get_singleton t =
-    match elements t with
-    | [elt] -> Some elt
-    | _ -> None
 end
 
 module Make_tbl (T : Thing) (Map : Map with module T := T) = struct
