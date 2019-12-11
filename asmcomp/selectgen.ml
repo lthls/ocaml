@@ -937,7 +937,7 @@ method emit_expr (env:environment) exp =
               None
           | Return_lbl ->
               begin match simple_list with
-              | [expr] -> self#emit_return env expr traps; None
+              | [expr] -> self#emit_return ext_env expr traps; None
               | [] ->
                   Misc.fatal_error
                     "Selection.emit_expr: Return without arguments"
