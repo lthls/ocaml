@@ -62,7 +62,7 @@ let transl_extension_constructor ~scopes env path ext =
   let loc = of_location ~scopes ext.ext_loc in
   match ext.ext_kind with
     Text_decl _ ->
-      Lprim (Pmakeblock (Obj.object_tag, Immutable, None),
+      Lprim (Pmakeblock (Obj.object_tag, Mutable, None),
         [Lconst (Const_base (Const_string (name, ext.ext_loc, None)));
          Lprim (prim_fresh_oo_id, [Lconst (Const_base (Const_int 0))], loc)],
         loc)
