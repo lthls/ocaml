@@ -5,8 +5,8 @@
 (*                       Pierre Chambart, OCamlPro                        *)
 (*           Mark Shinwell and Leo White, Jane Street Europe              *)
 (*                                                                        *)
-(*   Copyright 2013--2019 OCamlPro SAS                                    *)
-(*   Copyright 2014--2019 Jane Street Group LLC                           *)
+(*   Copyright 2013--2020 OCamlPro SAS                                    *)
+(*   Copyright 2014--2020 Jane Street Group LLC                           *)
 (*                                                                        *)
 (*   All rights reserved.  This file is distributed under the terms of    *)
 (*   the GNU Lesser General Public License version 2.1, with the          *)
@@ -14,22 +14,21 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(** Translate Lambda code to Flambda 2.0 code and then optimize it. *)
-
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-type middle_end_result = private {
-  cmx : Flambda_cmx_format.t option;
-  unit : Flambda_unit.t;
-}
+(** Contents of middle-end-specific portion of .cmx files when using
+    Flambda. *)
 
-(** This function is not currently re-entrant. *)
-val middle_end
-   : ppf_dump:Format.formatter
-  -> prefixname:string
-  -> backend:(module Flambda2_backend_intf.S)
-  -> filename:string
-  -> module_ident:Ident.t
-  -> module_block_size_in_words:int
-  -> module_initializer:Lambda.lambda
-  -> middle_end_result
+type t
+
+val create
+   : final_typing_env:Flambda_type.Typing_env.Serializable.t
+  -> all_code:Flambda.Function_params_and_body.t Code_id.Map.t
+  -> exported_offsets:Exported_offsets.t
+  -> t
+
+val final_typing_env : t -> Flambda_type.Typing_env.Serializable.t
+val all_code : t -> Flambda.Function_params_and_body.t Code_id.Map.t
+val exported_offsets : t -> Exported_offsets.t
+
+val with_exported_offsets : t -> Exported_offsets.t -> t

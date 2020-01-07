@@ -158,14 +158,14 @@ Format.eprintf "All bindings:@ %a\n%!"
        an error if it tries to use it. *)
     Sort_lifted_constants.sort dacc all_lifted_constants
   in
-  let expr =
-    List.fold_left (fun body (bound_symbols, defining_expr) ->
-        Simplify_common.create_let_symbol (UA.r uacc) scoping_rule
+  let expr, r =
+    List.fold_left (fun (body, r) (bound_symbols, defining_expr) ->
+        Simplify_common.create_let_symbol scoping_rule r
           (UA.code_age_relation uacc) bound_symbols defining_expr body)
-      body
+      (body, UA.r uacc)
       sorted_lifted_constants.bindings_outermost_last
   in
-  expr, user_data, uacc
+  expr, user_data, UA.with_r uacc r
 
 and simplify_one_continuation_handler :
  'a. DA.t

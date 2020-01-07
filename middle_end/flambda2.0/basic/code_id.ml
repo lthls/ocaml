@@ -84,7 +84,7 @@ let create ~name compilation_unit =
   in
   Table.add !grand_table_of_code_ids data
 
-let rename t = create ~name:(name t) (get_compilation_unit t)
+let rename t = create ~name:(name t) (Compilation_unit.get_current_exn ())
 
 let in_compilation_unit t comp_unit =
   Compilation_unit.equal (get_compilation_unit t) comp_unit
