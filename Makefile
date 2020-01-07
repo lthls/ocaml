@@ -57,6 +57,7 @@ INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \
         -I middle_end/flambda2.0/compilenv_deps \
         -I middle_end/flambda2.0 \
         -I middle_end/flambda2.0/basic \
+        -I middle_end/flambda2.0/cmx \
         -I middle_end/flambda2.0/from_lambda \
         -I middle_end/flambda2.0/inlining \
         -I middle_end/flambda2.0/lifting \
@@ -1155,6 +1156,7 @@ partialclean::
            middle_end/flambda2.0/compilenv_deps \
            middle_end/flambda2.0 \
            middle_end/flambda2.0/basic \
+           middle_end/flambda2.0/cmx \
            middle_end/flambda2.0/from_lambda \
            middle_end/flambda2.0/inlining \
            middle_end/flambda2.0/naming \
@@ -1186,6 +1188,7 @@ depend: beforedepend
          middle_end/flambda2.0/compilenv_deps \
          middle_end/flambda2.0 \
          middle_end/flambda2.0/basic \
+         middle_end/flambda2.0/cmx \
          middle_end/flambda2.0/from_lambda \
          middle_end/flambda2.0/inlining \
          middle_end/flambda2.0/lifting \
