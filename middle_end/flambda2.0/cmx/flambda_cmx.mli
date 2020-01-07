@@ -5,8 +5,8 @@
 (*                       Pierre Chambart, OCamlPro                        *)
 (*           Mark Shinwell and Leo White, Jane Street Europe              *)
 (*                                                                        *)
-(*   Copyright 2013--2019 OCamlPro SAS                                    *)
-(*   Copyright 2014--2019 Jane Street Group LLC                           *)
+(*   Copyright 2013--2020 OCamlPro SAS                                    *)
+(*   Copyright 2014--2020 Jane Street Group LLC                           *)
 (*                                                                        *)
 (*   All rights reserved.  This file is distributed under the terms of    *)
 (*   the GNU Lesser General Public License version 2.1, with the          *)
@@ -14,22 +14,23 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(** Translate Lambda code to Flambda 2.0 code and then optimize it. *)
-
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-type middle_end_result = private {
-  cmx : Flambda_cmx_format.t option;
-  unit : Flambda_unit.t;
-}
+(** Dumping and restoring of simplification environment information to and
+    from .cmx files. *)
 
-(** This function is not currently re-entrant. *)
-val middle_end
-   : ppf_dump:Format.formatter
-  -> prefixname:string
-  -> backend:(module Flambda2_backend_intf.S)
-  -> filename:string
-  -> module_ident:Ident.t
-  -> module_block_size_in_words:int
-  -> module_initializer:Lambda.lambda
-  -> middle_end_result
+open! Simplify_import
+
+val load_cmx_file_contents
+   : (module Flambda2_backend_intf.S)
+  -> Compilation_unit.t
+  -> imported_units:Flambda_type.Typing_env.t Compilation_unit.Map.t ref
+  -> imported_names:Name.Set.t ref
+  -> imported_code:Function_params_and_body.t Code_id.Map.t ref
+  -> Flambda_type.Typing_env.t option
+
+val prepare_cmx_file_contents
+   : return_cont_env:Continuation_uses_env.t
+  -> return_continuation:Continuation.t
+  -> Function_params_and_body.t Code_id.Map.t
+  -> Flambda_cmx_format.t option

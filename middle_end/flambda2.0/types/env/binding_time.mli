@@ -21,6 +21,7 @@ include Identifiable.S with type t := t
 
 val consts_and_discriminants : t (* CR mshinwell: rename *)
 val symbols : t
+val imported_variables : t
 
 val earliest_var : t
 val succ : t -> t

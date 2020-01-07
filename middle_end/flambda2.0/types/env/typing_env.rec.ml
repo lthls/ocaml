@@ -53,6 +53,8 @@ module Cached : sig
     -> t
 
   val with_cse : t -> cse:Simple.t Flambda_primitive.Eligible_for_cse.Map.t -> t
+
+  val make_all_defined_vars_irrelevant : t -> t
 end = struct
   type t = {
     names_to_types :
@@ -137,6 +139,18 @@ end = struct
     }
 
   let with_cse t ~cse = { t with cse; }
+
+  let make_all_defined_vars_irrelevant t =
+    let names_to_types =
+      Name.Map.mapi (fun (name : Name.t) ((ty, binding_time, _mode) as info) ->
+          match name with
+          | Var _ -> ty, binding_time, Name_mode.in_types
+          | Symbol _ -> info)
+        t.names_to_types
+    in
+    { t with
+      names_to_types;
+    }
 end
 
 module One_level = struct
@@ -184,10 +198,17 @@ module One_level = struct
   let defines_name_but_no_equations t name =
     Typing_env_level.defines_name_but_no_equations t.level name
 *)
+
+  let make_all_defined_vars_irrelevant t =
+    { t with
+      just_after_level =
+        Cached.make_all_defined_vars_irrelevant t.just_after_level;
+    }
 end
 
 type t = {
-  resolver : (Export_id.t -> Type_grammar.t option);
+  resolver : (Compilation_unit.t -> t option);
+  get_imported_names : (unit -> Name.Set.t);
   defined_symbols : Symbol.Set.t;
   code_age_relation : Code_age_relation.t;
   prev_levels : One_level.t Scope.Map.t;
@@ -195,6 +216,48 @@ type t = {
   next_binding_time : Binding_time.t;
   closure_env : t option;
 }
+
+module Serializable = struct
+  type typing_env = t
+
+  type t = {
+    defined_symbols : Flambda_kind.t Symbol.Map.t;
+    code_age_relation : Code_age_relation.t;
+    prev_levels : One_level.t Scope.Map.t;
+    current_level : One_level.t;
+    next_binding_time : Binding_time.t;
+  }
+
+  let create ({ resolver = _;
+                get_imported_names = _;
+                defined_symbols;
+                code_age_relation;
+                prev_levels;
+                current_level;
+                next_binding_time; } : typing_env) =
+    { defined_symbols;
+      code_age_relation;
+      prev_levels;
+      current_level;
+      next_binding_time;
+    }
+
+  let to_typing_env { defined_symbols;
+                      code_age_relation;
+                      prev_levels;
+                      current_level;
+                      next_binding_time;
+                    }
+        ~resolver ~get_imported_names =
+    { resolver;
+      get_imported_names;
+      defined_symbols;
+      code_age_relation;
+      prev_levels;
+      current_level;
+      next_binding_time;
+    }
+end
 
 let is_empty t =
   One_level.is_empty t.current_level
@@ -204,7 +267,8 @@ let is_empty t =
 (* CR mshinwell: Should print name occurrence kinds *)
 (* CR mshinwell: Add option to print [aliases] *)
 let print_with_cache ~cache ppf
-      ({ resolver = _; prev_levels; current_level; next_binding_time = _;
+      ({ resolver = _; get_imported_names = _;
+         prev_levels; current_level; next_binding_time = _;
          defined_symbols; code_age_relation; closure_env = _;
        } as t) =
   if is_empty t then
@@ -276,8 +340,9 @@ let names_to_types t =
 let aliases t =
   Cached.aliases (One_level.just_after_level t.current_level)
 
-let create ~resolver =
+let create ~resolver ~get_imported_names =
   { resolver;
+    get_imported_names;
     prev_levels = Scope.Map.empty;
     current_level = One_level.create_empty Scope.initial;
     next_binding_time = Binding_time.earliest_var;
@@ -317,40 +382,56 @@ let initial_symbol_type =
   lazy (Type_grammar.any_value (), Binding_time.symbols, Name_mode.normal)
 
 let find_with_binding_time_and_mode t name =
-  let [@inline always] var var =
-    Misc.fatal_errorf "Variable %a not bound in typing environment:@ %a"
-      Variable.print var
-      print t
-  in
-  let [@inline always] symbol sym =
-    if Symbol.Set.mem sym t.defined_symbols then
-      Lazy.force initial_symbol_type
-    else
-      Misc.fatal_errorf "Symbol %a not bound in typing environment:@ %a"
-        Symbol.print sym
-        print t
-  in
   match Name.Map.find name (names_to_types t) with
-  | exception Not_found -> Name.pattern_match name ~var ~symbol
-  | result -> result
+  | exception Not_found ->
+    let comp_unit = Name.compilation_unit name in
+    if Compilation_unit.equal comp_unit (Compilation_unit.get_current_exn ())
+    then
+      let [@inline always] var var =
+        Misc.fatal_errorf "Variable %a not bound in typing environment:@ %a"
+          Variable.print var
+          print t
+      in
+      let [@inline always] symbol sym =
+        if Symbol.Set.mem sym t.defined_symbols then
+          Lazy.force initial_symbol_type
+        else
+          Misc.fatal_errorf "Symbol %a not bound in typing environment:@ %a"
+            Symbol.print sym
+            print t
+      in
+      Name.pattern_match name ~var ~symbol
+    else
+      begin match (resolver t) comp_unit with
+      | None ->
+        begin match name with
+        | Symbol _ ->  (* .cmx file missing *)
+          Lazy.force initial_symbol_type
+        | Var _ ->
+          (* We only reach into external units via symbols to start with,
+             not via variables, so the lookup should have succeeded (as the
+             variable could only have come from a previously-imported
+             symbol's type). *)
+          Misc.fatal_errorf ".cmx file lookup has started failing for %a"
+            Name.print name
+        end
+      | Some t ->
+        match Name.Map.find name (names_to_types t) with
+        | exception Not_found ->
+          Misc.fatal_errorf "Name %a not bound in imported typing \
+              environment (maybe the wrong .cmx file is present?):@ %a"
+            Name.print name
+            print t
+        | ty, _binding_time, name_mode ->
+          (* Binding times for imported units are meaningless at present.
+             Also see [Alias.defined_earlier]. *)
+          ty, Binding_time.imported_variables, name_mode
+      end
+  | found -> found
 
 let find t name =
-  let [@inline always] var var =
-    Misc.fatal_errorf "Variable %a not bound in typing environment:@ %a"
-      Variable.print var
-      print t
-  in
-  let [@inline always] symbol sym =
-    if Symbol.Set.mem sym t.defined_symbols then
-      Lazy.force initial_symbol_type0
-    else
-      Misc.fatal_errorf "Symbol %a not bound in typing environment:@ %a"
-        Symbol.print sym
-        print t
-  in
-  match Name.Map.find name (names_to_types t) with
-  | exception Not_found -> Name.pattern_match name ~var ~symbol
-  | ty, _, _ -> ty
+  let ty, _binding_time, _name_mode = find_with_binding_time_and_mode t name in
+  ty
 
 let find_params t params =
   List.map (fun param -> find t (Kinded_parameter.name param)) params
@@ -402,6 +483,18 @@ let with_current_level_and_next_binding_time t ~current_level
 let cached t = One_level.just_after_level t.current_level
 
 let add_variable_definition t var kind name_mode =
+  (* We can add equations in our own compilation unit on variables and
+     symbols defined in another compilation unit. However we can't define other
+     compilation units' variables or symbols (except for predefined
+     symbols such as exceptions) in our own compilation unit. *)
+  let comp_unit = Variable.compilation_unit var in
+  let this_comp_unit = Compilation_unit.get_current_exn () in
+  if not (Compilation_unit.equal comp_unit this_comp_unit) then begin
+    Misc.fatal_errorf "Cannot define a variable that belongs to a different \
+        compilation unit: %a@ in environment:@ %a"
+      Variable.print var
+      print t
+  end;
   let name = Name.var var in
   if !Clflags.flambda_invariant_checks && mem t name then begin
     Misc.fatal_errorf "Cannot rebind %a in environment:@ %a"
@@ -426,6 +519,17 @@ let add_variable_definition t var kind name_mode =
 
 let rec add_symbol_definition t sym =
   (* CR mshinwell: check for redefinition when invariants enabled? *)
+  let comp_unit = Symbol.compilation_unit sym in
+  let this_comp_unit = Compilation_unit.get_current_exn () in
+  if (not (Compilation_unit.equal comp_unit this_comp_unit)) then begin
+    Misc.fatal_errorf "Cannot define symbol %a that belongs to a different \
+        compilation unit@ (%a, current unit: %a) %b@ in environment:@ %a"
+      Symbol.print sym
+      Compilation_unit.print comp_unit
+      Compilation_unit.print this_comp_unit
+      (Compilation_unit.equal comp_unit this_comp_unit)
+      print t
+  end;
   let closure_env =
     match t.closure_env with
     | None -> None
@@ -477,7 +581,9 @@ let invariant_for_new_equation t name ty =
         (Name.set_of_symbol_set t.defined_symbols)
     in
     let defined_names =
-      Name_occurrences.create_names domain Name_mode.in_types
+      Name_occurrences.create_names
+        (Name.Set.union domain (t.get_imported_names ()))
+        Name_mode.in_types
     in
     (* CR mshinwell: It's a shame we can't check code IDs here. *)
     let free_names =
@@ -942,3 +1048,11 @@ and free_names_transitive0 t typ ~result =
 
 let free_names_transitive t typ =
   free_names_transitive0 t typ ~result:Name_occurrences.empty
+
+let make_vars_on_current_level_irrelevant t =
+  let current_level =
+    One_level.make_all_defined_vars_irrelevant t.current_level
+  in
+  { t with
+    current_level;
+  }

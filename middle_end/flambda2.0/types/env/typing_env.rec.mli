@@ -22,11 +22,14 @@ val invariant : t -> unit
 
 val print : Format.formatter -> t -> unit
 
-val create : resolver:(Export_id.t -> Type_grammar.t option) -> t
+val create
+   : resolver:(Compilation_unit.t -> t option)
+  -> get_imported_names:(unit -> Name.Set.t)
+  -> t
 
 val closure_env : t -> t
 
-val resolver : t -> (Export_id.t -> Type_grammar.t option)
+val resolver : t -> (Compilation_unit.t -> t option)
 
 val current_scope : t -> Scope.t
 
@@ -127,3 +130,18 @@ val cut_and_n_way_join
 val free_names_transitive : t -> Type_grammar.t -> Name_occurrences.t
 
 val defined_symbols : t -> Symbol.Set.t
+
+val make_vars_on_current_level_irrelevant : t -> t
+
+module Serializable : sig
+  type typing_env = t
+  type t
+
+  val create : typing_env -> t
+
+  val to_typing_env
+     : t
+    -> resolver:(Compilation_unit.t -> typing_env option)
+    -> get_imported_names:(unit -> Name.Set.t)
+    -> typing_env
+end
