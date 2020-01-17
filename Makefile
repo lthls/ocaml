@@ -59,6 +59,7 @@ INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \
         -I middle_end/flambda2.0/basic \
         -I middle_end/flambda2.0/from_lambda \
         -I middle_end/flambda2.0/inlining \
+        -I middle_end/flambda2.0/lifting \
         -I middle_end/flambda2.0/naming \
         -I middle_end/flambda2.0/parser \
         -I middle_end/flambda2.0/simplify \
@@ -946,13 +947,13 @@ partialclean::
 
 FLAMBDA_TYPE0_DEPS=$(shell sed "s|^|middle_end/flambda2.0/types/|g" \
   middle_end/flambda2.0/types/rec_modules | tr '\n' ' ')
-middle_end/flambda2.0/types/flambda_type0.ml: \
-  middle_end/flambda2.0/types/template/flambda_type0.templ.ml \
+middle_end/flambda2.0/types/flambda_type.ml: \
+  middle_end/flambda2.0/types/template/flambda_type.templ.ml \
   middle_end/flambda2.0/types/rec_modules \
   $(FLAMBDA_TYPE0_DEPS)
 	cd middle_end/flambda2.0/types && \
-	  ../scripts/assemble_rec_modules.sh template/flambda_type0.templ.ml \
-	    rec_modules flambda_type0.ml
+	  ../scripts/assemble_rec_modules.sh template/flambda_type.templ.ml \
+	    rec_modules flambda_type.ml
 
 FLAMBDA_DEPS=$(shell sed "s|^|middle_end/flambda2.0/terms/|g" \
   middle_end/flambda2.0/terms/rec_modules | tr '\n' ' ')
@@ -975,12 +976,12 @@ middle_end/flambda2.0/simplify/simplify.ml: \
 	    rec_modules simplify.ml
 
 beforedepend:: \
-  middle_end/flambda2.0/types/flambda_type0.ml \
+  middle_end/flambda2.0/types/flambda_type.ml \
   middle_end/flambda2.0/terms/flambda.ml \
   middle_end/flambda2.0/simplify/simplify.ml
 
 clean::
-	rm -f middle_end/flambda2.0/types/flambda_type0.ml;
+	rm -f middle_end/flambda2.0/types/flambda_type.ml;
 	rm -f middle_end/flambda2.0/terms/flambda.ml;
 	rm -f middle_end/flambda2.0/simplify/simplify.ml
 
@@ -1200,6 +1201,7 @@ depend: beforedepend
          middle_end/flambda2.0/basic \
          middle_end/flambda2.0/from_lambda \
          middle_end/flambda2.0/inlining \
+         middle_end/flambda2.0/lifting \
          middle_end/flambda2.0/naming \
          middle_end/flambda2.0/parser \
          middle_end/flambda2.0/simplify \
