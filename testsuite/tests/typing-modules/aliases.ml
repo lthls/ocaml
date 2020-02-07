@@ -316,6 +316,7 @@ module StringSet :
     val find_last : (elt -> bool) -> t -> elt
     val find_last_opt : (elt -> bool) -> t -> elt option
     val of_list : elt list -> t
+    val get_singleton : t -> elt option
     val to_seq_from : elt -> t -> elt Seq.t
     val to_seq : t -> elt Seq.t
     val add_seq : elt Seq.t -> t -> t
@@ -362,6 +363,7 @@ module SSet :
     val find_last : (elt -> bool) -> t -> elt
     val find_last_opt : (elt -> bool) -> t -> elt option
     val of_list : elt list -> t
+    val get_singleton : t -> elt option
     val to_seq_from : elt -> t -> elt Seq.t
     val to_seq : t -> elt Seq.t
     val add_seq : elt Seq.t -> t -> t
@@ -440,6 +442,7 @@ module A :
         val find_last : (elt -> bool) -> t -> elt
         val find_last_opt : (elt -> bool) -> t -> elt option
         val of_list : elt list -> t
+        val get_singleton : t -> elt option
         val to_seq_from : elt -> t -> elt Seq.t
         val to_seq : t -> elt Seq.t
         val add_seq : elt Seq.t -> t -> t
@@ -553,6 +556,7 @@ module SInt :
     val find_last : (elt -> bool) -> t -> elt
     val find_last_opt : (elt -> bool) -> t -> elt option
     val of_list : elt list -> t
+    val get_singleton : t -> elt option
     val to_seq_from : elt -> t -> elt Seq.t
     val to_seq : t -> elt Seq.t
     val add_seq : elt Seq.t -> t -> t
