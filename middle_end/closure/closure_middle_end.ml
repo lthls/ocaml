@@ -50,7 +50,6 @@ let lambda_to_clambda ~backend ~filename:_ ~prefixname:_ ~ppf_dump
     }
   in
   let constants = Compilenv.structured_constants () in
-  Compilenv.clear_structured_constants ();
   let clambda_and_constants =
     clambda, [preallocated_block], constants
   in

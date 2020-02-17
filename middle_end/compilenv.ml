@@ -55,12 +55,14 @@ type structured_constants =
   {
     strcst_shared: string CstMap.t;
     strcst_all: Clambda.ustructured_constant SymMap.t;
+    strcst_imports: Clambda.ustructured_constant SymMap.t;
   }
 
 let structured_constants_empty  =
   {
     strcst_shared = CstMap.empty;
     strcst_all = SymMap.empty;
+    strcst_imports = SymMap.empty;
   }
 
 let structured_constants = ref structured_constants_empty
@@ -364,7 +366,7 @@ let snapshot () = !structured_constants
 let backtrack s = structured_constants := s
 
 let new_structured_constant cst ~shared =
-  let {strcst_shared; strcst_all} = !structured_constants in
+  let {strcst_shared; strcst_all; strcst_imports} = !structured_constants in
   if shared then
     try
       CstMap.find cst strcst_shared
@@ -374,6 +376,7 @@ let new_structured_constant cst ~shared =
         {
           strcst_shared = CstMap.add cst lbl strcst_shared;
           strcst_all = SymMap.add lbl cst strcst_all;
+          strcst_imports;
         };
       lbl
   else
@@ -382,8 +385,18 @@ let new_structured_constant cst ~shared =
       {
         strcst_shared;
         strcst_all = SymMap.add lbl cst strcst_all;
+        strcst_imports;
       };
     lbl
+
+let import_constant sym cst =
+  let {strcst_shared; strcst_all; strcst_imports} = !structured_constants in
+  structured_constants :=
+    {
+      strcst_shared;
+      strcst_all;
+      strcst_imports = SymMap.add sym cst strcst_imports;
+    }
 
 let add_exported_constant s =
   Hashtbl.replace exported_constants s ()
@@ -392,7 +405,9 @@ let clear_structured_constants () =
   structured_constants := structured_constants_empty
 
 let structured_constant_of_symbol s =
-  SymMap.find_opt s (!structured_constants).strcst_all
+  match SymMap.find_opt s (!structured_constants).strcst_all with
+  | (Some _) as r -> r
+  | None -> SymMap.find_opt s (!structured_constants).strcst_imports
 
 let structured_constants () =
   let provenance : Clambda.usymbol_provenance =

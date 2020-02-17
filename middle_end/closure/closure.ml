@@ -454,7 +454,14 @@ let simplif_arith_prim_pure ~backend fpc p (args, approxs) dbg =
      default
 
 let field_approx n = function
-  | Value_tuple a when n < Array.length a -> a.(n)
+  | Value_tuple a when n < Array.length a ->
+      let res = a.(n) in
+      begin match res with
+      | Value_const (Uconst_ref (sym, Some cst)) ->
+          Compilenv.import_constant sym cst
+      | _ -> ()
+      end;
+      res
   | Value_const (Uconst_ref(_, Some (Uconst_block(_, l))))
     when n < List.length l ->
       Value_const (List.nth l n)

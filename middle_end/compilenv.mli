@@ -114,6 +114,8 @@ val new_structured_constant:
   Clambda.ustructured_constant ->
   shared:bool -> (* can be shared with another structurally equal constant *)
   string
+val import_constant:
+  string (* symbol *) -> Clambda.ustructured_constant -> unit
 val structured_constants:
   unit -> Clambda.preallocated_constant list
 val clear_structured_constants: unit -> unit
