@@ -145,14 +145,14 @@ module Block_access_kind = struct
     | Naked_float
 
   type t =
-    | Block of t0
+    | Block of { t0 : t0; tag : Tag.t; size : int option; }
     | Array of t0
     | Generic_array of Generic_array_specialisation.t
 
   let element_kind t =
     match t with
-    | Block (Value _) | Array (Value _) -> K.value
-    | Block Naked_float | Array Naked_float -> K.naked_float
+    | Block { t0 = Value _; _ } | Array (Value _) -> K.value
+    | Block { t0 = Naked_float; _ } | Array Naked_float -> K.naked_float
     | Generic_array _ -> Misc.fatal_error "Not yet implemented"
 
   let compare_t0 (t0_1 : t0) t0_2 = Stdlib.compare t0_1 t0_2
@@ -165,7 +165,13 @@ module Block_access_kind = struct
     | Array _, Generic_array _ -> -1
     | Generic_array _, Block _ -> 1
     | Generic_array _, Array _ -> 1
-    | Block t0_1, Block t0_2 -> compare_t0 t0_1 t0_2
+    | Block { t0 = t0_1; tag = tag1; size = size1; },
+      Block { t0 = t0_2; tag = tag2; size = size2; } ->
+      let c = compare_t0 t0_1 t0_2 in
+      if c <> 0 then c else
+      let c = Tag.compare tag1 tag2 in
+      if c <> 0 then c else
+      Stdlib.compare (size1: int option) size2
     | Array t0_1, Array t0_2 -> compare_t0 t0_1 t0_2
     | Generic_array spec1, Generic_array spec2 ->
       Generic_array_specialisation.compare spec1 spec2
@@ -178,7 +184,11 @@ module Block_access_kind = struct
 
   let print ppf kind =
     match kind with
-    | Block t0 -> Format.fprintf ppf "(Block %a)" print_t0 t0
+    | Block { t0; tag; size; } ->
+      Format.fprintf ppf "(Block %a tag %a size %a)"
+        print_t0 t0
+        Tag.print tag
+        Format.(pp_print_option pp_print_int) size
     | Array t0 -> Format.fprintf ppf "(Array %a)" print_t0 t0
     | Generic_array spec ->
       Format.fprintf ppf "(Generic %a)"

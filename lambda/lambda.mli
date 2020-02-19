@@ -49,6 +49,16 @@ type field_read_semantics =
   | Reads_agree
   | Reads_vary
 
+type block_info =
+  { tag : int;
+    size : int option;
+  }
+
+type field_info =
+  { index : int;
+    block_info : block_info;
+  }
+
 type primitive =
   | Pidentity
   | Pbytes_to_string
@@ -61,9 +71,9 @@ type primitive =
   | Psetglobal of Ident.t
   (* Operations on heap blocks *)
   | Pmakeblock of int * mutable_flag * block_shape
-  | Pfield of int * field_read_semantics
+  | Pfield of field_info * field_read_semantics
   | Pfield_computed of field_read_semantics
-  | Psetfield of int * immediate_or_pointer * initialization_or_assignment
+  | Psetfield of field_info * immediate_or_pointer * initialization_or_assignment
   | Psetfield_computed of immediate_or_pointer * initialization_or_assignment
   | Pfloatfield of int * field_read_semantics
   | Psetfloatfield of int * initialization_or_assignment
