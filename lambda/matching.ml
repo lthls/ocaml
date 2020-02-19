@@ -2020,15 +2020,16 @@ let make_record_matching loc all_labels def = function
             | Mutable -> Reads_vary
           in
           let access =
+            let field_info_reg tag = {
+              index = lbl.lbl_pos;
+              block_info = { tag = 0; size = Some len; };
+            }
+            in
             match lbl.lbl_repres with
-            | Record_regular
-            | Record_inlined _ ->
-                let field_info = {
-                  index = lbl.lbl_pos;
-                  block_info = { tag = 0; size = Some len; };
-                }
-                in
-                Lprim (Pfield (field_info, sem), [ arg ], loc)
+            | Record_regular ->
+                Lprim (Pfield (field_info_reg 0, sem), [ arg ], loc)
+            | Record_inlined tag ->
+                Lprim (Pfield (field_info_reg tag, sem), [ arg ], loc)
             | Record_unboxed _ -> arg
             | Record_float ->
                 Lprim (Pfloatfield (lbl.lbl_pos, sem), [ arg ], loc)
