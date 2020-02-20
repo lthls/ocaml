@@ -127,7 +127,7 @@ let transl_store_label_init glob size f arg =
   assert(!Clflags.native_code);
   let field_info = {
     index = size;
-    block_info = { tag = 0; size = None; };
+    block_info = module_block_info;
   }
   in
   method_cache := Lprim(Pfield (field_info, Reads_vary),

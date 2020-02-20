@@ -52,13 +52,13 @@ let mod_field pos =
   *)
   Pfield (
     { index = pos;
-      block_info = { tag = 0; size = None; };
+      block_info = module_block_info;
     }, Reads_agree)
 
 let mod_setfield pos =
   Psetfield (
     { index = pos;
-      block_info = { tag = 0; size = None; };
+      block_info = module_block_info;
     }, Pointer, Root_initialization)
 
 (* Keep track of the root path (from the root of the namespace to the

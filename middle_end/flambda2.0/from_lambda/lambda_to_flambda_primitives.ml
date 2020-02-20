@@ -272,8 +272,9 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
       unbox_float arg1, unbox_float arg2))
   | Pfield_computed sem, [obj; field] ->
     let block_access : P.Block_access_kind.t =
-      (* CR vlaviron: think about the tag *)
-      Block { t0 = Value Anything; tag = Tag.zero; size = None; }
+      (* Pfield_computed is only used for class access, on blocks of tag 0.
+         Obj.field uses Parrayref. *)
+      Block { elt_kind = Value Anything; tag = Tag.zero; size = Unknown; }
     in
     Binary (Block_load (block_access,
       C.convert_field_read_semantics sem), obj, field)
@@ -282,7 +283,7 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
       C.convert_access_kind imm_or_pointer
     in
     let block_access : P.Block_access_kind.t =
-      Block { t0 = access_kind; tag = Tag.zero; size = None; }
+      Block { elt_kind = access_kind; tag = Tag.zero; size = Unknown; }
     in
     Ternary
       (Block_set
@@ -509,7 +510,7 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
     let field = Simple.const (Simple.Const.Tagged_immediate imm) in
     let mutability = C.convert_field_read_semantics sem in
     let block_access : P.Block_access_kind.t =
-      Block { t0 = Value Anything; tag = Tag.create_exn tag; size; }
+      Block { elt_kind = Value Anything; tag = Tag.create_exn tag; size; }
     in
     Binary (Block_load (block_access, mutability), arg,
       Simple field)
@@ -518,7 +519,8 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
     let field = Simple.const (Simple.Const.Tagged_immediate imm) in
     let mutability = C.convert_field_read_semantics sem in
     let block_access : P.Block_access_kind.t =
-      Block { t0 = Naked_float; tag = Tag.double_array_tag; size = None; }
+      Block { elt_kind = Naked_float; tag = Tag.double_array_tag;
+              size = Unknown; }
     in
     box_float
       (Binary (Block_load (block_access, mutability), arg, Simple field))
@@ -529,7 +531,7 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
     let imm = Immediate.int (Targetint.OCaml.of_int index) in
     let field = Simple.const (Simple.Const.Tagged_immediate imm) in
     let block_access : P.Block_access_kind.t =
-      Block { t0 = access_kind; tag = Tag.create_exn tag; size; }
+      Block { elt_kind = access_kind; tag = Tag.create_exn tag; size; }
     in
     Ternary (Block_set (block_access,
          C.convert_init_or_assign initialization_or_assignment),
@@ -538,7 +540,8 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
     let imm = Immediate.int (Targetint.OCaml.of_int field) in
     let field = Simple.const (Simple.Const.Tagged_immediate imm) in
     let block_access : P.Block_access_kind.t =
-      Block { t0 = Naked_float; tag = Tag.double_array_tag; size = None; }
+      Block { elt_kind = Naked_float; tag = Tag.double_array_tag;
+              size = Unknown; }
     in
     Ternary (Block_set (block_access,
         C.convert_init_or_assign init_or_assign),
@@ -755,7 +758,8 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
     }
   | Poffsetref n, [block] ->
     let block_access : P.Block_access_kind.t =
-      Block { t0 = Value Definitely_immediate; tag = Tag.zero; size = Some 1; }
+      Block { elt_kind = Value Definitely_immediate; tag = Tag.zero;
+              size = Known 1; }
     in
     Ternary (Block_set (block_access, Assignment),
       block,

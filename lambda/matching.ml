@@ -1634,14 +1634,14 @@ let make_constr_matching p def ctx = function
           match cstr.cstr_tag with
           | Cstr_constant _ -> argl
           | Cstr_block { tag; size; } ->
-              let block_info = { tag; size = Some size; } in
+              let block_info = { tag; size = Known size; } in
               make_field_args p.pat_loc Alias arg 0 (cstr.cstr_arity - 1) block_info argl
           | Cstr_unboxed -> (arg, Alias) :: argl
           | Cstr_extension (_, true) -> argl
           | Cstr_extension (_, false) ->
               let block_info = {
                   tag = Obj.object_tag;
-                  size = Some (cstr.cstr_arity + 1);
+                  size = Known (cstr.cstr_arity + 1);
                 }
               in
               make_field_args p.pat_loc Alias arg 1 cstr.cstr_arity block_info argl
@@ -1687,7 +1687,7 @@ let nonconstant_variant_field index =
       (* Non-constant polymorphic variants are blocks of size 2:
          First field is the hash label, second field is the argument.
       *)
-      block_info = { tag = 0; size = Some 2; };
+      block_info = { tag = 0; size = Known 2; };
     },
     (* CR mshinwell: Is this correct? *)
     Reads_agree)
@@ -1821,7 +1821,7 @@ let lazy_forward_field =
   Lambda.Pfield (
     {
       index = 0;
-      block_info = { tag = Obj.forward_tag; size = Some 1; };
+      block_info = { tag = Obj.forward_tag; size = Known 1; };
     },
     Reads_vary)
 
@@ -1963,7 +1963,7 @@ let make_tuple_matching loc arity def = function
         else
           let field_info = {
             index = pos;
-            block_info = { tag = 0; size = Some arity; };
+            block_info = { tag = 0; size = Known arity; };
           }
           in
           (Lprim (Pfield (field_info, Reads_agree), [ arg ], loc), Alias)
@@ -2022,7 +2022,7 @@ let make_record_matching loc all_labels def = function
           let access =
             let field_info_reg tag = {
               index = lbl.lbl_pos;
-              block_info = { tag = 0; size = Some len; };
+              block_info = { tag; size = Known len; };
             }
             in
             match lbl.lbl_repres with
@@ -2036,7 +2036,7 @@ let make_record_matching loc all_labels def = function
             | Record_extension _ ->
                 let field_info = {
                   index = lbl.lbl_pos + 1;
-                  block_info = { tag = 0; size = Some (len + 1); };
+                  block_info = { tag = 0; size = Known (len + 1); };
                 }
                 in
                 Lprim (Pfield (field_info, sem), [ arg ], loc)

@@ -109,9 +109,9 @@ let tupled_function_call_stub
         let defining_expr =
           let pos = Immediate.int (Targetint.OCaml.of_int pos) in
           let block_access : P.Block_access_kind.t =
-            Block { t0 = Value Anything;
+            Block { elt_kind = Value Anything;
                     tag = Tag.zero;
-                    size = Some (List.length params);
+                    size = Known (List.length params);
                   }
           in
           Named.create_prim
@@ -902,9 +902,9 @@ let ilambda_to_flambda ~backend ~module_ident ~module_block_size_in_words
       |> Flambda.Expr.create_let_symbol
     in
     let block_access : P.Block_access_kind.t =
-      Block { t0 = Value Anything;
+      Block { elt_kind = Value Anything;
               tag = Tag.zero;
-              size = Some module_block_size_in_words;
+              size = Known module_block_size_in_words;
             }
     in
     List.fold_left (fun body (pos, var) ->

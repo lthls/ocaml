@@ -49,9 +49,13 @@ type field_read_semantics =
   | Reads_agree
   | Reads_vary
 
+type block_size =
+  | Known of int
+  | Unknown
+
 type block_info =
   { tag : int;
-    size : int option;
+    size : block_size;
   }
 
 type field_info =
@@ -466,3 +470,11 @@ val merge_inline_attributes
   -> inline_attribute option
 
 val reset: unit -> unit
+
+(* Info about module blocks.
+   Size is considered to be unknown in all cases,
+   because coercions can reuse longer but compatible module blocks,
+   so the actual size of a module block may be greater than what its
+   type would suggest.
+*)
+val module_block_info: block_info

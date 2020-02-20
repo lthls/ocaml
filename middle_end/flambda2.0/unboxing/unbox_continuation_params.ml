@@ -245,7 +245,7 @@ struct
   let project_field tag ~block ~index =
     let index = Simple.const_int index in
     let block_access : P.Block_access_kind.t =
-      Block { t0 = Value Anything; tag; size = None; }
+      Block { elt_kind = Value Anything; tag; size = Unknown; }
     in
     P.Binary (Block_load (block_access, Immutable), block, index)
 end
@@ -273,7 +273,7 @@ struct
   let project_field tag ~block ~index =
     let index = Simple.const_int index in
     let block_access : P.Block_access_kind.t =
-      Block { t0 = Naked_float; tag; size = None; }
+      Block { elt_kind = Naked_float; tag; size = Unknown; }
     in
     P.Binary (Block_load (block_access, Immutable), block, index)
 end

@@ -137,7 +137,7 @@ let rec build_object_init cl_table obj params inh_init obj_init cl =
         | Some envs ->
             let field_info = {
               index = List.length inh_init + 1;
-              block_info = { tag = 0; size = None; };
+              block_info = { tag = 0; size = Unknown; };
             }
             in
             [Lprim(Pfield (field_info, Reads_vary),
@@ -235,13 +235,13 @@ let bind_methods tbl meths vals cl_init =
   if len < 2 && nvals = 0 then Meths.fold (bind_method tbl) meths cl_init else
   if len = 0 && nvals < 2 then transl_vals tbl true Strict vals cl_init else
   let ids = Ident.create_local "ids" in
-  let size = len + nvals in
-  let i = ref size in
+  let i = ref (len + nvals) in
   let getter, names =
     if nvals = 0 then "get_method_labels", [] else
     "new_methods_variables", [transl_meth_list (List.map fst vals)]
   in
-  let bi = { tag = 0; size = Some size; } in
+  (* size is exactly len + nvals, but we choose not to track it. *)
+  let bi = { tag = 0; size = Unknown; } in
   Llet(Strict, Pgenval, ids,
        mkappl (oo_prim getter,
                [Lvar tbl; transl_meth_list (List.map fst methl)] @ names),
@@ -277,7 +277,7 @@ let bind_id_as_val (id, _) = ("", id)
 let class_field i =
   let field_info = {
     index = i;
-    block_info = { tag = 0; size = Some 4; };
+    block_info = { tag = 0; size = Known 4; };
   }
   in
   Pfield (field_info, Reads_vary)
@@ -375,7 +375,7 @@ let rec build_class_init cla cstr super inh_init cl_init msubst top cl =
           let inh = Ident.create_local "inh"
           and ofs = List.length vals + 1
           and valids, methids = super in
-          let bi = { tag = 0; size = Some (ofs + List.length concr_meths); } in
+          let bi = { tag = 0; size = Unknown; } in
           let cl_init =
             List.fold_left
               (fun init (nm, id, _) ->
@@ -510,7 +510,7 @@ let transl_class_rebind cl vf =
     and env_init = Ident.create_local "env_init"
     and table = Ident.create_local "table"
     and envs = Ident.create_local "envs" in
-    let bi = { tag = 0; size = Some 4; } in
+    let bi = { tag = 0; size = Known 4; } in
     Llet(
     Strict, Pgenval, new_init, lfunction [obj_init, Pgenval] obj_init',
     Llet(
@@ -712,7 +712,7 @@ let transl_class ids cl_id pub_meths cl vflag =
     new_ids' := !new_ids' @ Ident.Set.elements fv;
     (* prerr_ids "new_ids' =" !new_ids'; *)
     let i = ref (i0-1) in
-    let bi = { tag = 0; size = None; } in
+    let bi = { tag = 0; size = Unknown; } in
     List.fold_left
       (fun subst id ->
         incr i; Ident.Map.add id (lfield env !i bi)  subst)
@@ -753,11 +753,12 @@ let transl_class ids cl_id pub_meths cl vflag =
     if top then lam else
     (* must be called only once! *)
     let lam = Lambda.subst no_env_update (subst env1 lam 1 new_ids_init) lam in
-    let bi = { tag = 0; size = None; } in
-    let bi' = { tag = 0; size = None; } in
-    Llet(Alias, Pgenval, env1, (if l = [] then Lvar envs else lfield envs 0 bi),
+    Llet(Alias, Pgenval, env1,
+         (if l = [] then Lvar envs
+          else lfield envs 0 { tag = 0; size = Unknown; }),
     Llet(Alias, Pgenval, env1',
-         (if !new_ids_init = [] then Lvar env1 else lfield env1 0 bi'),
+         (if !new_ids_init = [] then Lvar env1
+          else lfield env1 0 { tag = 0; size = Unknown; }),
          lam))
   in
 
@@ -891,7 +892,7 @@ let transl_class ids cl_id pub_meths cl vflag =
                                     inh_keys, Location.none)]),
          lam)
   and lset cached i lam =
-    let field_info = { index = i; block_info = { tag = 0; size  = None; }; } in
+    let field_info = { index = i; block_info = { tag = 0; size  = Unknown; }; } in
     Lprim(Psetfield(field_info, Pointer, Assignment),
           [Lvar cached; lam], Location.none)
   in
@@ -921,7 +922,7 @@ let transl_class ids cl_id pub_meths cl vflag =
                     [transl_meth_list pub_meths;
                      Lvar class_init; Lvar cached])) in
   (* CR vlaviron size might be known (3?) *)
-  let cached_bi = { tag = 0; size = None; } in
+  let cached_bi = { tag = 0; size = Unknown; } in
   let lcheck_cache =
     if !Clflags.native_code && !Clflags.afl_instrument then
       (* When afl-fuzz instrumentation is enabled, ignore the cache

@@ -48,17 +48,17 @@ let prim_fresh_oo_id =
 
 let record_field_info lbl =
   let size = Array.length lbl.lbl_all in
-  let is_ext =
+  let is_ext, tag =
     match lbl.lbl_repres with
-    | Record_extension _ -> true
-    | Record_regular | Record_inlined _ -> false
+    | Record_extension _ -> true, 0
+    | Record_regular -> false, 0
+    | Record_inlined tag -> false, tag
     | Record_float | Record_unboxed _ ->
-      (* CR vlaviron: should not happen, consider using assert false *)
-      false
+      assert false
   in
   { index = lbl.lbl_pos + (if is_ext then 1 else 0);
     block_info =
-      { tag = 0; size = Some (size + (if is_ext then 1 else 0)); };
+      { tag; size = Known (size + (if is_ext then 1 else 0)); };
   }
 
 let transl_extension_constructor env path ext =
@@ -457,8 +457,9 @@ and transl_exp0 e =
   | Texp_new (cl, {Location.loc=loc}, _) ->
       let field_info = {
         index = 0;
-        (* CR vlaviron: I think [size] should be 4, but it may not matter. *)
-        block_info = { tag = 0; size = None; };
+        (* CR vlaviron: Maybe size should be Unknown
+           (but this is coherent with translclass) *)
+        block_info = { tag = 0; size = Known 4; };
       }
       in
       Lapply{ap_should_be_tailcall=false;
@@ -586,7 +587,7 @@ and transl_exp0 e =
           let oid = Ident.create_local "open" in
           let field_info pos =
             { index = pos;
-              block_info = { tag = 0; size = None; };
+              block_info = Lambda.module_block_info;
             }
           in
           let body, _ =
@@ -857,7 +858,7 @@ and transl_record loc env fields repres opt_init_expr =
                let field_info is_ext tag i =
                  let offset = if is_ext then 1 else 0 in
                  { index = i + offset;
-                   block_info = { tag; size = Some (size + offset); };
+                   block_info = { tag; size = Known (size + offset); };
                  }
                in
                let access =

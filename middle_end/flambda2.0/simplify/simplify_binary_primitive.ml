@@ -965,9 +965,9 @@ let simplify_binary_primitive dacc (prim : P.binary_primitive)
         let original_term = Named.create_prim original_prim dbg in
         let simplifier =
           match prim with
-          | Block_load (Block { t0 = Value _; _ }, Immutable) ->
+          | Block_load (Block { elt_kind = Value _; _ }, Immutable) ->
             simplify_immutable_block_load ~result_kind:K.value
-          | Block_load (Block { t0 = Naked_float; _ }, Immutable) ->
+          | Block_load (Block { elt_kind = Naked_float; _ }, Immutable) ->
             simplify_immutable_block_load ~result_kind:K.naked_float
           | Int_arith (kind, op) ->
             begin match kind with

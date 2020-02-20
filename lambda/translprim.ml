@@ -109,17 +109,17 @@ let prim_sys_argv =
 
 let field_unknown i =
   { index = i;
-    block_info = { tag = 0; size = None; };
+    block_info = { tag = 0; size = Unknown; };
   }
 
 let field_ref =
   { index = 0;
-    block_info = { tag = 0; size = Some 1; };
+    block_info = { tag = 0; size = Known 1; };
   }
 
 let field_pair i =
   { index = i;
-    block_info = { tag = 0; size = Some 2; };
+    block_info = { tag = 0; size = Known 2; };
   }
 
 let primitives_table =

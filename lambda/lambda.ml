@@ -43,9 +43,13 @@ type field_read_semantics =
   | Reads_agree
   | Reads_vary
 
+type block_size =
+  | Known of int
+  | Unknown
+
 type block_info =
   { tag : int;
-    size : int option;
+    size : block_size;
   }
 
 type field_info =
@@ -762,7 +766,7 @@ let rec transl_address loc = function
   | Env.Adot(addr, pos) ->
       let field_info = {
         index = pos;
-        block_info = { tag = 0; size = None; };
+        block_info = { tag = 0; size = Unknown; };
       }
       in
       Lprim(Pfield (field_info, Reads_agree),
@@ -1087,3 +1091,5 @@ let size_of_lambda lam = size_of_lambda' Ident.empty lam
 
 let reset () =
   raise_count := 0
+
+let module_block_info : block_info = { tag = 0; size = Unknown; }
