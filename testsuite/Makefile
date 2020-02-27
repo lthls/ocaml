@@ -306,6 +306,14 @@ report:
 	@if [ ! -f $(TESTLOG) ]; then echo "No $(TESTLOG) file."; exit 1; fi
 	@$(AWK) -f ./summarize.awk < $(TESTLOG)
 
+.PHONY:logs
+logs:
+	@if [ ! -f $(TESTLOG) ]; then echo "No $(TESTLOG) file."; exit 1; fi
+	@awk -f summarize.awk < $(TESTLOG) | \
+		../runtime/ocamlrun ../ocaml -nostdlib -I ../stdlib/ \
+			-I ../otherlibs/unix/ ../otherlibs/unix/unix.cma \
+			ocamltest_logs.ml
+
 .PHONY: retry-list
 retry-list:
 	@while read LINE; do \
