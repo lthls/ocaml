@@ -477,12 +477,12 @@ endif
 	$(INSTALL_DATA) \
 	    middle_end/closure/*.cmi \
 	    "$(INSTALL_COMPLIBDIR)"
-	$(INSTALL_DATA) \
-	    middle_end/flambda/*.cmi \
-	    "$(INSTALL_COMPLIBDIR)"
-	$(INSTALL_DATA) \
-	    middle_end/flambda/base_types/*.cmi \
-	    "$(INSTALL_COMPLIBDIR)"
+#	$(INSTALL_DATA) \
+#	    middle_end/flambda/*.cmi \
+#	    "$(INSTALL_COMPLIBDIR)"
+#	$(INSTALL_DATA) \
+#	    middle_end/flambda/base_types/*.cmi \
+#	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
 	    middle_end/flambda2.0/*.cmi \
 	    "$(INSTALL_COMPLIBDIR)"
@@ -490,7 +490,7 @@ endif
 	    middle_end/flambda2.0/from_lambda/*.cmi \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
-	    middle_end/flambda2.0/language/*.cmi \
+	    middle_end/flambda2.0/terms/*.cmi \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
 	    asmcomp/*.cmi \
@@ -508,15 +508,6 @@ ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
 	    middle_end/closure/*.mli \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
-	    middle_end/flambda/*.cmt middle_end/flambda/*.cmti \
-	    middle_end/flambda/*.mli \
-	    "$(INSTALL_COMPLIBDIR)"
-	$(INSTALL_DATA) \
-	    middle_end/flambda/base_types/*.cmt \
-            middle_end/flambda/base_types/*.cmti \
-	    middle_end/flambda/base_types/*.mli \
-	    "$(INSTALL_COMPLIBDIR)"
-	$(INSTALL_DATA) \
 	    middle_end/flambda2.0/*.cmt \
             middle_end/flambda2.0/*.cmti \
 	    middle_end/flambda2.0/*.mli \
@@ -527,9 +518,9 @@ ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
 	    middle_end/flambda2.0/from_lambda/*.mli \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
-	    middle_end/flambda2.0/language/*.cmt \
-            middle_end/flambda2.0/language/*.cmti \
-	    middle_end/flambda2.0/language/*.mli \
+	    middle_end/flambda2.0/terms/*.cmt \
+            middle_end/flambda2.0/terms/*.cmti \
+	    middle_end/flambda2.0/terms/*.mli \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
 	    asmcomp/*.cmt asmcomp/*.cmti \
@@ -581,12 +572,10 @@ installoptopt:
 	   lambda/*.cmx \
 	   driver/*.cmx asmcomp/*.cmx middle_end/*.cmx \
            middle_end/closure/*.cmx \
-           middle_end/flambda/*.cmx \
-           middle_end/flambda/base_types/*.cmx \
 	   asmcomp/debug/*.cmx \
            middle_end/flambda2.0/*.cmx \
 	   middle_end/flambda2.0/from_lambda/*.cmx \
-	   middle_end/flambda2.0/language/*.cmx \
+	   middle_end/flambda2.0/terms/*.cmx \
           "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
 	   compilerlibs/*.cmxa compilerlibs/*.$(A) \
@@ -622,7 +611,7 @@ ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
 	   asmcmp/debug/*.ml \
 	   middle_end/flambda2.0/*.ml \
 	   middle_end/flambda2.0/from_lambda/*.ml \
-	   middle_end/flambda2.0/language/*.ml \
+	   middle_end/flambda2.0/types/*.ml \
 	   "$(INSTALL_COMPLIBDIR)"
 endif
 
