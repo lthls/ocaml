@@ -69,15 +69,15 @@ let rec combine_traps trap_stack = function
       | Generic_trap ts | Specific_trap (_, ts) -> combine_traps ts l
       end
 
-let set_traps nfail traps_ref base_traps exit_traps =
+let print_traps ppf traps =
   let rec print_traps ppf = function
     | Uncaught -> Format.fprintf ppf "T"
     | Generic_trap ts -> Format.fprintf ppf "_::%a" print_traps ts
     | Specific_trap (lbl, ts) -> Format.fprintf ppf "%d::%a" lbl print_traps ts
   in
-  let print_traps ppf traps =
-    Format.fprintf ppf "(%a)" print_traps traps
-  in
+  Format.fprintf ppf "(%a)" print_traps traps
+
+let set_traps nfail traps_ref base_traps exit_traps =
   let traps = combine_traps base_traps exit_traps in
   match !traps_ref with
   | Unreachable ->
