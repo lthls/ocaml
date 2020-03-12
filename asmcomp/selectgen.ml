@@ -1013,8 +1013,9 @@ method emit_expr (env:environment) exp =
       let r = join env r1 s1 r2 s2 in
       self#insert env
         (Itrywith(s1#extract, kind,
-                  instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] rv
-                             (s2#extract)))
+                  (env_handler.trap_stack,
+                   instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] rv
+                              (s2#extract))))
         [||] [||];
       r
 
@@ -1362,7 +1363,8 @@ method emit_tail (env:environment) exp =
       let s2 = self#emit_tail_sequence env_handler e2 in
       self#insert env
         (Itrywith(s1, kind,
-                  instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] rv s2))
+                  (env_handler.trap_stack,
+                   instr_cons (Iop Imove) [|Proc.loc_exn_bucket|] rv s2)))
         [||] [||]
   | _ ->
       self#emit_return env exp (pop_all_traps env)
