@@ -30,6 +30,44 @@ let initial_env =
     last_regular_trywith_handler = Reg.Set.empty;
   }
 
+let same_env env1 env2 =
+  List.for_all2 (fun (nfail1, live_regs1) (nfail2, live_regs2) ->
+      nfail1 = nfail2 && Reg.Set.equal live_regs1 live_regs2)
+    env1.at_exit
+    env2.at_exit
+  && Reg.Set.equal env1.at_raise env2.at_raise
+  && Reg.Set.equal env1.last_regular_trywith_handler
+       env2.last_regular_trywith_handler
+
+type cache_entry =
+  { free_conts : Numbers.Int.Set.t; (* free continuation of the handler,
+                                       including delayed exception handlers *)
+    restricted_env : liveness_env;  (* last used environment,
+                                       restricted to the live conts *)
+    at_join : Reg.Set.t;            (* last used set at join *)
+    before_handler : Reg.Set.t;    (* last computed result *)
+}
+
+let fixpoint_cache : cache_entry Numbers.Int.Map.t ref =
+ ref Numbers.Int.Map.empty
+
+let reset_cache () = fixpoint_cache := Numbers.Int.Map.empty
+
+let free_conts_of_handler (_nfail, ts, instr) =
+  let module S = Numbers.Int.Set in
+  let rec add_exn_conts conts = function
+    | Uncaught -> conts
+    | Generic_trap ts -> add_exn_conts conts ts
+    | Specific_trap (nfail, ts) -> add_exn_conts (S.add nfail conts) ts
+  in
+  add_exn_conts (free_conts instr) ts
+
+let restrict_env env conts =
+  { env with at_exit =
+               List.filter (fun (n, _) -> Numbers.Int.Set.mem n conts)
+                 env.at_exit;
+  }
+
 let find_live_at_exit env k =
   try
     List.assoc k env.at_exit
@@ -113,7 +151,29 @@ let rec live env i finally =
       let aux env (nfail, ts, handler) (nfail', before_handler) =
         assert(nfail = nfail');
         let env = env_from_trap_stack env ts in
-        let before_handler' = live env handler at_join in
+        let before_handler', free_conts, restricted_env, do_update =
+          match Numbers.Int.Map.find nfail !fixpoint_cache with
+          | exception Not_found ->
+            let free_conts = free_conts_of_handler (nfail, ts, handler) in
+            let restricted_env = restrict_env env free_conts in
+            live env handler at_join, free_conts, restricted_env, true
+          | cache ->
+            let restricted_env = restrict_env env cache.free_conts in
+            if same_env restricted_env cache.restricted_env
+            && Reg.Set.equal at_join cache.at_join
+            then cache.before_handler, cache.free_conts, cache.restricted_env, false
+            else live env handler at_join, cache.free_conts, restricted_env, true
+        in
+        if do_update then begin
+          let cache_entry =
+            { free_conts;
+              restricted_env;
+              at_join;
+              before_handler = before_handler';
+            }
+          in
+          fixpoint_cache := Numbers.Int.Map.add nfail cache_entry !fixpoint_cache
+        end;
         nfail, Reg.Set.union before_handler before_handler'
       in
       let aux_equal (nfail, before_handler) (nfail', before_handler') =
@@ -167,6 +227,7 @@ let rec live env i finally =
       Reg.add_set_array env.at_raise arg
 
 let fundecl f =
+  reset_cache ();
   let initially_live = live initial_env f.fun_body Reg.Set.empty in
   (* Sanity check: only function parameters (and the Spacetime node hole
      register, if profiling) can be live at entrypoint *)
