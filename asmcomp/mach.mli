@@ -148,4 +148,4 @@ val spacetime_node_hole_pointer_is_live_before : instruction -> bool
 
 val operation_can_raise : operation -> bool
 
-val free_conts : instruction -> Numbers.Int.Set.t
+val free_conts_for_handlers : fundecl -> Numbers.Int.Set.t Numbers.Int.Map.t
