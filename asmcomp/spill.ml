@@ -61,17 +61,39 @@ type reload_env =
        In the case of recursive handlers, since the handlers can
        update the map, a fixpoint is needed. *)
     reload_at_exit : Reg.Set.t Numbers.Int.Map.t;
+
+    free_conts_for_handlers : Numbers.Int.Set.t Numbers.Int.Map.t;
   }
 
-let empty_reload_env =
+let initial_reload_env fundecl =
   { spill_env = Reg.Map.empty;
     use_date = Reg.Map.empty;
     current_date = 0;
     destroyed_at_fork = [];
     reload_at_exit = Numbers.Int.Map.empty;
+    free_conts_for_handlers = Mach.free_conts_for_handlers fundecl;
   }
 
-let _spill_env = ref (Reg.Map.empty : Reg.t Reg.Map.t)
+type reload_cache_entry =
+  { at_exit_restricted : Reg.Set.t Numbers.Int.Map.t; (* last seen inputs *)
+    result : instruction * Reg.Set.t; (* last computed result *)
+  }
+
+let reload_cache : reload_cache_entry Numbers.Int.Map.t ref =
+  ref Numbers.Int.Map.empty
+
+let cache_reload_result nfail env handler after_handler =
+  let at_exit_restricted =
+    Numbers.Int.Map.filter (fun n _at_exit ->
+        Numbers.Int.Set.mem n
+          (Numbers.Int.Map.find nfail env.free_conts_for_handlers))
+      env.reload_at_exit
+  in
+  let entry = { at_exit_restricted; result = (handler, after_handler); } in
+  reload_cache := Numbers.Int.Map.add nfail entry !reload_cache
+
+let reset_cache () =
+  reload_cache := Numbers.Int.Map.empty
 
 let spill_reg env r =
   try
@@ -82,10 +104,6 @@ let spill_reg env r =
     if not (Reg.anonymous r) then spill_r.raw_name <- r.raw_name;
     { env with spill_env = Reg.Map.add r spill_r env.spill_env; },
     spill_r
-
-
-let _use_date = ref (Reg.Map.empty : int Reg.Map.t)
-let _current_date = ref 0
 
 let record_use env regv =
   let use_date = Array.fold_left (fun use_date r ->
@@ -150,10 +168,6 @@ let add_superpressure_regs env op live_regs res_regs spilled =
     end in
   check_pressure 0 spilled
 
-(* A-list recording what is destroyed at if-then-else points. *)
-
-let _destroyed_at_fork = ref ([] : (instruction * Reg.Set.t) list)
-
 (* First pass: insert reload instructions based on an approximation of
    what is destroyed at pressure points. *)
 
@@ -165,13 +179,23 @@ let add_reloads env regset i =
        instr_cons (Iop Ireload) [|r'|] [|r|] i)
     regset (env, i)
 
-let _reload_at_exit = ref []
-
 let find_reload_at_exit env k =
   try
     Numbers.Int.Map.find k env.reload_at_exit
   with
   | Not_found -> Misc.fatal_error "Spill.find_reload_at_exit"
+
+let find_in_cache nfail env =
+  try
+    let { at_exit_restricted; result; } =
+      Numbers.Int.Map.find nfail !reload_cache
+    in
+    if Numbers.Int.Map.for_all (fun n at_exit ->
+        Reg.Set.equal at_exit (find_reload_at_exit env n))
+      at_exit_restricted
+    then Some result
+    else None
+  with Not_found -> None
 
 let rec reload env i before =
   let env = { env with current_date = succ env.current_date; } in
@@ -273,7 +297,15 @@ let rec reload env i before =
           List.fold_right
             (fun (nfail, ts, handler) (handlers, after_union, env) ->
                let handler, after_handler, env =
-                 reload env handler (find_reload_at_exit env nfail)
+                 match find_in_cache nfail env with
+                 | None ->
+                   let handler, after_handler, env =
+                     reload env handler (find_reload_at_exit env nfail)
+                   in
+                   cache_reload_result nfail env handler after_handler;
+                   handler, after_handler, env
+                 | Some (handler, after_handler) ->
+                   handler, after_handler, env
                in
                ((nfail, ts, handler) :: handlers,
                 Reg.Set.union after_union after_handler,
@@ -533,14 +565,19 @@ let rec spill env i finally =
 (* Entry point *)
 
 let fundecl f =
+  reset_cache ();
+  Printf.eprintf "Starting reload...%!";
   let (body1, _, reload_env) =
-    reload empty_reload_env f.fun_body Reg.Set.empty
+    reload (initial_reload_env f) f.fun_body Reg.Set.empty
   in
+  Printf.eprintf "done\n%!";
   let spill_env = initial_env reload_env in
+  Printf.eprintf "Starting spill...%!";
   let (body2, tospill_at_entry) = spill spill_env body1 Reg.Set.empty in
   let new_body =
     add_spills spill_env (Reg.inter_set_array tospill_at_entry f.fun_args) body2
   in
+  Printf.eprintf "done\n%!";
   { fun_name = f.fun_name;
     fun_args = f.fun_args;
     fun_body = new_body;
