@@ -386,7 +386,7 @@ let rec reload env i before =
    with Icatch. *)
 
 type spill_env =
-  { at_exit : (int * (bool ref * Reg.Set.t)) list;
+  { at_exit : (int * Reg.Set.t) list;
     at_raise : Reg.Set.t;
     last_regular_trywith_handler : Reg.Set.t;
     spill_env : Reg.t Reg.Map.t;
@@ -414,9 +414,7 @@ let spill_reg_no_add (env : spill_env) r =
 
 let find_spill_at_exit env k =
   try
-    let used, set = List.assoc k env.at_exit in
-    used := true;
-    set
+    List.assoc k env.at_exit
   with
   | Not_found -> Misc.fatal_error "Spill.find_spill_at_exit"
 
@@ -495,7 +493,7 @@ let rec spill env i finally =
   | Icatch(rec_flag, handlers, body) ->
       let (new_next, at_join) = spill env i.next finally in
       let spill_at_exit_add at_exits = List.map2
-          (fun (nfail,_,_) at_exit -> nfail, (ref false, at_exit))
+          (fun (nfail,_,_) at_exit -> nfail, at_exit)
           handlers at_exits
       in
       let rec fixpoint at_exits =
@@ -519,8 +517,8 @@ let rec spill env i finally =
         | Cmm.Recursive ->
             let equal =
               List.for_all2
-                (fun (_new_handler, new_at_exit) (_, (used, at_exit)) ->
-                   Reg.Set.equal at_exit new_at_exit || not !used)
+                (fun (_new_handler, new_at_exit) (_, at_exit) ->
+                   Reg.Set.equal at_exit new_at_exit)
                 res spill_at_exit_add in
             if equal
             then res
@@ -552,7 +550,7 @@ let rec spill env i finally =
             }
         | Delayed nfail ->
             { env with at_exit =
-                         (nfail, (ref false, before_handler)) :: env.at_exit;
+                         (nfail, before_handler) :: env.at_exit;
             }
       in
       let (new_body, before_body) = spill env_body body at_join in
