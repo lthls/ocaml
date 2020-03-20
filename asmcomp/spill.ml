@@ -439,10 +439,6 @@ let rec spill env i finally =
           Reg.Set.diff (Reg.Set.diff before_ifso before_ifnot) destroyed
         and spill_ifnot_branch =
           Reg.Set.diff (Reg.Set.diff before_ifnot before_ifso) destroyed in
-        Format.eprintf "Destroyed_at_fork: %a@.before_ifso: %a@. before_ifnot: %a@.@."
-          Printmach.regset destroyed
-          Printmach.regset before_ifso
-          Printmach.regset before_ifnot;
         (instr_cons
             (Iifthenelse(test, add_spills env spill_ifso_branch new_ifso,
                                add_spills env spill_ifnot_branch new_ifnot))
