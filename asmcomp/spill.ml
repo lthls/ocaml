@@ -185,7 +185,7 @@ let find_reload_at_exit env k =
   with
   | Not_found -> Misc.fatal_error "Spill.find_reload_at_exit"
 
-let find_in_cache nfail env =
+let find_in_reload_cache nfail env =
   try
     let { at_exit_restricted; result; } =
       Numbers.Int.Map.find nfail !reload_cache
@@ -297,7 +297,7 @@ let rec reload env i before =
           List.fold_right
             (fun (nfail, ts, handler) (handlers, after_union, env) ->
                let handler, after_handler, env =
-                 match find_in_cache nfail env with
+                 match find_in_reload_cache nfail env with
                  | None ->
                    let handler, after_handler, env =
                      reload env handler (find_reload_at_exit env nfail)
@@ -394,6 +394,7 @@ type spill_env =
     loop : bool;
     arm : bool;
     catch : bool;
+    free_conts_for_handlers : Numbers.Int.Set.t Numbers.Int.Map.t;
   }
 
 let initial_env (reload_env : reload_env) =
@@ -402,10 +403,29 @@ let initial_env (reload_env : reload_env) =
     last_regular_trywith_handler = Reg.Set.empty;
     spill_env = reload_env.spill_env;
     destroyed_at_fork = reload_env.destroyed_at_fork;
+    free_conts_for_handlers = reload_env.free_conts_for_handlers;
     loop = false;
     arm = false;
     catch = false;
   }
+
+type spill_cache_entry =
+  { at_exit_restricted : (int * Reg.Set.t) list;
+    result : (instruction * Reg.Set.t);
+  }
+
+let spill_cache : spill_cache_entry Numbers.Int.Map.t ref =
+  ref Numbers.Int.Map.empty
+
+let cache_spill_result nfail env handler before_handler =
+  let at_exit_restricted =
+    List.filter (fun (n, _at_exit) ->
+        Numbers.Int.Set.mem n
+          (Numbers.Int.Map.find nfail env.free_conts_for_handlers))
+      env.at_exit
+  in
+  let entry = { at_exit_restricted; result = (handler, before_handler); } in
+  spill_cache := Numbers.Int.Map.add nfail entry !spill_cache
 
 let spill_reg_no_add (env : spill_env) r =
   try Reg.Map.find r env.spill_env
@@ -423,6 +443,18 @@ let at_raise_from_trap_stack env ts =
   | Uncaught -> Reg.Set.empty
   | Generic_trap _ -> env.last_regular_trywith_handler
   | Specific_trap (nfail, _) -> find_spill_at_exit env nfail
+
+let find_in_spill_cache nfail env =
+  try
+    let { at_exit_restricted; result; } =
+      Numbers.Int.Map.find nfail !spill_cache
+    in
+    if List.for_all (fun (n, at_exit) ->
+        Reg.Set.equal at_exit (find_spill_at_exit env n))
+      at_exit_restricted
+    then Some result
+    else None
+  with Not_found -> None
 
 let add_spills env regset i =
   Reg.Set.fold
@@ -501,14 +533,19 @@ let rec spill env i finally =
         let new_at_exit = spill_at_exit_add @ env.at_exit in
         let res =
           List.map
-            (fun (_, ts, handler) ->
+            (fun (nfail, ts, handler) ->
                let env =
                  { env with at_exit = new_at_exit;
                             at_raise = at_raise_from_trap_stack env ts;
                             catch = true;
                  }
                in
-               spill env handler at_join)
+               match find_in_spill_cache nfail env with
+               | None ->
+                 let (handler, before_handler) = spill env handler at_join in
+                 cache_spill_result nfail env handler before_handler;
+                 handler, before_handler
+               | Some result -> result)
             handlers
         in
         match rec_flag with
@@ -564,18 +601,14 @@ let rec spill env i finally =
 
 let fundecl f =
   reset_cache ();
-  Printf.eprintf "Starting reload...%!";
   let (body1, _, reload_env) =
     reload (initial_reload_env f) f.fun_body Reg.Set.empty
   in
-  Printf.eprintf "done\n%!";
   let spill_env = initial_env reload_env in
-  Printf.eprintf "Starting spill...%!";
   let (body2, tospill_at_entry) = spill spill_env body1 Reg.Set.empty in
   let new_body =
     add_spills spill_env (Reg.inter_set_array tospill_at_entry f.fun_args) body2
   in
-  Printf.eprintf "done\n%!";
   { fun_name = f.fun_name;
     fun_args = f.fun_args;
     fun_body = new_body;
