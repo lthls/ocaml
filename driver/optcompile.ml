@@ -82,10 +82,6 @@ let clambda i backend typed =
             ~ppf_dump:i.ppf_dump;
        Compilenv.save_unit_info (cmx i))
 
-let config_flambda2 () =
-  try ignore (Sys.getenv "FLAMBDA2"); true
-  with Not_found -> false
-
 let implementation ~backend ~source_file ~output_prefix =
   let backend info typed =
     Compilenv.reset ?packname:!Clflags.for_package info.module_name;

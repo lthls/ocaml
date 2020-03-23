@@ -2,14 +2,17 @@ module Lex = Flambda_lex
 module Parser = Flambda_parser
 
 type error =
-  | Lexing_error of Lex.error * Location.t
-  | Parsing_error of Location.t
+  | Lexing_error of Lex.error * Lambda.scoped_location
+  | Parsing_error of Lambda.scoped_location
 
 let make_loc (startpos, endpos) = {
   Location.loc_start = startpos;
   Location.loc_end = endpos;
   Location.loc_ghost = false;
 }
+
+let of_raw_location loc =
+  Debuginfo.Scoped_location.of_location ~scopes:[] loc
 
 let parse_program filename =
   let ic = open_in filename in
@@ -22,9 +25,9 @@ let parse_program filename =
       with
       | Parser.Error ->
         let loc = make_loc (Lexing.lexeme_start_p lb, Lexing.lexeme_end_p lb) in
-        Error (Parsing_error loc)
+        Error (Parsing_error (of_raw_location loc))
       | Lex.Error (error, loc) ->
-        Error (Lexing_error (error, make_loc loc))
+        Error (Lexing_error (error, of_raw_location (make_loc loc)))
     in
     close_in ic;
     program
@@ -69,12 +72,12 @@ let parse_ilambda ~backend file =
         Format.eprintf
           "%a:@.\
            Syntax error@."
-          Location.print_loc loc
+          Lambda.print_scoped_location loc
       | Lexing_error (error, loc) ->
         Format.eprintf
           "%a:@.\
            Lex error: %a@."
-          Location.print_loc loc
+          Lambda.print_scoped_location loc
           Lex.pp_error error
       end;
       exit 1
@@ -98,12 +101,12 @@ let parse_flambda ~backend file =
         Format.eprintf
           "%a:@.\
            Syntax error@."
-          Location.print_loc loc
+          Lambda.print_scoped_location loc
       | Lexing_error (error, loc) ->
         Format.eprintf
           "%a:@.\
            Lex error: %a@."
-          Location.print_loc loc
+          Lambda.print_scoped_location loc
           Lex.pp_error error
       end;
       exit 1

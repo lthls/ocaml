@@ -749,8 +749,8 @@ let reify ?allowed_if_free_vars_defined_in ?disallowed_free_vars env
                     Closures_entry.closure_var_types closures_entry
                   in
                   let closure_var_simples =
-                    Var_within_closure.Map.filter_map closure_var_types
-                      ~f:(fun _closure_var closure_var_type ->
+                    Var_within_closure.Map.filter_map
+                      (fun _closure_var closure_var_type ->
                         match
                           prove_equals_to_var_or_symbol_or_tagged_immediate
                             env closure_var_type
@@ -764,6 +764,7 @@ let reify ?allowed_if_free_vars_defined_in ?disallowed_free_vars env
                           Some (Simple.const (
                             Reg_width_const.tagged_immediate imm))
                         | Unknown | Invalid -> None)
+                      closure_var_types
                   in
                   if Var_within_closure.Map.cardinal closure_var_types
                     <> Var_within_closure.Map.cardinal closure_var_simples

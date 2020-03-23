@@ -886,6 +886,7 @@ let convert_lprim ~backend (prim : L.primitive) (args : Simple.t list)
     | Pdivbint { is_safe = Unsafe; size = _; }
     | Pmodbint { is_safe = Unsafe; size = _; }
     | Psetglobal _ | Praise _ | Pccall _
+    | Pcompare_ints | Pcompare_floats | Pcompare_bints _
     ), _ ->
     Misc.fatal_errorf "Closure_conversion.convert_primitive: \
         Primitive %a (%a) shouldn't be here, either a bug in [Prepare_lambda] \
