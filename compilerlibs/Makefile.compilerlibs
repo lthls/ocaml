@@ -195,7 +195,6 @@ MIDDLE_END_FLAMBDA2_COMPILENV_DEPS=\
 MIDDLE_END_FLAMBDA2_BASIC=\
   middle_end/flambda2.0/types/kinds/flambda_kind.cmo \
   middle_end/flambda2.0/basic/reg_width_const.cmo \
-  middle_end/flambda2.0/basic/closure_element.cmo \
   middle_end/flambda2.0/basic/continuation.cmo \
   middle_end/flambda2.0/basic/name.cmo \
   middle_end/flambda2.0/basic/var_within_closure.cmo \

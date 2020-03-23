@@ -283,6 +283,8 @@ type function_attribute = {
 
 type scoped_location = Debuginfo.Scoped_location.t
 
+val print_scoped_location : Format.formatter -> scoped_location -> unit
+
 type lambda =
     Lvar of Ident.t
   | Lconst of structured_constant

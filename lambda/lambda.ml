@@ -275,6 +275,7 @@ let primitive_can_raise = function
   | Pandint | Porint | Pxorint
   | Plslint | Plsrint | Pasrint
   | Pintcomp _
+  | Pcompare_ints | Pcompare_floats | Pcompare_bints _
   | Poffsetint _
   | Poffsetref _
   | Pintoffloat | Pfloatofint
@@ -403,6 +404,11 @@ type function_attribute = {
 }
 
 type scoped_location = Debuginfo.Scoped_location.t
+
+let print_scoped_location ppf loc =
+  match (loc : scoped_location) with
+  | Loc_unknown -> Format.pp_print_string ppf "Unknown"
+  | Loc_known { loc; _ } -> Location.print_loc ppf loc
 
 type lambda =
     Lvar of Ident.t

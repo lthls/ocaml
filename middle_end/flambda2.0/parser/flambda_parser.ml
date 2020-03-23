@@ -173,7 +173,7 @@ and _menhir_state =
   
 open Fexpr
 
-let make_loc (startpos, endpos) = {
+let make_loc (startpos, endpos) = Debuginfo.Scoped_location.of_location ~scopes:[] {
   Location.loc_start = startpos;
   Location.loc_end = endpos;
   Location.loc_ghost = false;
