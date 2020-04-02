@@ -427,12 +427,14 @@ let compile_recmodule ~scopes compile_rhs bindings cont =
 
 (* Code to translate class entries in a structure *)
 
+let class_block_size = 4
+
 let transl_class_bindings ~scopes cl_list =
   let ids = List.map (fun (ci, _) -> ci.ci_id_class) cl_list in
   (ids,
    List.map
      (fun ({ci_id_class=id; ci_expr=cl; ci_virt=vf}, meths) ->
-       (id, transl_class ~scopes ids id meths cl vf))
+       (id, transl_class ~scopes ids id meths cl vf, class_block_size))
      cl_list)
 
 (* Compile one or more functors, merging curried functors to produce
@@ -711,7 +713,9 @@ and transl_structure ~scopes loc fields cc rootpath final_env = function
             transl_structure ~scopes loc (List.rev_append ids fields)
               cc rootpath final_env rem
           in
-          Lletrec(class_bindings, body), size
+          Dissect_letrec.preallocate_letrec
+            ~bindings:class_bindings ~body,
+          size
       | Tstr_include incl ->
           let ids = bound_value_identifiers incl.incl_type in
           let modl = incl.incl_mod in
@@ -1152,7 +1156,9 @@ let transl_store_structure ~scopes glob map prims aliases str =
         | Tstr_class cl_list ->
             let (ids, class_bindings) = transl_class_bindings ~scopes cl_list in
             let lam =
-              Lletrec(class_bindings, store_idents Loc_unknown ids)
+              Dissect_letrec.preallocate_letrec
+                ~bindings:class_bindings
+                ~body:(store_idents Loc_unknown ids)
             in
             Lsequence(Lambda.subst no_env_update subst lam,
                       transl_store ~scopes rootpath (add_idents false ids subst)
@@ -1506,7 +1512,9 @@ let transl_toplevel_item ~scopes item =
          be a value named identically *)
       let (ids, class_bindings) = transl_class_bindings ~scopes cl_list in
       List.iter set_toplevel_unique_name ids;
-      Lletrec(class_bindings, make_sequence toploop_setvalue_id ids)
+      Dissect_letrec.preallocate_letrec
+        ~bindings:class_bindings
+        ~body:(make_sequence toploop_setvalue_id ids)
   | Tstr_include incl ->
       let ids = bound_value_identifiers incl.incl_type in
       let modl = incl.incl_mod in
