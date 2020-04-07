@@ -1,3 +1,8 @@
+(* XXX The following is temporary code to allow use of statmemprof. *)
+
+[@@@ocaml.warning "-32"]
+[@@@ocaml.warning "-34"]
+
 module Deps = struct
   type out_file = out_channel
   let open_out filename = open_out_bin filename

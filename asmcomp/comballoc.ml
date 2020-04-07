@@ -93,7 +93,7 @@ let rec combine i allocstate =
       (instr_cons (Icatch(rec_flag, newhandlers, newbody))
          i.arg i.res newnext, s')
   | Itrywith(body, kind, (ts, handler)) ->
-      let (newbody, sz) = combine body allocstate in
+      let (newbody, s') = combine body allocstate in
       let newhandler = combine_restart handler in
       let newnext = combine_restart i.next in
       (instr_cons (Itrywith(newbody, kind, (ts, newhandler)))
