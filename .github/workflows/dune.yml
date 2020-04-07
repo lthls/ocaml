@@ -56,7 +56,7 @@ jobs:
       id: cache
       with:
         path: ${{ github.workspace }}/install
-        key: ${{ matrix.os }}-cache-install-ocamltest-ocaml4100-flambda-dune213
+        key: ${{ matrix.os }}-cache-install-ocamltest-ocaml4100-statmemprof-flambda-dune213
 
     # ### STEP 1 ###
     # Get a working 4.10 statmemprof ocaml install, with dune
