@@ -59,9 +59,9 @@ jobs:
         key: ${{ matrix.os }}-cache-install-ocamltest-ocaml4100-flambda-dune213
 
     # ### STEP 1 ###
-    # Get a working 4.10 vanilla ocaml install, with dune
+    # Get a working 4.10 statmemprof ocaml install, with dune
     #
-    # For that, checkout the ocaml/ocaml repo, build and install ocaml in
+    # For that, checkout the relevant repo, build and install ocaml in
     # a dedicated directory, and build and install dune in that directory
     #
     # Additionally, a cache of the install directory is used, so that the
@@ -76,16 +76,16 @@ jobs:
       uses: actions/checkout@master
       if: steps.cache.outputs.cache-hit != 'true'
       with:
-        repository: 'ocaml/ocaml'
+        repository: 'ocaml-flambda/ocaml'
         path: 'base'
-        ref: '4.10'
+        ref: 'flambda2.0-first-stage-build-4.10-memprof'
     # Apply ocamltest patch to 4.10 repo
     - name: Apply ocamltest patch
       if: steps.cache.outputs.cache-hit != 'true'
       working-directory: base
       run: git apply ../test/.github/workflows/ocamltest_dune.patch
-    # Build&install 4.10 vanilla ocaml
-    - name: Build&install 4.10+flambda
+    # Build&install 4.10 + statmemprof ocaml
+    - name: Build&install 4.10+statmemprof+flambda
       if: steps.cache.outputs.cache-hit != 'true'
       working-directory: base
       run: |
