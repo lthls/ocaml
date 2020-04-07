@@ -473,7 +473,7 @@ let unary_primitive_eligible_for_cse p ~arg =
   | Duplicate_block _ -> false
   | Is_int
   | Get_tag -> true
-  | Array_length _ -> false
+  | Array_length _ -> true
   | Bigarray_length _ -> false
   | String_length _ -> true
   | Int_as_pointer -> true
@@ -694,8 +694,9 @@ let effects_and_coeffects_of_unary_primitive p =
   | Num_conv _
   | Boolean_not
   | Float_arith (Abs | Neg) -> Effects.No_effects, Coeffects.No_coeffects
+  (* Since Obj.truncate has been deprecated, array_length should have no observable effect *)
   | Array_length _ ->
-    reading_from_an_array_like_thing
+    Effects.No_effects, Coeffects.No_coeffects
   | Bigarray_length { dimension = _; } ->
     reading_from_an_array_like_thing
   | Unbox_number _ ->
