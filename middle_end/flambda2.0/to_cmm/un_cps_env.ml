@@ -293,16 +293,10 @@ let get_exn_extra_args env k =
 (* Offsets *)
 
 let closure_offset env closure =
-  let (info : Exported_offsets.closure_info) =
-    Exported_offsets.closure_offset env.offsets closure
-  in
-  info.offset
+  Exported_offsets.closure_offset env.offsets closure
 
 let env_var_offset env env_var =
-  let (info : Exported_offsets.env_var_info) =
-    Exported_offsets.env_var_offset env.offsets env_var
-  in
-  info.offset
+  Exported_offsets.env_var_offset env.offsets env_var
 
 let layout env closures env_vars =
   Un_cps_closure.layout env.offsets closures env_vars

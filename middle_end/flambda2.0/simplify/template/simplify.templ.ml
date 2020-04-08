@@ -74,7 +74,7 @@ let run ~backend ~round unit =
   let denv = DE.increment_continuation_scope_level denv in
   let r = R.create ~resolver ~get_imported_names in
   let dacc = DA.create denv Continuation_uses_env.empty r in
-  let body, return_cont_env, r =
+  let body, dacc, r =
     let exn_continuation =
       Exn_continuation.create ~exn_handler:exn_continuation ~extra_args:[]
     in
@@ -82,6 +82,7 @@ let run ~backend ~round unit =
       ~return_arity:[K.value] exn_continuation ~return_cont_scope
       ~exn_cont_scope
   in
+  let return_cont_env = DA.continuation_uses_env dacc in
   let cmx =
     Flambda_cmx.prepare_cmx_file_contents ~return_cont_env
       ~return_continuation (R.all_code r)

@@ -31,6 +31,8 @@ val closure_env : t -> t
 
 val resolver : t -> (Compilation_unit.t -> t option)
 
+val name_domain : t -> Name.Set.t
+
 val current_scope : t -> Scope.t
 
 val increment_scope : t -> t
