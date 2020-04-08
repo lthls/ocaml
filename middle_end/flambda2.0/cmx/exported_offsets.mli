@@ -32,13 +32,13 @@ val empty : t
 val print : Format.formatter -> t -> unit
 (** Printing function for environment. *)
 
-val env_var_offset : env -> Var_within_closure.t -> env_var_info option
+val env_var_offset : t -> Var_within_closure.t -> env_var_info option
 (** Returns the offset computed for an environment variable, in
     terms of target architecture words.
     If [None] is returned, there is no closure in the program containing the
     given closure variable. *)
 
-val closure_offset : env -> Closure_id.t -> closure_info option
+val closure_offset : t -> Closure_id.t -> closure_info option
 (** Returns the offset computed for a closure id, in terms of
     target architecture words.
     This points to the first field of the closure representation

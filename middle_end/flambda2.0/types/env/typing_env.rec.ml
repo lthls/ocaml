@@ -142,10 +142,10 @@ end = struct
 
   let make_all_defined_vars_irrelevant t =
     let names_to_types =
-      Name.Map.mapi (fun (name : Name.t) ((ty, binding_time, _mode) as info) ->
-          match name with
-          | Var _ -> ty, binding_time, Name_mode.in_types
-          | Symbol _ -> info)
+      Name.Map.mapi (fun name ((ty, binding_time, _mode) as info) ->
+          Name.pattern_match name
+          ~var:(fun _ -> ty, binding_time, Name_mode.in_types)
+          ~symbol:(fun _ -> info))
         t.names_to_types
     in
     { t with
@@ -221,7 +221,7 @@ module Serializable = struct
   type typing_env = t
 
   type t = {
-    defined_symbols : Flambda_kind.t Symbol.Map.t;
+    defined_symbols : Symbol.Set.t;
     code_age_relation : Code_age_relation.t;
     prev_levels : One_level.t Scope.Map.t;
     current_level : One_level.t;
@@ -375,8 +375,9 @@ let increment_scope t =
 
 let defined_symbols t = t.defined_symbols
 
-let initial_symbol_type0 =
-  lazy (Type_grammar.any_value ())
+let name_domain t =
+  Name.Set.union (Name.Map.keys (names_to_types t))
+    (Name.set_of_symbol_set (defined_symbols t))
 
 let initial_symbol_type =
   lazy (Type_grammar.any_value (), Binding_time.symbols, Name_mode.normal)
@@ -404,17 +405,16 @@ let find_with_binding_time_and_mode t name =
     else
       begin match (resolver t) comp_unit with
       | None ->
-        begin match name with
-        | Symbol _ ->  (* .cmx file missing *)
-          Lazy.force initial_symbol_type
-        | Var _ ->
+        Name.pattern_match name
+        ~symbol:(fun _ ->  (* .cmx file missing *)
+          Lazy.force initial_symbol_type)
+        ~var:(fun _ ->
           (* We only reach into external units via symbols to start with,
              not via variables, so the lookup should have succeeded (as the
              variable could only have come from a previously-imported
              symbol's type). *)
           Misc.fatal_errorf ".cmx file lookup has started failing for %a"
-            Name.print name
-        end
+            Name.print name)
       | Some t ->
         match Name.Map.find name (names_to_types t) with
         | exception Not_found ->
@@ -576,13 +576,9 @@ let add_definition t (name : Name_in_binding_pos.t) kind =
 let invariant_for_new_equation t name ty =
   if !Clflags.flambda_invariant_checks then begin
     (* CR mshinwell: This should check that precision is not decreasing. *)
-    let domain =
-      Name.Set.union (Name.Map.keys (names_to_types t))
-        (Name.set_of_symbol_set t.defined_symbols)
-    in
     let defined_names =
       Name_occurrences.create_names
-        (Name.Set.union domain (t.get_imported_names ()))
+        (Name.Set.union (name_domain t) (t.get_imported_names ()))
         Name_mode.in_types
     in
     (* CR mshinwell: It's a shame we can't check code IDs here. *)

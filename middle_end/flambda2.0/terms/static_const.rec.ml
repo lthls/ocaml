@@ -394,7 +394,11 @@ let get_pieces_of_code t =
   | Immutable_string _ -> Code_id.Map.empty
 
 let get_pieces_of_code' t =
-  Code_id.Map.map (fun (code, _) -> code) (get_pieces_of_code t)
+  Code_id.Map.filter_map (get_pieces_of_code t)
+    ~f:(fun _ code ->
+      match code.Code.params_and_body with
+      | Deleted -> None
+      | Present params_and_body -> Some params_and_body)
 
 let free_names t =
   match t with

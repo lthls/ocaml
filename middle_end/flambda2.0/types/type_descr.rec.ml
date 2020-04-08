@@ -115,11 +115,11 @@ module Make (Head : Type_head_intf.S
 
   let get_alias_exn t =
     match peek_descr t with
-    | No_alias _ | Type _ -> raise Not_found
+    | No_alias _ -> raise Not_found
     | Equals _ ->
       match descr t with
       | Equals alias -> alias
-      | No_alias _ | Type _ -> assert false
+      | No_alias _ -> assert false
 
   let apply_rec_info t rec_info : _ Or_bottom.t =
     match descr t with
