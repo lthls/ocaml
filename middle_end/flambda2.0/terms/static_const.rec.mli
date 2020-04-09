@@ -52,6 +52,9 @@ module Code : sig
   val make_deleted : t -> t
 end
 
+(* CR mshinwell: Somewhere there should be an invariant check that
+   code has no free names. *)
+
 (** The possibly-recursive declaration of pieces of code and any associated set
     of closures. *)
 module Code_and_set_of_closures : sig
