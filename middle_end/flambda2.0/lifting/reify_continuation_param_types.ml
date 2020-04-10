@@ -55,6 +55,9 @@ let lift_non_closure_discovered_via_reified_continuation_param_types dacc
     dacc, reified_continuation_params_to_symbols, reified_definitions,
       closure_symbols_by_set
 
+(* CR mshinwell: Can the following work on non-inlinable functions if we
+   know enough about them? *)
+
 let lift_set_of_closures_discovered_via_reified_continuation_param_types dacc
       var closure_id function_decls ~closure_vars
       ~reified_continuation_params_to_symbols
