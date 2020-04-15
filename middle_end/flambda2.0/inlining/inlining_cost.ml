@@ -363,6 +363,7 @@ let smaller' denv expr ~than:threshold =
     | Let_cont (Non_recursive { handler; _ }) ->
       Non_recursive_let_cont_handler.pattern_match handler
         ~f:(fun _cont ~body -> expr_size denv body);
+      (* CR mshinwell: Move this next line into the above *)
       continuation_handler_size denv
         (Non_recursive_let_cont_handler.handler handler)
     | Let_cont (Recursive handlers) ->
