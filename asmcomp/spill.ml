@@ -302,7 +302,7 @@ let rec reload env i before =
                    let handler, after_handler, env =
                      reload env handler (find_reload_at_exit env nfail)
                    in
-                   cache_reload_result nfail env handler after_handler;
+                   cache_reload_result nfail env_fix handler after_handler;
                    handler, after_handler, env
                  | Some (handler, after_handler) ->
                    handler, after_handler, env
