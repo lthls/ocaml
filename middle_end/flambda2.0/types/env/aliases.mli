@@ -20,6 +20,8 @@
 
 type t
 
+include Contains_ids.S with type t := t
+
 val print : Format.formatter -> t -> unit
 
 val invariant : t -> unit

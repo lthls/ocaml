@@ -17,6 +17,7 @@
 [@@@ocaml.warning "+a-4-9-30-40-41-42"]
 
 include Identifiable.S
+type exported
 
 val initialise : unit -> unit
 
@@ -33,3 +34,7 @@ val rename : t -> t
 val code_symbol : t -> Symbol.t
 
 val invert_map : t Map.t -> t Map.t
+
+val export : t -> exported
+
+val import : exported -> t

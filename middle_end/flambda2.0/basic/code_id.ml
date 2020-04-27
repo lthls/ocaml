@@ -56,6 +56,8 @@ end
 
 type t = Id.t
 
+type exported = Code_id_data.t
+
 module Table = Table_by_int_id.Make (Code_id_data)
 let grand_table_of_code_ids = ref (Table.create ())
 
@@ -123,3 +125,8 @@ let invert_map map =
       Map.add newer older invert_map)
     map
     Map.empty
+
+let export t = find_data t
+
+let import (data : exported) =
+  Table.add !grand_table_of_code_ids data

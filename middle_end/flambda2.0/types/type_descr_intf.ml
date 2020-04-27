@@ -60,6 +60,8 @@ module type S = sig
 
   include Contains_names.S with type t := t
 
+  include Contains_ids.S with type t := t
+
   val apply_rec_info : t -> Rec_info.t -> t Or_bottom.t
 
   val expand_head

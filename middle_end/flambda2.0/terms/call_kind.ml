@@ -173,3 +173,25 @@ let apply_name_permutation t perm =
         kind;
         obj = obj';
       }
+
+let all_ids_for_export t =
+  match t with
+  | Function (Direct { code_id; closure_id = _; return_arity = _; }) ->
+    Ids_for_export.add_code_id Ids_for_export.empty code_id
+  | Function Indirect_unknown_arity
+  | Function (Indirect_known_arity { param_arity = _; return_arity = _; })
+  | C_call { alloc = _; param_arity = _; return_arity = _; } ->
+    Ids_for_export.empty
+  | Method { kind = _; obj; } ->
+    Ids_for_export.from_simple obj
+
+let import import_map t = match t with
+  | Function (Direct { code_id; closure_id; return_arity; }) ->
+    let code_id = Ids_for_export.Import_map.code_id import_map code_id in
+    Function (Direct { code_id; closure_id; return_arity; })
+  | Function Indirect_unknown_arity
+  | Function (Indirect_known_arity { param_arity = _; return_arity = _; })
+  | C_call { alloc = _; param_arity = _; return_arity = _; } -> t
+  | Method { kind; obj; } ->
+    let obj = Ids_for_export.Import_map.simple import_map obj in
+    Method { kind; obj; }

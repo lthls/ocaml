@@ -86,6 +86,7 @@ type t =
 
 include Identifiable.S with type t := t
 include Contains_names.S with type t := t
+include Contains_ids.S with type t := t
 
 val get_pieces_of_code : t -> Code.t Code_id.Map.t
 

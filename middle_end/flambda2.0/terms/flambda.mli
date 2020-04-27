@@ -496,6 +496,8 @@ end and Function_params_and_body : sig
   (** Printing, invariant checks, name manipulation, etc. *)
   include Expr_std.S with type t := t
 
+  include Contains_ids.S with type t := t
+
   (** Create an abstraction that binds the given parameters, with associated
       relations thereon, over the given body. *)
   val create

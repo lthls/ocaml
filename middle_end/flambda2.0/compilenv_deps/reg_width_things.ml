@@ -229,6 +229,7 @@ end
 
 module Const = struct
   type t = Id.t
+  type exported = Const_data.t
 
   module Table = Table_by_int_id.Make (Const_data)
   let grand_table_of_constants = ref (Table.create ())
@@ -288,10 +289,16 @@ module Const = struct
   module Map = Patricia_tree.Make_map (struct let print = print end) (Set)
   (* CR mshinwell: The [Tbl]s will still print integers! *)
   module Tbl = Identifiable.Make_tbl (Numbers.Int) (Map)
+
+  let export t = find_data t
+
+  let import (data : exported) =
+    create data
 end
 
 module Variable = struct
   type t = Id.t
+  type exported = Variable_data.t
 
   module Table = Table_by_int_id.Make (Variable_data)
   let grand_table_of_variables = ref (Table.create ())
@@ -329,7 +336,15 @@ module Variable = struct
     let hash = Id.hash
 
     (* CR mshinwell: colour? *)
-    let print ppf t = Format.fprintf ppf "%s/%d" (name t) (name_stamp t)
+    let print ppf t =
+      let cu = compilation_unit t in
+      if Compilation_unit.equal cu (Compilation_unit.get_current_exn ())
+      then Format.fprintf ppf "%s/%d" (name t) (name_stamp t)
+      else
+        Format.fprintf ppf "%a.%s/%d"
+          Compilation_unit.print cu
+          (name t)
+          (name_stamp t)
 
     let output chan t = print (Format.formatter_of_out_channel chan) t
   end
@@ -343,10 +358,16 @@ module Variable = struct
   module Set = Patricia_tree.Make_set (struct let print = print end)
   module Map = Patricia_tree.Make_map (struct let print = print end) (Set)
   module Tbl = Identifiable.Make_tbl (Numbers.Int) (Map)
+
+  let export t = find_data t
+
+  let import (data : exported) =
+    Table.add !grand_table_of_variables data
 end
 
 module Symbol = struct
   type t = Id.t
+  type exported = Symbol_data.t
 
   module Table = Table_by_int_id.Make (Symbol_data)
   let grand_table_of_symbols = ref (Table.create ())
@@ -399,6 +420,11 @@ module Symbol = struct
   module Set = Patricia_tree.Make_set (struct let print = print end)
   module Map = Patricia_tree.Make_map (struct let print = print end) (Set)
   module Tbl = Identifiable.Make_tbl (Numbers.Int) (Map)
+
+  let export t = find_data t
+
+  let import (data : exported) =
+    Table.add !grand_table_of_symbols data
 end
 
 module Name = struct
@@ -442,6 +468,7 @@ end
 
 module Simple = struct
   type t = Id.t
+  type exported = Simple_data.t
 
   module Table = Table_by_int_id.Make (Simple_data)
   (* This table only holds [Simple]s that have auxiliary data associated
@@ -535,6 +562,15 @@ module Simple = struct
   module Set = Patricia_tree.Make_set (struct let print = print end)
   module Map = Patricia_tree.Make_map (struct let print = print end) (Set)
   module Tbl = Identifiable.Make_tbl (Numbers.Int) (Map)
+
+  let export t = find_data t
+
+  let import map (data : exported) =
+    let simple = map data.simple in
+    let data : Simple_data.t =
+      { simple; rec_info = data.rec_info; }
+    in
+    Table.add !grand_table_of_simples data
 end
 
 let initialise () =
