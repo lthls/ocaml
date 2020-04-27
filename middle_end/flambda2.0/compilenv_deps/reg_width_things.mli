@@ -21,6 +21,7 @@
 
 module Const : sig
   type t = private Table_by_int_id.Id.t
+  type exported
 
   include Identifiable.S with type t := t
 
@@ -64,10 +65,15 @@ module Const : sig
   end
 
   val descr : t -> Descr.t
+
+  val export : t -> exported
+
+  val import : exported -> t
 end
 
 module Variable : sig
   type t = private Table_by_int_id.Id.t
+  type exported
 
   include Identifiable.S with type t := t
 
@@ -80,10 +86,15 @@ module Variable : sig
   val name_stamp : t -> int
 
   val user_visible : t -> bool
+
+  val export : t -> exported
+
+  val import : exported -> t
 end
 
 module Symbol : sig
   type t = private Table_by_int_id.Id.t
+  type exported
 
   include Identifiable.S with type t := t
 
@@ -96,6 +107,10 @@ module Symbol : sig
   val compilation_unit : t -> Compilation_unit.t
 
   val linkage_name : t -> Linkage_name.t
+
+  val export : t -> exported
+
+  val import : exported -> t
 end
 
 module Name : sig
@@ -116,6 +131,7 @@ end
 
 module Simple : sig
   type t = private Table_by_int_id.Id.t
+  type exported
 
   include Identifiable.S with type t := t
 
@@ -142,6 +158,10 @@ module Simple : sig
    (* [same s1 s2] returns true iff they represent the same name or const
       i.e. [same s (with_rec_info s rec_info)] returns true *)
    val same : t -> t -> bool
+
+  val export : t -> exported
+
+  val import : (t -> t) -> exported -> t
 end
 
 val initialise : unit -> unit

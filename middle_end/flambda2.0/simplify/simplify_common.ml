@@ -340,4 +340,8 @@ let create_let_symbol r (scoping_rule : Let_symbol.Scoping_rule.t)
       Let_symbol.create Dominator bound_symbols static_const body
       |> Expr.create_let_symbol
     in
+    let r =
+      R.remember_code_for_cmx r
+        (Static_const.get_pieces_of_code' static_const)
+    in
     expr, r

@@ -84,6 +84,22 @@ module Make (Head : Type_head_intf.S
 
   include With_delayed_permutation.Make (Descr)
 
+  let all_ids_for_export t =
+    match descr t with
+    | No_alias Bottom | No_alias Unknown -> Ids_for_export.empty
+    | No_alias (Ok head) -> Head.all_ids_for_export head
+    | Equals simple -> Ids_for_export.from_simple simple
+
+  let import import_map t =
+    let descr : Descr.t =
+      match descr t with
+      | (No_alias Unknown | No_alias Bottom) as descr -> descr
+      | No_alias (Ok head) -> No_alias (Ok (Head.import import_map head))
+      | Equals simple ->
+        Equals (Ids_for_export.Import_map.simple import_map simple)
+    in
+    create descr
+
   let print_with_cache ~cache ppf t =
     Descr.print_with_cache ~cache ppf (descr t)
 
@@ -186,8 +202,9 @@ module Make (Head : Type_head_intf.S
             *)
           | Equals _ ->
             Misc.fatal_errorf "Canonical alias %a should never have \
-                [Equals] type:@ %a"
+                [Equals] type %a:@ %a"
               Simple.print simple
+              print t
               TE.print env
         in
         Simple.pattern_match simple ~const ~name

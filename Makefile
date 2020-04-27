@@ -252,6 +252,8 @@ MIDDLE_END_FLAMBDA2_BASIC=\
   middle_end/flambda2.0/basic/or_variable.cmo \
   middle_end/flambda2.0/basic/simple.cmo \
   middle_end/flambda2.0/basic/closure_id.cmo \
+  middle_end/flambda2.0/cmx/ids_for_export.cmo \
+  middle_end/flambda2.0/cmx/contains_ids.cmo \
   middle_end/flambda2.0/basic/kinded_parameter.cmo \
   middle_end/flambda2.0/basic/invariant_env.cmo \
   middle_end/flambda2.0/basic/expr_std.cmo \

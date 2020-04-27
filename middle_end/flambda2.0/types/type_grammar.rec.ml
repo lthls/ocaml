@@ -148,6 +148,24 @@ let free_names t =
   | Naked_int64 ty -> T_N64.free_names ty
   | Naked_nativeint ty -> T_NN.free_names ty
 
+let all_ids_for_export t =
+  match t with
+  | Value ty -> T_V.all_ids_for_export ty
+  | Naked_immediate ty -> T_NI.all_ids_for_export ty
+  | Naked_float ty -> T_Nf.all_ids_for_export ty
+  | Naked_int32 ty -> T_N32.all_ids_for_export ty
+  | Naked_int64 ty -> T_N64.all_ids_for_export ty
+  | Naked_nativeint ty -> T_NN.all_ids_for_export ty
+
+let import import_map t =
+  match t with
+  | Value ty -> Value (T_V.import import_map ty)
+  | Naked_immediate ty -> Naked_immediate (T_NI.import import_map ty)
+  | Naked_float ty -> Naked_float (T_Nf.import import_map ty)
+  | Naked_int32 ty -> Naked_int32 (T_N32.import import_map ty)
+  | Naked_int64 ty -> Naked_int64 (T_N64.import import_map ty)
+  | Naked_nativeint ty -> Naked_nativeint (T_NN.import import_map ty)
+
 let apply_rec_info t rec_info : _ Or_bottom.t =
   match t with
   | Value ty ->

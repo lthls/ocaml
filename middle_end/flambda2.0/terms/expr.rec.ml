@@ -128,6 +128,32 @@ let free_names t =
     t.free_names <- Some free_names;
     free_names
 
+let all_ids_for_export t =
+  match descr t with
+  | Let let_expr -> Let_expr.all_ids_for_export let_expr
+  | Let_symbol let_symbol_expr ->
+    Let_symbol_expr.all_ids_for_export let_symbol_expr
+  | Let_cont let_cont -> Let_cont_expr.all_ids_for_export let_cont
+  | Apply apply -> Apply.all_ids_for_export apply
+  | Apply_cont apply_cont -> Apply_cont.all_ids_for_export apply_cont
+  | Switch switch -> Switch.all_ids_for_export switch
+  | Invalid _ -> Ids_for_export.empty
+
+let import import_map t =
+  let descr =
+    match descr t with
+    | Let let_expr -> Let (Let_expr.import import_map let_expr)
+    | Let_symbol let_symbol_expr ->
+      Let_symbol (Let_symbol_expr.import import_map let_symbol_expr)
+    | Let_cont let_cont -> Let_cont (Let_cont_expr.import import_map let_cont)
+    | Apply apply -> Apply (Apply.import import_map apply)
+    | Apply_cont apply_cont ->
+      Apply_cont (Apply_cont.import import_map apply_cont)
+    | Switch switch -> Switch (Switch.import import_map switch)
+    | Invalid sem -> Invalid sem
+  in
+  create descr
+
 let invariant env t =
   match descr t with
   | Let let_expr -> Let_expr.invariant env let_expr

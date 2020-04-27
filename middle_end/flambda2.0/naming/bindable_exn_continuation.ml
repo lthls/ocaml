@@ -25,6 +25,10 @@ let add_to_name_permutation t ~guaranteed_fresh perm =
 let name_permutation t ~guaranteed_fresh =
   add_to_name_permutation t ~guaranteed_fresh Name_permutation.empty
 
+let all_ids_for_export _t = Ids_for_export.empty
+
+let import _import_map t = t
+
 let singleton_occurrence_in_terms t =
   Name_occurrences.singleton_continuation (exn_handler t)
 

@@ -142,6 +142,28 @@ let free_names (t : t) =
     Name_occurrences.add_code_id Name_occurrences.empty code_id
       Name_mode.in_types
 
+let all_ids_for_export (t : t) =
+  match t with
+  | Bottom | Unknown -> Ids_for_export.empty
+  | Ok (Inlinable { code_id; param_arity = _; result_arity = _; stub = _;
+                    dbg = _; inline = _; is_a_functor = _; recursive = _;
+                    rec_info = _; })
+  | Ok (Non_inlinable { code_id; param_arity = _; result_arity = _;
+                        recursive = _; }) ->
+    Ids_for_export.add_code_id Ids_for_export.empty code_id
+
+let import import_map (t : t) : t =
+  match t with
+  | Bottom | Unknown -> t
+  | Ok (Inlinable { code_id; param_arity; result_arity; stub;
+                    dbg; inline; is_a_functor; recursive; rec_info; }) ->
+    let code_id = Ids_for_export.Import_map.code_id import_map code_id in
+    Ok (Inlinable { code_id; param_arity; result_arity; stub;
+                    dbg; inline; is_a_functor; recursive; rec_info; })
+  | Ok (Non_inlinable { code_id; param_arity; result_arity; recursive; }) ->
+    let code_id = Ids_for_export.Import_map.code_id import_map code_id in
+    Ok (Non_inlinable { code_id; param_arity; result_arity; recursive; })
+
 let apply_name_permutation t _perm = t
 
 module Make_meet_or_join

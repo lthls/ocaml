@@ -37,6 +37,8 @@ module Aliases_of_canonical_element : sig
 
   val union : t -> t -> t
   val inter : t -> t -> t
+
+  val import : (Simple.t -> Simple.t) -> t -> t
 end = struct
   type t = {
     aliases : Simple.Set.t Name_mode.Map.t;
@@ -125,6 +127,14 @@ end = struct
     in
     invariant t;
     t
+
+  let import import_simple { aliases; all } =
+    let aliases =
+      Name_mode.Map.map (fun elts -> Simple.Set.map import_simple elts)
+        aliases
+    in
+    let all = Simple.Set.map import_simple all in
+    { aliases; all }
 end
 
 type t = {
@@ -147,7 +157,7 @@ let print ppf { canonical_elements; aliases_of_canonical_elements;
   Format.fprintf ppf
     "@[<hov 1>(\
       @[<hov 1>(canonical_elements@ %a)@]@ \
-      @[<hov 1>(aliases_of_canonical_elements@ %a)@]\
+      @[<hov 1>(aliases_of_canonical_elements@ %a)@]@ \
       @[<hov 1>(binding_times_and_modes@ %a)@]\
       )@]"
     (Simple.Map.print Simple.print) canonical_elements
@@ -473,3 +483,40 @@ let get_aliases t element =
       assert (Simple.Set.mem element aliases)
     end;
     Simple.Set.add canonical_element aliases
+
+let all_ids_for_export { canonical_elements = _;
+                         aliases_of_canonical_elements = _;
+                         binding_times_and_modes; } =
+  Simple.Map.fold (fun simple _binding_time_and_mode ids ->
+      Ids_for_export.add_simple ids simple)
+    binding_times_and_modes
+    Ids_for_export.empty
+
+let import import_map { canonical_elements;
+                        aliases_of_canonical_elements;
+                        binding_times_and_modes; } =
+  let import_simple = Ids_for_export.Import_map.simple import_map in
+  let canonical_elements =
+    Simple.Map.fold (fun elt canonical acc ->
+        Simple.Map.add (import_simple elt) (import_simple canonical) acc)
+      canonical_elements
+      Simple.Map.empty
+  in
+  let aliases_of_canonical_elements =
+    Simple.Map.fold (fun canonical aliases acc ->
+        Simple.Map.add (import_simple canonical)
+          (Aliases_of_canonical_element.import import_simple aliases)
+          acc)
+      aliases_of_canonical_elements
+      Simple.Map.empty
+  in
+  let binding_times_and_modes =
+    Simple.Map.fold (fun simple binding_time_and_mode acc ->
+        Simple.Map.add (import_simple simple) binding_time_and_mode acc)
+      binding_times_and_modes
+      Simple.Map.empty
+  in
+  { canonical_elements;
+    aliases_of_canonical_elements;
+    binding_times_and_modes;
+  }

@@ -101,3 +101,16 @@ let rec newer_versions_form_linear_chain t id ~all_code_ids_still_existing =
 
 let union t1 t2 =
   Code_id.Map.disjoint_union ~eq:Code_id.equal t1 t2
+
+let all_code_ids_for_export t =
+  Code_id.Map.fold (fun key v acc ->
+      Code_id.Set.add key (Code_id.Set.add v acc))
+    t
+    Code_id.Set.empty
+
+let import import_map t =
+  let import_code_id = Ids_for_export.Import_map.code_id import_map in
+  Code_id.Map.fold (fun key v acc ->
+      Code_id.Map.add (import_code_id key) (import_code_id v) acc)
+    t
+    Code_id.Map.empty

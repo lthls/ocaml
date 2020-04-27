@@ -141,9 +141,15 @@ module Serializable : sig
 
   val create : typing_env -> t
 
+  val print : Format.formatter -> t -> unit
+
   val to_typing_env
      : t
     -> resolver:(Compilation_unit.t -> typing_env option)
     -> get_imported_names:(unit -> Name.Set.t)
     -> typing_env
+
+  val all_ids_for_export : t -> Ids_for_export.t
+
+  val import : Ids_for_export.Import_map.t -> t -> t
 end

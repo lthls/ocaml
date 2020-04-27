@@ -54,3 +54,7 @@ val newer_versions_form_linear_chain
   -> bool
 
 val union : t -> t -> t
+
+val all_code_ids_for_export : t -> Code_id.Set.t
+
+val import : Ids_for_export.Import_map.t -> t -> t
