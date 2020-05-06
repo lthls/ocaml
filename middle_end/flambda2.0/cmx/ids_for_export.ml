@@ -148,14 +148,14 @@ module Import_map = struct
       ~symbol:(fun sym -> Name.symbol (symbol t sym))
 
   let simple t simple =
-    match Simple.rec_info simple with
-    | None ->
-      Simple.pattern_match simple
-        ~name:(fun n -> Simple.name (name t n))
-        ~const:(fun c -> Simple.const (const t c))
-    | Some _rec_info ->
-      begin match Simple.Map.find simple t.simples with
-      | simple -> simple
-      | exception Not_found -> simple
+    match Simple.Map.find simple t.simples with
+    | simple -> simple
+    | exception Not_found ->
+      begin match Simple.rec_info simple with
+      | None ->
+        Simple.pattern_match simple
+          ~name:(fun n -> Simple.name (name t n))
+          ~const:(fun c -> Simple.const (const t c))
+      | Some _rec_info -> simple
       end
 end

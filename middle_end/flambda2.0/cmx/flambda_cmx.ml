@@ -27,7 +27,6 @@ let rec load_cmx_file_contents backend comp_unit ~imported_units ~imported_names
     match Backend.get_global_info comp_unit with
     | None -> None
     | Some cmx ->
-      let cmx = ((Obj.obj cmx) : Flambda_cmx_format.t) in
       let resolver comp_unit =
         load_cmx_file_contents backend comp_unit ~imported_names ~imported_code
           ~imported_units
@@ -60,7 +59,7 @@ let prepare_cmx_file_contents ~return_cont_env:cont_uses_env
     (* CR mshinwell: We should remove typing information about names that
        do not occur (transitively) in the type of the module block. *)
     let final_typing_env =
-      TE.make_vars_on_current_level_irrelevant final_typing_env
+      TE.clean_for_export final_typing_env
       |> TE.Serializable.create
     in
     let exported_offsets =

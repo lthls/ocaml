@@ -54,9 +54,11 @@ module Cached : sig
 
   val with_cse : t -> cse:Simple.t Flambda_primitive.Eligible_for_cse.Map.t -> t
 
-  val make_all_defined_vars_irrelevant : t -> t
+  val clean_for_export : t -> t
 
   val import : Ids_for_export.Import_map.t -> t -> t
+
+  val merge : t -> t -> t
 end = struct
   type t = {
     names_to_types :
@@ -142,13 +144,24 @@ end = struct
 
   let with_cse t ~cse = { t with cse; }
 
-  let make_all_defined_vars_irrelevant t =
+  let clean_for_export t =
+    (* Two things happen:
+       - All variables are existentialized (mode is switched to in_types)
+       - Names coming from other compilation units are removed
+    *)
     let names_to_types =
       Name.Map.mapi (fun name ((ty, binding_time, _mode) as info) ->
           Name.pattern_match name
           ~var:(fun _ -> ty, binding_time, Name_mode.in_types)
           ~symbol:(fun _ -> info))
         t.names_to_types
+    in
+    let current_compilation_unit = Compilation_unit.get_current_exn () in
+    let names_to_types =
+      Name.Map.filter (fun name _info ->
+          Compilation_unit.equal (Name.compilation_unit name)
+            current_compilation_unit)
+        names_to_types
     in
     { t with
       names_to_types;
@@ -179,6 +192,41 @@ end = struct
         Flambda_primitive.Eligible_for_cse.Map.empty
     in
     { names_to_types; aliases; cse }
+
+  let merge t1 t2 =
+    let names_to_types =
+      Name.Map.disjoint_union
+        t1.names_to_types
+        t2.names_to_types
+    in
+    let aliases =
+      Aliases.merge t1.aliases t2.aliases
+    in
+    let cse =
+      Flambda_primitive.Eligible_for_cse.Map.union
+        (fun prim simple1 simple2 ->
+           Simple.pattern_match simple1
+             ~const:(fun const1 ->
+               Simple.pattern_match simple2
+                 ~const:(fun const2 ->
+                   if Reg_width_things.Const.equal const1 const2
+                   then Some simple1
+                   else
+                     Misc.fatal_errorf
+                       "Inconsistent values for CSE equation@ %a:@ %a@ <> %a"
+                       Flambda_primitive.Eligible_for_cse.print prim
+                       Simple.print simple1 Simple.print simple2)
+                 ~name:(fun _name ->
+                   Misc.fatal_errorf
+                     "Cannot merge CSE equation %a from different environments"
+                     Flambda_primitive.Eligible_for_cse.print prim))
+             ~name:(fun _name ->
+               Misc.fatal_errorf
+                 "Cannot merge CSE equation %a from different environments"
+                 Flambda_primitive.Eligible_for_cse.print prim))
+        t1.cse t2.cse
+    in
+    { names_to_types; aliases; cse; }
 end
 
 module One_level = struct
@@ -227,10 +275,10 @@ module One_level = struct
     Typing_env_level.defines_name_but_no_equations t.level name
 *)
 
-  let make_all_defined_vars_irrelevant t =
+  let clean_for_export t =
     { t with
       just_after_level =
-        Cached.make_all_defined_vars_irrelevant t.just_after_level;
+        Cached.clean_for_export t.just_after_level;
     }
 end
 
@@ -355,6 +403,18 @@ module Serializable = struct
       Code_age_relation.import import_map code_age_relation
     in
     let just_after_level = Cached.import import_map just_after_level in
+    { defined_symbols; code_age_relation; just_after_level; }
+
+  let merge t1 t2 =
+    let defined_symbols =
+      Symbol.Set.union t1.defined_symbols t2.defined_symbols
+    in
+    let code_age_relation =
+      Code_age_relation.union t1.code_age_relation t2.code_age_relation
+    in
+    let just_after_level =
+      Cached.merge t1.just_after_level t2.just_after_level
+    in
     { defined_symbols; code_age_relation; just_after_level; }
 end
 
@@ -1197,9 +1257,9 @@ and free_names_transitive0 t typ ~result =
 let free_names_transitive t typ =
   free_names_transitive0 t typ ~result:Name_occurrences.empty
 
-let make_vars_on_current_level_irrelevant t =
+let clean_for_export t =
   let current_level =
-    One_level.make_all_defined_vars_irrelevant t.current_level
+    One_level.clean_for_export t.current_level
   in
   { t with
     current_level;

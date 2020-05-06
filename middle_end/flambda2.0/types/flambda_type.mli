@@ -144,7 +144,7 @@ module Typing_env : sig
     -> flambda_type
     -> Name_occurrences.t
 
-  val make_vars_on_current_level_irrelevant : t -> t
+  val clean_for_export : t -> t
 
   module Serializable : sig
     type typing_env = t
@@ -163,6 +163,8 @@ module Typing_env : sig
     val all_ids_for_export : t -> Ids_for_export.t
 
     val import : Ids_for_export.Import_map.t -> t -> t
+
+    val merge : t -> t -> t
   end
 end
 

@@ -1357,7 +1357,7 @@ let unit (middle_end_result : Flambda2_middle_end.middle_end_result) =
                       offsets *)
       | Some cmx ->
         let cmx = Flambda_cmx_format.with_exported_offsets cmx offsets in
-        Compilenv.(set_global_info (Flambda2 (Obj.repr cmx)))
+        Compilenv.(set_global_info (Flambda2 cmx))
       end;
       let used_closure_vars = Flambda_unit.used_closure_vars unit in
       let dummy_k = Continuation.create () in

@@ -130,3 +130,10 @@ let export t = find_data t
 
 let import (data : exported) =
   Table.add !grand_table_of_code_ids data
+
+let map_compilation_unit f (data : exported) : exported =
+  (* Change stamps to prevent conflicts *)
+  incr previous_name_stamp;
+  { data with name_stamp = !previous_name_stamp;
+              compilation_unit = f data.compilation_unit;
+  }

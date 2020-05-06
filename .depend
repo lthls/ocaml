@@ -2131,11 +2131,13 @@ asmcomp/asmpackager.cmo : \
     utils/load_path.cmi \
     lambda/lambda.cmi \
     typing/ident.cmi \
+    middle_end/flambda2.0/cmx/flambda_cmx_format.cmi \
     middle_end/flambda2.0/flambda2_middle_end.cmi \
     middle_end/flambda2.0/flambda2_backend_intf.cmi \
     typing/env.cmi \
     utils/config.cmi \
     middle_end/compilenv.cmi \
+    middle_end/flambda2.0/compilenv_deps/compilation_unit.cmi \
     file_formats/cmx_format.cmi \
     middle_end/closure/closure_middle_end.cmi \
     utils/clflags.cmi \
@@ -2153,11 +2155,13 @@ asmcomp/asmpackager.cmx : \
     utils/load_path.cmx \
     lambda/lambda.cmx \
     typing/ident.cmx \
+    middle_end/flambda2.0/cmx/flambda_cmx_format.cmx \
     middle_end/flambda2.0/flambda2_middle_end.cmx \
     middle_end/flambda2.0/flambda2_backend_intf.cmi \
     typing/env.cmx \
     utils/config.cmx \
     middle_end/compilenv.cmx \
+    middle_end/flambda2.0/compilenv_deps/compilation_unit.cmx \
     file_formats/cmx_format.cmi \
     middle_end/closure/closure_middle_end.cmx \
     utils/clflags.cmx \
@@ -3585,6 +3589,7 @@ file_formats/cmt_format.cmi : \
     file_formats/cmi_format.cmi
 file_formats/cmx_format.cmi : \
     utils/misc.cmi \
+    middle_end/flambda2.0/cmx/flambda_cmx_format.cmi \
     middle_end/clambda.cmi
 file_formats/cmxs_format.cmi : \
     utils/misc.cmi
@@ -5366,6 +5371,7 @@ middle_end/flambda2.0/compilenv_deps/variable.cmi : \
 middle_end/flambda2.0/flambda2_backend_intf.cmi : \
     middle_end/flambda2.0/compilenv_deps/symbol.cmi \
     typing/ident.cmi \
+    middle_end/flambda2.0/cmx/flambda_cmx_format.cmi \
     middle_end/flambda2.0/compilenv_deps/compilation_unit.cmi \
     middle_end/flambda2.0/basic/closure_id.cmi
 middle_end/flambda2.0/flambda2_middle_end.cmo : \
@@ -5910,10 +5916,12 @@ middle_end/flambda2.0/cmx/flambda_cmx_format.cmo : \
     middle_end/flambda2.0/compilenv_deps/symbol.cmi \
     middle_end/flambda2.0/basic/simple.cmi \
     middle_end/flambda2.0/compilenv_deps/reg_width_things.cmi \
+    utils/misc.cmi \
     middle_end/flambda2.0/cmx/ids_for_export.cmi \
     middle_end/flambda2.0/types/flambda_type.cmi \
     middle_end/flambda2.0/terms/flambda.cmi \
     middle_end/flambda2.0/cmx/exported_offsets.cmi \
+    middle_end/flambda2.0/compilenv_deps/compilation_unit.cmi \
     middle_end/flambda2.0/basic/code_id.cmi \
     middle_end/flambda2.0/cmx/flambda_cmx_format.cmi
 middle_end/flambda2.0/cmx/flambda_cmx_format.cmx : \
@@ -5921,16 +5929,19 @@ middle_end/flambda2.0/cmx/flambda_cmx_format.cmx : \
     middle_end/flambda2.0/compilenv_deps/symbol.cmx \
     middle_end/flambda2.0/basic/simple.cmx \
     middle_end/flambda2.0/compilenv_deps/reg_width_things.cmx \
+    utils/misc.cmx \
     middle_end/flambda2.0/cmx/ids_for_export.cmx \
     middle_end/flambda2.0/types/flambda_type.cmx \
     middle_end/flambda2.0/terms/flambda.cmx \
     middle_end/flambda2.0/cmx/exported_offsets.cmx \
+    middle_end/flambda2.0/compilenv_deps/compilation_unit.cmx \
     middle_end/flambda2.0/basic/code_id.cmx \
     middle_end/flambda2.0/cmx/flambda_cmx_format.cmi
 middle_end/flambda2.0/cmx/flambda_cmx_format.cmi : \
     middle_end/flambda2.0/types/flambda_type.cmi \
     middle_end/flambda2.0/terms/flambda.cmi \
     middle_end/flambda2.0/cmx/exported_offsets.cmi \
+    middle_end/flambda2.0/compilenv_deps/compilation_unit.cmi \
     middle_end/flambda2.0/basic/code_id.cmi
 middle_end/flambda2.0/cmx/ids_for_export.cmo : \
     middle_end/flambda2.0/compilenv_deps/variable.cmi \
@@ -9540,6 +9551,7 @@ middle_end/flambda2.0/types/basic/var_within_closure_set.cmi : \
 middle_end/flambda2.0/types/env/aliases.cmo : \
     middle_end/flambda2.0/basic/simple.cmi \
     middle_end/flambda2.0/naming/name_mode.cmi \
+    middle_end/flambda2.0/basic/name.cmi \
     utils/misc.cmi \
     middle_end/flambda2.0/cmx/ids_for_export.cmi \
     utils/clflags.cmi \
@@ -9548,6 +9560,7 @@ middle_end/flambda2.0/types/env/aliases.cmo : \
 middle_end/flambda2.0/types/env/aliases.cmx : \
     middle_end/flambda2.0/basic/simple.cmx \
     middle_end/flambda2.0/naming/name_mode.cmx \
+    middle_end/flambda2.0/basic/name.cmx \
     utils/misc.cmx \
     middle_end/flambda2.0/cmx/ids_for_export.cmx \
     utils/clflags.cmx \

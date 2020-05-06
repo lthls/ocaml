@@ -58,4 +58,7 @@ module With_name_mode = struct
   let print ppf t =
     Format.fprintf ppf "(bound at time %d %a)" (binding_time t)
       Name_mode.print (name_mode t)
+
+  let equal t1 t2 =
+    t1 = t2
 end

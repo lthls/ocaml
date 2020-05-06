@@ -133,7 +133,7 @@ val free_names_transitive : t -> Type_grammar.t -> Name_occurrences.t
 
 val defined_symbols : t -> Symbol.Set.t
 
-val make_vars_on_current_level_irrelevant : t -> t
+val clean_for_export : t -> t
 
 module Serializable : sig
   type typing_env = t
@@ -152,4 +152,6 @@ module Serializable : sig
   val all_ids_for_export : t -> Ids_for_export.t
 
   val import : Ids_for_export.Import_map.t -> t -> t
+
+  val merge : t -> t -> t
 end
