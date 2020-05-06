@@ -262,20 +262,20 @@ Format.eprintf "%a: greatest mode %a, declared mode %a, free names %a, body:@ %a
       let has_uses =
         Name_mode.Or_absent.is_present greatest_name_mode
       in
-      let uses_are_at_most_phantom = (* CR mshinwell: rename? *)
-        (* CR mshinwell: This should detect whether there is any
-           provenance info associated with the variable.  If there isn't, the
-           [Let] can be deleted even if debugging information is being
-           generated. *)
-        match
-          Name_mode.Or_absent.compare_partial_order
-            greatest_name_mode
-            (Name_mode.Or_absent.present
-              Name_mode.normal)
-        with
-        | None -> assert false
-        | Some c -> c < 0
-      in
+      (* let uses_are_at_most_phantom = (\* CR mshinwell: rename? *\)
+       *   (\* CR mshinwell: This should detect whether there is any
+       *      provenance info associated with the variable.  If there isn't, the
+       *      [Let] can be deleted even if debugging information is being
+       *      generated. *\)
+       *   match
+       *     Name_mode.Or_absent.compare_partial_order
+       *       greatest_name_mode
+       *       (Name_mode.Or_absent.present
+       *         Name_mode.normal)
+       *   with
+       *   | None -> assert false
+       *   | Some c -> c < 0
+       * in *)
       let user_visible =
         Variable.user_visible (Var_in_binding_pos.var bound_var)
       in
@@ -284,8 +284,8 @@ Format.eprintf "%a: greatest mode %a, declared mode %a, free names %a, body:@ %a
            provenance info associated with the variable.  If there isn't, the
            [Let] can be deleted even if debugging information is being
            generated. *)
-        uses_are_at_most_phantom
-          && (not (!Clflags.debug && (has_uses || user_visible)))
+        (* uses_are_at_most_phantom && *)
+        (not (has_uses || (!Clflags.debug && user_visible)))
       in
       if will_delete_binding then begin
 (*

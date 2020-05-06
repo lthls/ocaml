@@ -38,3 +38,6 @@ val invert_map : t Map.t -> t Map.t
 val export : t -> exported
 
 val import : exported -> t
+
+val map_compilation_unit :
+  (Compilation_unit.t -> Compilation_unit.t) -> exported -> exported

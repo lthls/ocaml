@@ -39,4 +39,6 @@ module With_name_mode : sig
   val name_mode : t -> Name_mode.t
 
   val print : Format.formatter -> t -> unit
+
+  val equal : t -> t -> bool
 end

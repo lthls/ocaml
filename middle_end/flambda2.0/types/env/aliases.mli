@@ -53,3 +53,5 @@ val get_canonical_element_exn
 
 (** [get_aliases] always returns the supplied element in the result set. *)
 val get_aliases : t -> Simple.t -> Simple.Set.t
+
+val merge : t -> t -> t

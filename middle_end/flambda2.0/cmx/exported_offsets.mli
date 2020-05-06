@@ -66,3 +66,7 @@ val import_offsets : t -> unit
 
 val imported_offsets : unit -> t
 (** Return all the offsets read from cmx files so far *)
+
+val merge : t -> t -> t
+(** Merge the offsets from two files *)
+

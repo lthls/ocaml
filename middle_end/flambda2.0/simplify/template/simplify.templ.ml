@@ -55,10 +55,16 @@ let run ~backend ~round unit =
   in
   let get_imported_names () = !imported_names in
   let get_imported_code () = !imported_code in
+  let predefined_exception_typing_env =
+    predefined_exception_typing_env ~backend ~resolver ~get_imported_names
+  in
   imported_units :=
     Compilation_unit.Map.add (Compilation_unit.predefined_exception ())
-      (predefined_exception_typing_env ~backend ~resolver ~get_imported_names)
+      (predefined_exception_typing_env)
       !imported_units;
+  imported_names :=
+    Name.Set.union !imported_names
+      (TE.name_domain predefined_exception_typing_env);
   let denv =
     DE.create ~round
       ~backend

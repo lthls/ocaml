@@ -94,28 +94,31 @@ let map_env_var_offsets env f =
 
 let current_offsets = ref empty
 
-let import_offsets env =
-  let equal_closure_info (info1 : closure_info) (info2 : closure_info) =
-    info1.offset = info2.offset &&
-    info1.size = info2.size
-  in
-  let equal_env_var_info (info1 : env_var_info) (info2 : env_var_info) =
-    info1.offset = info2.offset
-  in
+let equal_closure_info (info1 : closure_info) (info2 : closure_info) =
+  info1.offset = info2.offset &&
+  info1.size = info2.size
+
+let equal_env_var_info (info1 : env_var_info) (info2 : env_var_info) =
+  info1.offset = info2.offset
+
+let imported_offsets () = !current_offsets
+
+let merge env1 env2 =
   let closure_offsets =
     Closure_id.Map.disjoint_union
       ~eq:equal_closure_info
       ~print:print_closure_info
-      env.closure_offsets
-      !current_offsets.closure_offsets
+      env1.closure_offsets
+      env2.closure_offsets
   in
   let env_var_offsets =
     Var_within_closure.Map.disjoint_union
       ~eq:equal_env_var_info
       ~print:print_env_var_info
-      env.env_var_offsets
-      !current_offsets.env_var_offsets
+      env1.env_var_offsets
+      env2.env_var_offsets
   in
-  current_offsets := { closure_offsets; env_var_offsets; }
+  { closure_offsets; env_var_offsets; }
 
-let imported_offsets () = !current_offsets
+let import_offsets env =
+  current_offsets := merge env !current_offsets

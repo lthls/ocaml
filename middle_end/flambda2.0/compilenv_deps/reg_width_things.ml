@@ -294,6 +294,10 @@ module Const = struct
 
   let import (data : exported) =
     create data
+
+  let map_compilation_unit _f data =
+    (* No compilation unit in the data *)
+    data
 end
 
 module Variable = struct
@@ -363,6 +367,13 @@ module Variable = struct
 
   let import (data : exported) =
     Table.add !grand_table_of_variables data
+
+  let map_compilation_unit f (data : exported) : exported =
+    (* Change stamps to prevent conflicts *)
+    incr previous_name_stamp;
+    { data with name_stamp = !previous_name_stamp;
+                compilation_unit = f data.compilation_unit;
+    }
 end
 
 module Symbol = struct
@@ -425,6 +436,9 @@ module Symbol = struct
 
   let import (data : exported) =
     Table.add !grand_table_of_symbols data
+
+  let map_compilation_unit f (data : exported) : exported =
+    { data with compilation_unit = f data.compilation_unit; }
 end
 
 module Name = struct
@@ -571,6 +585,11 @@ module Simple = struct
       { simple; rec_info = data.rec_info; }
     in
     Table.add !grand_table_of_simples data
+
+  let map_compilation_unit _f data =
+    (* The compilation unit is not associated with the simple directly,
+       only with the underlying name, which has its own entry. *)
+    data
 end
 
 let initialise () =

@@ -39,6 +39,8 @@ module Aliases_of_canonical_element : sig
   val inter : t -> t -> t
 
   val import : (Simple.t -> Simple.t) -> t -> t
+
+  val merge : t -> t -> t
 end = struct
   type t = {
     aliases : Simple.Set.t Name_mode.Map.t;
@@ -135,6 +137,16 @@ end = struct
     in
     let all = Simple.Set.map import_simple all in
     { aliases; all }
+
+  let merge t1 t2 =
+    let aliases =
+      Name_mode.Map.union (fun _mode set1 set2 ->
+          Some (Simple.Set.union set1 set2))
+        t1.aliases
+        t2.aliases
+    in
+    let all = Simple.Set.union t1.all t2.all in
+    { aliases; all; }
 end
 
 type t = {
@@ -520,3 +532,48 @@ let import import_map { canonical_elements;
     aliases_of_canonical_elements;
     binding_times_and_modes;
   }
+
+let merge t1 t2 =
+  let canonical_elements =
+    Simple.Map.disjoint_union
+      t1.canonical_elements
+      t2.canonical_elements
+  in
+  let aliases_of_canonical_elements =
+    (* Warning: here the keys of the map can come from other
+       compilation units, so we cannot assume the keys are disjoint *)
+    Simple.Map.union (fun _simple aliases1 aliases2 ->
+        Some (Aliases_of_canonical_element.merge aliases1 aliases2))
+      t1.aliases_of_canonical_elements
+      t2.aliases_of_canonical_elements
+  in
+  let binding_times_and_modes =
+    Simple.Map.union (fun simple data1 data2 ->
+        Simple.pattern_match simple
+          ~const:(fun _ ->
+            assert (Binding_time.With_name_mode.equal data1 data2);
+            Some data1)
+          ~name:(fun name ->
+            Name.pattern_match name
+              ~var:(fun var ->
+                Misc.fatal_errorf
+                  "Variable %a is present in multiple environments"
+                  Variable.print var)
+              ~symbol:(fun _sym ->
+                let symbol_data =
+                  Binding_time.With_name_mode.create
+                    Binding_time.symbols
+                    Name_mode.normal
+                in
+                assert (Binding_time.With_name_mode.equal data1 symbol_data);
+                assert (Binding_time.With_name_mode.equal data2 symbol_data);
+                Some data1)))
+      t1.binding_times_and_modes
+      t2.binding_times_and_modes
+  in
+  { canonical_elements;
+    aliases_of_canonical_elements;
+    binding_times_and_modes;
+  }
+
+
