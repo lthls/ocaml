@@ -1346,7 +1346,7 @@ let unit (middle_end_result : Flambda2_middle_end.middle_end_result) =
   let unit = middle_end_result.unit in
   let offsets =
     match middle_end_result.cmx with
-    | None -> Exported_offsets.empty
+    | None -> Exported_offsets.imported_offsets ()
     | Some cmx -> Flambda_cmx_format.exported_offsets cmx
   in
   result := R.empty;
