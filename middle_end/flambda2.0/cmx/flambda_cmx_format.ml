@@ -170,7 +170,7 @@ let with_exported_offsets t exported_offsets =
   | [] | _ :: _ :: _ ->
     Misc.fatal_error "Cannot set exported offsets on multiple units"
 
-let update_for_pack0 ~code_id_updates ~pack_units ~pack t =
+let update_for_pack0 ~pack_units ~pack t =
   let update_cu unit =
     if Compilation_unit.Set.mem unit pack_units
     then pack
@@ -193,10 +193,7 @@ let update_for_pack0 ~code_id_updates ~pack_units ~pack t =
       t.table_data.consts
   in
   let code_ids =
-    Code_id.Map.mapi (fun key data ->
-        match Code_id.Map.find key code_id_updates with
-        | new_data -> new_data
-        | exception Not_found -> data)
+    Code_id.Map.map (Code_id.map_compilation_unit update_cu)
       t.table_data.code_ids
   in
   let table_data =
@@ -210,24 +207,7 @@ let update_for_pack0 ~code_id_updates ~pack_units ~pack t =
   { t with table_data; }
 
 let update_for_pack ~pack_units ~pack t =
-  let code_id_updates =
-    List.fold_left (fun acc t0 ->
-        Code_id.Map.fold (fun key data acc ->
-            if Compilation_unit.equal t0.original_compilation_unit
-                 (Code_id.exported_compilation_unit data)
-            then
-              let data =
-                Code_id.map_compilation_unit (fun _ -> pack) data
-              in
-              Code_id.Map.add key data acc
-            else
-              acc)
-          t0.table_data.code_ids
-          acc)
-      Code_id.Map.empty
-      t
-  in
-  List.map (update_for_pack0 ~code_id_updates ~pack_units ~pack) t
+  List.map (update_for_pack0 ~pack_units ~pack) t
 
 let merge t1 t2 =
   t1 @ t2
@@ -242,7 +222,9 @@ let print0 ppf t =
   Format.fprintf ppf "@[<hov>Typing env:@ %a@]@;"
     Flambda_type.Typing_env.Serializable.print typing_env;
   Format.fprintf ppf "@[<hov>Code:@ %a@]@;"
-    (Code_id.Map.print Flambda.Function_params_and_body.print) code
+    (Code_id.Map.print Flambda.Function_params_and_body.print) code;
+  Format.fprintf ppf "@[<hov>Offsets:@ %a@]@;"
+    Exported_offsets.print t.exported_offsets
 
 let print ppf t =
   let rec print_rest ppf = function

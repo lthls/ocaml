@@ -22,7 +22,6 @@ type exported
 val initialise : unit -> unit
 
 val create : name:string -> Compilation_unit.t -> t
-val name : t -> string
 val get_compilation_unit : t -> Compilation_unit.t
 val in_compilation_unit : t -> Compilation_unit.t -> bool
 
@@ -38,8 +37,6 @@ val invert_map : t Map.t -> t Map.t
 val export : t -> exported
 
 val import : exported -> t
-
-val exported_compilation_unit : exported -> Compilation_unit.t
 
 val map_compilation_unit :
   (Compilation_unit.t -> Compilation_unit.t) -> exported -> exported
