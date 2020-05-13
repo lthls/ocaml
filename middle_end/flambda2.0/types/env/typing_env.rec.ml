@@ -205,6 +205,15 @@ end = struct
     let cse =
       Flambda_primitive.Eligible_for_cse.Map.union
         (fun prim simple1 simple2 ->
+           let cannot_merge _name =
+             if Name_occurrences.is_empty
+                  (Flambda_primitive.Eligible_for_cse.free_names prim)
+             then None
+             else
+               Misc.fatal_errorf
+                 "Cannot merge CSE equation %a from different environments"
+                 Flambda_primitive.Eligible_for_cse.print prim
+           in
            Simple.pattern_match simple1
              ~const:(fun const1 ->
                Simple.pattern_match simple2
@@ -216,14 +225,8 @@ end = struct
                        "Inconsistent values for CSE equation@ %a:@ %a@ <> %a"
                        Flambda_primitive.Eligible_for_cse.print prim
                        Simple.print simple1 Simple.print simple2)
-                 ~name:(fun _name ->
-                   Misc.fatal_errorf
-                     "Cannot merge CSE equation %a from different environments"
-                     Flambda_primitive.Eligible_for_cse.print prim))
-             ~name:(fun _name ->
-               Misc.fatal_errorf
-                 "Cannot merge CSE equation %a from different environments"
-                 Flambda_primitive.Eligible_for_cse.print prim))
+                 ~name:cannot_merge)
+             ~name:cannot_merge)
         t1.cse t2.cse
     in
     { names_to_types; aliases; cse; }
