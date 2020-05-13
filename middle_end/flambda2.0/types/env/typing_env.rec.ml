@@ -625,7 +625,8 @@ let binding_time_and_mode_of_simple t simple =
 
 let mem t name =
   Name.pattern_match name
-    ~var:(fun _var -> Name.Map.mem name (names_to_types t))
+    ~var:(fun _var -> Name.Map.mem name (names_to_types t)
+                      || Name.Set.mem name (t.get_imported_names ()))
     ~symbol:(fun sym -> Symbol.Set.mem sym t.defined_symbols)
 
 let mem_simple t simple =
@@ -807,9 +808,17 @@ let rec add_equation0 t aliases name ty =
     Name.pattern_match name
       ~var:(fun var ->
         let just_after_level =
-          Cached.replace_variable_binding
-            (One_level.just_after_level t.current_level)
-            var ty ~new_aliases:aliases
+          if Compilation_unit.equal (Variable.compilation_unit var)
+               (Compilation_unit.get_current_exn ())
+          then
+            Cached.replace_variable_binding
+              (One_level.just_after_level t.current_level)
+              var ty ~new_aliases:aliases
+          else
+            Cached.add_or_replace_binding
+              (One_level.just_after_level t.current_level)
+              name ty Binding_time.imported_variables Name_mode.in_types
+              ~new_aliases:aliases
         in
         just_after_level, t.closure_env)
       ~symbol:(fun _ ->
