@@ -553,6 +553,11 @@ let merge t1 t2 =
       t1.aliases_of_canonical_elements
       t2.aliases_of_canonical_elements
   in
+  let symbol_data =
+    Binding_time.With_name_mode.create
+      Binding_time.symbols
+      Name_mode.normal
+  in
   let binding_times_and_modes =
     Simple.Map.union (fun simple data1 data2 ->
         Simple.pattern_match simple
@@ -562,15 +567,18 @@ let merge t1 t2 =
           ~name:(fun name ->
             Name.pattern_match name
               ~var:(fun var ->
-                Misc.fatal_errorf
-                  "Variable %a is present in multiple environments"
-                  Variable.print var)
+                (* TODO: filter variables on export and restore fatal_error *)
+                if Binding_time.(equal (With_name_mode.binding_time data1)
+                                   imported_variables)
+                then Some data2
+                else if Binding_time.(equal (With_name_mode.binding_time data1)
+                                   imported_variables)
+                then Some data1
+                else
+                  Misc.fatal_errorf
+                    "Variable %a is present in multiple environments"
+                    Variable.print var)
               ~symbol:(fun _sym ->
-                let symbol_data =
-                  Binding_time.With_name_mode.create
-                    Binding_time.symbols
-                    Name_mode.normal
-                in
                 assert (Binding_time.With_name_mode.equal data1 symbol_data);
                 assert (Binding_time.With_name_mode.equal data2 symbol_data);
                 Some data1)))
