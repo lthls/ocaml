@@ -360,14 +360,22 @@ let binary_int_comp_primitive _env dbg kind signed cmp x y =
   | Naked_int64, Unsigned, (Lt | Le | Gt | Ge) when C.arch32 ->
       todo() (* There are no runtime C functions to do that afaict *)
   (* Tagged integers *)
-  | Tagged_immediate, Signed, Lt -> C.lt ~dbg x y
-  | Tagged_immediate, Signed, Le -> C.le ~dbg x y
-  | Tagged_immediate, Signed, Gt -> C.gt ~dbg x y
-  | Tagged_immediate, Signed, Ge -> C.ge ~dbg x y
-  | Tagged_immediate, Unsigned, Lt -> C.ult ~dbg x y
-  | Tagged_immediate, Unsigned, Le -> C.ule ~dbg x y
-  | Tagged_immediate, Unsigned, Gt -> C.ugt ~dbg x y
-  | Tagged_immediate, Unsigned, Ge -> C.uge ~dbg x y
+  (* When comparing tagged integers, there is always one number for which
+     the last bit is irrelevant.
+     For x < y, ignoring the last bit of y will not change the result, as
+     if x and y are different (as OCaml integers) then the comparison doesn't
+     need to see the last bit, and if they are equal then if the last bit of
+     x is one (as it is supposed to be) the result will be false
+     for both values of the last bit of y, as expected.
+     The same reasoning applies to the other comparisons. *)
+  | Tagged_immediate, Signed, Lt -> C.lt ~dbg x (C.ignore_low_bit_int y)
+  | Tagged_immediate, Signed, Le -> C.le ~dbg (C.ignore_low_bit_int x) y
+  | Tagged_immediate, Signed, Gt -> C.gt ~dbg (C.ignore_low_bit_int x) y
+  | Tagged_immediate, Signed, Ge -> C.ge ~dbg x (C.ignore_low_bit_int y)
+  | Tagged_immediate, Unsigned, Lt -> C.ult ~dbg x (C.ignore_low_bit_int y)
+  | Tagged_immediate, Unsigned, Le -> C.ule ~dbg (C.ignore_low_bit_int x) y
+  | Tagged_immediate, Unsigned, Gt -> C.ugt ~dbg (C.ignore_low_bit_int x) y
+  | Tagged_immediate, Unsigned, Ge -> C.uge ~dbg x (C.ignore_low_bit_int y)
   (* Naked integers. *)
   | (Naked_int32|Naked_int64|Naked_nativeint|Naked_immediate), Signed, Lt ->
       C.lt ~dbg x y
