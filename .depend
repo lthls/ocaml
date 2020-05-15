@@ -5566,6 +5566,7 @@ middle_end/flambda2.0/basic/exn_continuation.cmo : \
     middle_end/flambda2.0/naming/name_permutation.cmi \
     middle_end/flambda2.0/naming/name_occurrences.cmi \
     utils/misc.cmi \
+    middle_end/flambda2.0/cmx/ids_for_export.cmi \
     utils/identifiable.cmi \
     middle_end/flambda2.0/types/kinds/flambda_kind.cmi \
     middle_end/flambda2.0/compilenv_deps/flambda_colours.cmi \
@@ -5576,6 +5577,7 @@ middle_end/flambda2.0/basic/exn_continuation.cmx : \
     middle_end/flambda2.0/naming/name_permutation.cmx \
     middle_end/flambda2.0/naming/name_occurrences.cmx \
     utils/misc.cmx \
+    middle_end/flambda2.0/cmx/ids_for_export.cmx \
     utils/identifiable.cmx \
     middle_end/flambda2.0/types/kinds/flambda_kind.cmx \
     middle_end/flambda2.0/compilenv_deps/flambda_colours.cmx \
@@ -5587,7 +5589,8 @@ middle_end/flambda2.0/basic/exn_continuation.cmi : \
     middle_end/flambda2.0/types/kinds/flambda_kind.cmi \
     middle_end/flambda2.0/types/kinds/flambda_arity.cmi \
     middle_end/flambda2.0/basic/expr_std.cmo \
-    middle_end/flambda2.0/basic/continuation.cmi
+    middle_end/flambda2.0/basic/continuation.cmi \
+    middle_end/flambda2.0/cmx/contains_ids.cmo
 middle_end/flambda2.0/basic/export_id.cmo : \
     utils/identifiable.cmi \
     middle_end/flambda2.0/basic/id_types.cmi \
@@ -6596,14 +6599,12 @@ middle_end/flambda2.0/naming/bindable_continuation.cmi : \
 middle_end/flambda2.0/naming/bindable_exn_continuation.cmo : \
     middle_end/flambda2.0/naming/name_permutation.cmi \
     middle_end/flambda2.0/naming/name_occurrences.cmi \
-    middle_end/flambda2.0/cmx/ids_for_export.cmi \
     middle_end/flambda2.0/basic/exn_continuation.cmi \
     middle_end/flambda2.0/basic/continuation.cmi \
     middle_end/flambda2.0/naming/bindable_exn_continuation.cmi
 middle_end/flambda2.0/naming/bindable_exn_continuation.cmx : \
     middle_end/flambda2.0/naming/name_permutation.cmx \
     middle_end/flambda2.0/naming/name_occurrences.cmx \
-    middle_end/flambda2.0/cmx/ids_for_export.cmx \
     middle_end/flambda2.0/basic/exn_continuation.cmx \
     middle_end/flambda2.0/basic/continuation.cmx \
     middle_end/flambda2.0/naming/bindable_exn_continuation.cmi
@@ -9083,6 +9084,7 @@ middle_end/flambda2.0/types/flambda_type.cmo : \
     middle_end/flambda2.0/types/structures/set_of_closures_contents.cmi \
     middle_end/flambda2.0/basic/scope.cmi \
     middle_end/flambda2.0/types/structures/row_like_maps_to_intf.cmo \
+    middle_end/flambda2.0/compilenv_deps/reg_width_things.cmi \
     middle_end/flambda2.0/basic/reg_width_const.cmi \
     middle_end/flambda2.0/basic/recursive.cmi \
     middle_end/flambda2.0/compilenv_deps/rec_info.cmi \
@@ -9145,6 +9147,7 @@ middle_end/flambda2.0/types/flambda_type.cmx : \
     middle_end/flambda2.0/types/structures/set_of_closures_contents.cmx \
     middle_end/flambda2.0/basic/scope.cmx \
     middle_end/flambda2.0/types/structures/row_like_maps_to_intf.cmx \
+    middle_end/flambda2.0/compilenv_deps/reg_width_things.cmx \
     middle_end/flambda2.0/basic/reg_width_const.cmx \
     middle_end/flambda2.0/basic/recursive.cmx \
     middle_end/flambda2.0/compilenv_deps/rec_info.cmx \
@@ -9549,6 +9552,7 @@ middle_end/flambda2.0/types/basic/var_within_closure_set.cmi : \
     middle_end/flambda2.0/basic/var_within_closure.cmi \
     utils/identifiable.cmi
 middle_end/flambda2.0/types/env/aliases.cmo : \
+    middle_end/flambda2.0/compilenv_deps/variable.cmi \
     middle_end/flambda2.0/basic/simple.cmi \
     middle_end/flambda2.0/naming/name_mode.cmi \
     middle_end/flambda2.0/basic/name.cmi \
@@ -9558,6 +9562,7 @@ middle_end/flambda2.0/types/env/aliases.cmo : \
     middle_end/flambda2.0/types/env/binding_time.cmi \
     middle_end/flambda2.0/types/env/aliases.cmi
 middle_end/flambda2.0/types/env/aliases.cmx : \
+    middle_end/flambda2.0/compilenv_deps/variable.cmx \
     middle_end/flambda2.0/basic/simple.cmx \
     middle_end/flambda2.0/naming/name_mode.cmx \
     middle_end/flambda2.0/basic/name.cmx \
@@ -9605,6 +9610,7 @@ middle_end/flambda2.0/types/env/typing_env.rec.cmo : \
     middle_end/flambda2.0/compilenv_deps/symbol.cmi \
     middle_end/flambda2.0/basic/simple.cmi \
     middle_end/flambda2.0/basic/scope.cmi \
+    middle_end/flambda2.0/compilenv_deps/reg_width_things.cmi \
     middle_end/flambda2.0/compilenv_deps/rec_info.cmi \
     utils/printing_cache.cmi \
     middle_end/flambda2.0/naming/name_occurrences.cmi \
@@ -9628,6 +9634,7 @@ middle_end/flambda2.0/types/env/typing_env.rec.cmx : \
     middle_end/flambda2.0/compilenv_deps/symbol.cmx \
     middle_end/flambda2.0/basic/simple.cmx \
     middle_end/flambda2.0/basic/scope.cmx \
+    middle_end/flambda2.0/compilenv_deps/reg_width_things.cmx \
     middle_end/flambda2.0/compilenv_deps/rec_info.cmx \
     utils/printing_cache.cmx \
     middle_end/flambda2.0/naming/name_occurrences.cmx \
