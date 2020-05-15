@@ -235,7 +235,7 @@ let apply_name_permutation
 let all_ids_for_export
       { callee;
         continuation = _;
-        exn_continuation = _;
+        exn_continuation;
         args;
         call_kind;
         dbg = _;
@@ -250,7 +250,12 @@ let all_ids_for_export
       args
   in
   let call_kind_ids = Call_kind.all_ids_for_export call_kind in
-  Ids_for_export.union callee_and_args_ids call_kind_ids
+  let exn_continuation_ids =
+    Exn_continuation.all_ids_for_export exn_continuation
+  in
+  Ids_for_export.union
+    (Ids_for_export.union callee_and_args_ids call_kind_ids)
+    exn_continuation_ids
 
 let import import_map
       { callee;
@@ -265,6 +270,7 @@ let import import_map
   let callee = Ids_for_export.Import_map.simple import_map callee in
   let args = List.map (Ids_for_export.Import_map.simple import_map) args in
   let call_kind = Call_kind.import import_map call_kind in
+  let exn_continuation = Exn_continuation.import import_map exn_continuation in
   { callee;
     continuation;
     exn_continuation;
