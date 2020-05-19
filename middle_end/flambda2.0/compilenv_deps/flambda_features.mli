@@ -25,3 +25,7 @@ module Expert : sig
   val code_id_and_symbol_scoping_checks : unit -> bool
   val fallback_inlining_heuristic : unit -> bool
 end
+
+module Debug : sig
+  val strict_get_tag_check : unit -> bool
+end

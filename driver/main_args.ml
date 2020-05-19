@@ -961,6 +961,12 @@ let mk_no_flambda2_expert_fallback_inlining_heuristic f =
     " Allow inlining of functions whose bodies contain closures (default)"
 ;;
 
+let mk_flambda2_debug_strict_get_tag_check f =
+  "-flambda2-debug-strict-get-tag-check", Arg.Unit f,
+    " Raise a fatal error when a Get_tag primitive's argument cannot be proved \
+      to be a block"
+;;
+
 let mk_flambda2_backend_cse_at_toplevel f =
   "-flambda2-backend-cse-at-toplevel", Arg.Unit f,
     " Apply the backend CSE pass to module initializers"
@@ -1190,6 +1196,7 @@ module type Optcommon_options = sig
   val _no_flambda2_expert_code_id_and_symbol_scoping_checks : unit -> unit
   val _flambda2_expert_fallback_inlining_heuristic : unit -> unit
   val _no_flambda2_expert_fallback_inlining_heuristic : unit -> unit
+  val _flambda2_debug_strict_get_tag_check : unit -> unit
 
   val _dprepared_lambda : unit -> unit
   val _dilambda : unit -> unit
@@ -1542,6 +1549,8 @@ struct
       F._flambda2_expert_fallback_inlining_heuristic;
     mk_no_flambda2_expert_fallback_inlining_heuristic
       F._no_flambda2_expert_fallback_inlining_heuristic;
+    mk_flambda2_debug_strict_get_tag_check
+      F._flambda2_debug_strict_get_tag_check;
 
     mk_match_context_rows F._match_context_rows;
     mk_dno_unique_ids F._dno_unique_ids;
@@ -1686,6 +1695,8 @@ module Make_opttop_options (F : Opttop_options) = struct
       F._flambda2_expert_fallback_inlining_heuristic;
     mk_no_flambda2_expert_fallback_inlining_heuristic
       F._no_flambda2_expert_fallback_inlining_heuristic;
+    mk_flambda2_debug_strict_get_tag_check
+      F._flambda2_debug_strict_get_tag_check;
 
     mk_dsource F._dsource;
     mk_dparsetree F._dparsetree;
@@ -1996,6 +2007,8 @@ module Default = struct
       set Flambda_2.Expert.fallback_inlining_heuristic
     let _no_flambda2_expert_fallback_inlining_heuristic =
       clear Flambda_2.Expert.fallback_inlining_heuristic
+    let _flambda2_debug_strict_get_tag_check =
+      set Flambda_2.Debug.strict_get_tag_check
 
     let _dprepared_lambda = set dump_prepared_lambda
     let _dilambda = set dump_ilambda

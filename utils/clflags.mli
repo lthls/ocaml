@@ -255,6 +255,10 @@ module Flambda_2 : sig
     val code_id_and_symbol_scoping_checks : bool ref
     val fallback_inlining_heuristic : bool ref
   end
+
+  module Debug : sig
+    val strict_get_tag_check : bool ref
+  end
 end
 
 module Compiler_pass : sig

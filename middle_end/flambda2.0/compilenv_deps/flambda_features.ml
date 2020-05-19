@@ -28,3 +28,7 @@ module Expert = struct
   let fallback_inlining_heuristic () =
     !Clflags.Flambda_2.Expert.fallback_inlining_heuristic
 end
+
+module Debug = struct
+  let strict_get_tag_check () = !Clflags.Flambda_2.Debug.strict_get_tag_check
+end
