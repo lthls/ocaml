@@ -961,6 +961,7 @@ let mk_no_flambda2_expert_fallback_inlining_heuristic f =
     " Allow inlining of functions whose bodies contain closures (default)"
 ;;
 
+<<<<<<< HEAD
 let mk_flambda2_debug_concrete_types_only_on_canonicals f =
   "-flambda2-debug-concrete-types-only-on-canonicals", Arg.Unit f,
     " Check that concrete types are only assigned to canonical names"
@@ -969,6 +970,12 @@ let mk_flambda2_debug_concrete_types_only_on_canonicals f =
 let mk_no_flambda2_debug_concrete_types_only_on_canonicals f =
   "-no-flambda2-debug-concrete-types-only-on-canonicals", Arg.Unit f,
     " Do not check that concrete types are only assigned to canonical names"
+=======
+let mk_flambda2_debug_strict_get_tag_check f =
+  "-flambda2-debug-strict-get-tag-check", Arg.Unit f,
+    " Raise a fatal error when a Get_tag primitive's argument cannot be proved \
+      to be a block"
+>>>>>>> 8fa9031a39... Rework simplification of Get_tag
 ;;
 
 let mk_flambda2_backend_cse_at_toplevel f =
@@ -1200,8 +1207,12 @@ module type Optcommon_options = sig
   val _no_flambda2_expert_code_id_and_symbol_scoping_checks : unit -> unit
   val _flambda2_expert_fallback_inlining_heuristic : unit -> unit
   val _no_flambda2_expert_fallback_inlining_heuristic : unit -> unit
+<<<<<<< HEAD
   val _flambda2_debug_concrete_types_only_on_canonicals : unit -> unit
   val _no_flambda2_debug_concrete_types_only_on_canonicals : unit -> unit
+=======
+  val _flambda2_debug_strict_get_tag_check : unit -> unit
+>>>>>>> 8fa9031a39... Rework simplification of Get_tag
 
   val _dprepared_lambda : unit -> unit
   val _dilambda : unit -> unit
@@ -1554,10 +1565,15 @@ struct
       F._flambda2_expert_fallback_inlining_heuristic;
     mk_no_flambda2_expert_fallback_inlining_heuristic
       F._no_flambda2_expert_fallback_inlining_heuristic;
+<<<<<<< HEAD
     mk_flambda2_debug_concrete_types_only_on_canonicals
       F._flambda2_debug_concrete_types_only_on_canonicals;
     mk_no_flambda2_debug_concrete_types_only_on_canonicals
       F._no_flambda2_debug_concrete_types_only_on_canonicals;
+=======
+    mk_flambda2_debug_strict_get_tag_check
+      F._flambda2_debug_strict_get_tag_check;
+>>>>>>> 8fa9031a39... Rework simplification of Get_tag
 
     mk_match_context_rows F._match_context_rows;
     mk_dno_unique_ids F._dno_unique_ids;
@@ -1702,10 +1718,15 @@ module Make_opttop_options (F : Opttop_options) = struct
       F._flambda2_expert_fallback_inlining_heuristic;
     mk_no_flambda2_expert_fallback_inlining_heuristic
       F._no_flambda2_expert_fallback_inlining_heuristic;
+<<<<<<< HEAD
     mk_flambda2_debug_concrete_types_only_on_canonicals
       F._flambda2_debug_concrete_types_only_on_canonicals;
     mk_no_flambda2_debug_concrete_types_only_on_canonicals
       F._no_flambda2_debug_concrete_types_only_on_canonicals;
+=======
+    mk_flambda2_debug_strict_get_tag_check
+      F._flambda2_debug_strict_get_tag_check;
+>>>>>>> 8fa9031a39... Rework simplification of Get_tag
 
     mk_dsource F._dsource;
     mk_dparsetree F._dparsetree;
@@ -2020,6 +2041,8 @@ module Default = struct
       set Flambda_2.Debug.concrete_types_only_on_canonicals
     let _no_flambda2_debug_concrete_types_only_on_canonicals =
       clear Flambda_2.Debug.concrete_types_only_on_canonicals
+    let _flambda2_debug_strict_get_tag_check =
+      set Flambda_2.Debug.strict_get_tag_check
 
     let _dprepared_lambda = set dump_prepared_lambda
     let _dilambda = set dump_ilambda

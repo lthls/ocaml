@@ -471,6 +471,10 @@ let read_one_param ppf position name v =
   | "flambda2-debug-concrete-types-only-on-canonicals" ->
     set "flambda2-debug-concrete-types-only-on-canonicals"
       [ Flambda_2.Debug.concrete_types_only_on_canonicals ] v
+  | "flambda2-debug-strict-get-tag-check" ->
+    set "flambda2-debug-strict-get-tag-check"
+      [ Flambda_2.Debug.strict_get_tag_check ] v
+
   | _ ->
     if not (List.mem name !can_discard) then begin
       can_discard := name :: !can_discard;

@@ -258,6 +258,7 @@ module Flambda_2 : sig
 
   module Debug : sig
     val concrete_types_only_on_canonicals : bool ref
+    val strict_get_tag_check : bool ref
   end
 end
 

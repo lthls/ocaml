@@ -438,6 +438,7 @@ module Flambda_2 = struct
 
   module Debug = struct
     let concrete_types_only_on_canonicals = ref false
+    let strict_get_tag_check = ref false
   end
 end
 

@@ -238,6 +238,7 @@ module type Optcommon_options = sig
   val _no_flambda2_expert_fallback_inlining_heuristic : unit -> unit
   val _flambda2_debug_concrete_types_only_on_canonicals : unit -> unit
   val _no_flambda2_debug_concrete_types_only_on_canonicals : unit -> unit
+  val _flambda2_debug_strict_get_tag_check : unit -> unit
 
   (** Flambda 2 debugging flags *)
   val _dprepared_lambda : unit -> unit
