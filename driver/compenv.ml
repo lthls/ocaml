@@ -468,6 +468,9 @@ let read_one_param ppf position name v =
   | "flambda2-expert-fallback-inlining-heuristic" ->
     set "flambda2-expert-fallback-inlining-heuristic"
       [ Flambda_2.Expert.fallback_inlining_heuristic ] v
+  | "flambda2-debug-strict-get-tag-check" ->
+    set "flambda2-debug-strict-get-tag-check"
+      [ Flambda_2.Debug.strict_get_tag_check ] v
 
   | _ ->
     if not (List.mem name !can_discard) then begin

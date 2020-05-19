@@ -303,7 +303,17 @@ let prove_tags_must_be_a_block env t : Tag.Set.t proof =
     | Unknown -> Unknown
     | Known imms ->
       if not (is_bottom env imms) then
-        Invalid
+        (* This used to be Invalid. For consistency with the case above,
+           this is now Unknown.
+           However, if we reach this case it likely means that we lost
+           precision at some point where we could have avoided it, so
+           an extra check can be enabled to detect this.
+        *)
+        if Flambda_features.Debug.strict_get_tag_check () then
+          Misc.fatal_errorf
+            "Type %a is expected to be a block, but contains known immediates"
+            print t
+        else Unknown
       else
         match blocks_imms.blocks with
         | Unknown -> Unknown
