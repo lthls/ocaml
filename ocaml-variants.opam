@@ -9,7 +9,13 @@ depends: [
 ]
 conflict-class: "ocaml-core-compiler"
 flags: compiler
-setenv: CAML_LD_LIBRARY_PATH = "%{lib}%/stublibs"
+setenv: [
+  [ CAML_LD_LIBRARY_PATH = "%{lib}%/stublibs" ]
+  [ OCAMLPARAM = "_,flambda2-expert-fallback-inlining-heuristic=1" ]
+]
+build-env: [
+  [ OCAMLPARAM = "_" ]
+]
 build: [
   ["./configure" "--prefix=%{prefix}%" "--enable-flambda"]
   [make "-j%{jobs}%"]
