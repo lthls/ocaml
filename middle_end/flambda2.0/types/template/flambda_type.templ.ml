@@ -900,29 +900,10 @@ let reify ?allowed_if_free_vars_defined_in ?disallowed_free_vars env
       end
     (* CR mshinwell: share code with [prove_equals_tagged_immediates],
        above *)
-    | Naked_immediate (Ok (Is_int scrutinee_ty)) ->
-      begin match prove_is_int env scrutinee_ty with
-      | Proved true -> Simple Simple.untagged_const_true
-      | Proved false -> Simple Simple.untagged_const_false
-      | Unknown -> try_canonical_simple ()
-      | Invalid -> Invalid
-      end
-    | Naked_immediate (Ok (Get_tag block_ty)) ->
-      begin match prove_tags_must_be_a_block env block_ty with
-      | Proved tags ->
-        let is =
-          Tag.Set.fold (fun tag is ->
-              Target_imm.Set.add (Target_imm.tag tag) is)
-            tags
-            Target_imm.Set.empty
-        in
-        begin match Target_imm.Set.get_singleton is with
-        | None -> try_canonical_simple ()
-        | Some i -> Simple (Simple.const (Reg_width_const.naked_immediate i))
-        end
-      | Unknown -> try_canonical_simple ()
-      | Invalid -> Invalid
-      end
+    | Naked_immediate (Ok (Is_int _scrutinee_ty)) ->
+      try_canonical_simple ()
+    | Naked_immediate (Ok (Get_tag _block_ty)) ->
+      try_canonical_simple ()
     | Naked_float (Ok fs) ->
       begin match Float.Set.get_singleton fs with
       | None -> try_canonical_simple ()
