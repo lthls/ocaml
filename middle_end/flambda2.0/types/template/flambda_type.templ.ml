@@ -372,11 +372,11 @@ let prove_naked_immediates env t : Target_imm.Set.t proof =
           Target_imm.Set.empty
       in
       Proved is
-    | Unknown | Invalid ->
-      (* We must not return [Invalid] here even if [block_ty] doesn't
-         correspond to a block -- that might happen if we lose precision
-         for some reason, which should be harmless. *)
-      Unknown
+    | Unknown -> Unknown
+    | Invalid ->
+      (* vlaviron: prove_tags_must_be_a_block has been fixed,
+         and now only returns Invalid when there is no valid tag possible. *)
+      Invalid
     end
   | Naked_immediate Unknown -> Unknown
   | Naked_immediate Bottom -> Invalid
@@ -900,10 +900,55 @@ let reify ?allowed_if_free_vars_defined_in ?disallowed_free_vars env
       end
     (* CR mshinwell: share code with [prove_equals_tagged_immediates],
        above *)
+    (* vlaviron: I think the above comment either refers to the wrong function
+       or is misplaced. [prove_naked_immediates] would be a better candidate. *)
     | Naked_immediate (Ok (Is_int _scrutinee_ty)) ->
       try_canonical_simple ()
+      (* Previous code, trying to refine the type early to defend
+         against losing precision on scrutinee_ty later. *)
+      (*
+      begin match prove_is_int env scrutinee_ty with
+      | Proved true -> Simple Simple.untagged_const_true
+      | Proved false -> Simple Simple.untagged_const_false
+      | Unknown -> try_canonical_simple ()
+      | Invalid -> Invalid
+      end *)
     | Naked_immediate (Ok (Get_tag _block_ty)) ->
       try_canonical_simple ()
+      (* Previous code, trying to refine the type early to defend
+         against losing precision on block_ty later.
+         CR vlaviron: calling prove_tags_must_be_a_block is dangerous,
+         as we don't really have any reason to believe that block_ty
+         doesn't contain immediates at this point.
+         The function has been fixed to return Unknown instead of Invalid
+         when the type is not guaranteed to be a block, but for this case
+         a prove_tags function, that ignores the immediates field, would be
+         more appropriate.
+         An example where this code is called on a type containing immediates
+         can be found when compiling List.init from the stdlib, where the
+         variable rev_init_threshold ends up passed as a continuation
+         parameter with a type that only contains immediates. *)
+      (*
+      begin match prove_tags_must_be_a_block env block_ty with
+      | Proved tags ->
+        let is =
+          Tag.Set.fold (fun tag is ->
+              Target_imm.Set.add (Target_imm.tag tag) is)
+            tags
+            Target_imm.Set.empty
+        in
+        begin match Target_imm.Set.get_singleton is with
+        | None -> try_canonical_simple ()
+        | Some i -> Simple (Simple.const (Reg_width_const.naked_immediate i))
+        end
+      | Unknown -> try_canonical_simple ()
+      | Invalid -> Invalid
+      end *)
+    | Naked_immediate (Ok (Naked_immediates is)) ->
+      begin match Target_imm.Set.get_singleton is with
+      | None -> try_canonical_simple ()
+      | Some i -> Simple (Simple.const (Reg_width_const.naked_immediate i))
+      end
     | Naked_float (Ok fs) ->
       begin match Float.Set.get_singleton fs with
       | None -> try_canonical_simple ()
