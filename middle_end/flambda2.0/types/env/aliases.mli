@@ -42,6 +42,8 @@ val add
   -> Binding_time.With_name_mode.t
   -> add_result
 
+val mem : t -> Simple.t -> bool
+
 (** [get_canonical_element] returns [None] only when the
     [min_order_within_equiv_class] cannot be satisfied. *)
 val get_canonical_element_exn
