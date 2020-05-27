@@ -1072,6 +1072,8 @@ let get_canonical_simple_with_kind_exn t ?min_name_mode simple =
               Some (Rec_info.merge rec_info ~newer:newer_rec_info))
   in
   let aliases_for_simple =
+    if Aliases.mem (aliases t) simple then aliases t
+    else
     Simple.pattern_match simple
       ~const:(fun _ -> aliases t)
       ~name:(fun name ->
@@ -1140,6 +1142,8 @@ let get_canonical_simple_exn t ?min_name_mode simple =
               Some (Rec_info.merge rec_info ~newer:newer_rec_info))
   in
   let aliases_for_simple =
+    if Aliases.mem (aliases t) simple then aliases t
+    else
     Simple.pattern_match simple
       ~const:(fun _ -> aliases t)
       ~name:(fun name ->

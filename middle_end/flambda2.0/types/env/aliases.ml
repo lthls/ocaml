@@ -407,6 +407,9 @@ let add t element1 binding_time_and_mode1
   end;
   add_result
 
+let mem t element =
+  Simple.Map.mem element t.binding_times_and_modes
+
   (* CR mshinwell: This needs documenting.  For the moment we allow
      relations between canonical elements that are actually incomparable
      under the name mode ordering, and check in [get_canonical_element_exn]
