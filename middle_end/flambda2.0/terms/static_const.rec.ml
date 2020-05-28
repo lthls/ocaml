@@ -603,6 +603,14 @@ let all_ids_for_export t =
   | Boxed_nativeint (Const _)
   | Mutable_string { initial_value = _; }
   | Immutable_string _ -> Ids_for_export.empty
+  | Immutable_float_block fields ->
+    List.fold_left (fun ids (field : _ Or_variable.t) ->
+        match field with
+        | Var v ->
+          Ids_for_export.add_variable ids v
+        | Const _ -> ids)
+      Ids_for_export.empty
+      fields
   | Immutable_float_array fields ->
     List.fold_left (fun ids (field : _ Or_variable.t) ->
         match field with
@@ -637,6 +645,15 @@ let import import_map t = match t with
   | Boxed_nativeint (Const _)
   | Mutable_string { initial_value = _; }
   | Immutable_string _ -> t
+  | Immutable_float_block fields ->
+    let fields =
+      List.map (fun (field : _ Or_variable.t) : _ Or_variable.t ->
+          match field with
+          | Const _ -> field
+          | Var v -> Var (Ids_for_export.Import_map.variable import_map v))
+        fields
+    in
+    Immutable_float_block fields
   | Immutable_float_array fields ->
     let fields =
       List.map (fun (field : _ Or_variable.t) : _ Or_variable.t ->

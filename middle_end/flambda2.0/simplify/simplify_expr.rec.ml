@@ -160,7 +160,7 @@ Format.eprintf "All bindings:@ %a\n%!"
   in
   let expr, r =
     List.fold_left (fun (body, r) (bound_symbols, defining_expr) ->
-        Simplify_common.create_let_symbol scoping_rule r
+        Simplify_common.create_let_symbol r scoping_rule
           (UA.code_age_relation uacc) bound_symbols defining_expr body)
       (body, UA.r uacc)
       sorted_lifted_constants.bindings_outermost_last
