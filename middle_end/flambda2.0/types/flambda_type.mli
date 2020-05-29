@@ -76,6 +76,10 @@ module Typing_env : sig
 
   val resolver : t -> (Compilation_unit.t -> t option)
 
+  val code_age_relation_resolver
+     : t
+    -> (Compilation_unit.t -> Code_age_relation.t option)
+
   val name_domain : t -> Name.Set.t
 
   val current_scope : t -> Scope.t

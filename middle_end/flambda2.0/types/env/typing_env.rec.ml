@@ -497,6 +497,12 @@ let invariant t : unit = invariant0 t
 
 let resolver t = t.resolver
 
+let code_age_relation_resolver t =
+  fun comp_unit ->
+  match t.resolver comp_unit with
+  | None -> None
+  | Some t -> Some t.code_age_relation
+
 let current_scope t = One_level.scope t.current_level
 
 let names_to_types t =

@@ -31,12 +31,18 @@ val add : t -> newer:Code_id.t -> older:Code_id.t -> t
 
 (** [meet] calculates which of the given pieces of code is newer, or
     identifies that the pieces of code are unrelated. *)
-val meet : t -> Code_id.t -> Code_id.t -> Code_id.t Or_bottom.t
+val meet
+   : t
+  -> resolver:(Compilation_unit.t -> t option)
+  -> Code_id.t
+  -> Code_id.t
+  -> Code_id.t Or_bottom.t
 
 (** [join] calculates the newest common ancestor of the given pieces of code, or
     identifies that the pieces of code are unrelated. *)
 val join
    : target_t:t
+  -> resolver:(Compilation_unit.t -> t option)
   -> t
   -> t
   -> Code_id.t
