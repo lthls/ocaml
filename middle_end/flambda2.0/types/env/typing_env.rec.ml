@@ -891,7 +891,12 @@ and add_equation t name ty =
   let aliases, simple, rec_info, t, ty =
     let aliases = aliases t in
     match Type_grammar.get_alias_exn ty with
-    | exception Not_found -> aliases, Simple.name name, None, t, ty
+    | exception Not_found ->
+      (* Equations giving concrete types may only be added to the canonical
+         element as known by the alias tracker (the actual canonical, ignoring
+         any name modes). *)
+      let canonical = Aliases.get_canonical_ignoring_name_mode aliases name in
+      aliases, canonical, None, t, ty
     | alias_of ->
       let alias = Simple.name name in
       let binding_time_and_mode_alias =
