@@ -211,6 +211,7 @@ struct
       }) ->
       let typing_env = Meet_or_join_env.target_join_env env in
       let target_code_age_rel = TE.code_age_relation typing_env in
+      let resolver = TE.code_age_relation_resolver typing_env in
       let check_other_things_and_return code_id : (t * TEE.t) Or_bottom.t =
         assert (Flambda_arity.equal param_arity1 param_arity2);
         assert (Flambda_arity.equal result_arity1 result_arity2);
@@ -226,7 +227,7 @@ struct
       begin match E.op () with
       | Meet ->
         begin match
-          Code_age_relation.meet target_code_age_rel code_id1 code_id2
+          Code_age_relation.meet target_code_age_rel ~resolver code_id1 code_id2
         with
         | Ok code_id -> check_other_things_and_return code_id
         | Bottom -> Bottom
@@ -239,7 +240,7 @@ struct
           TE.code_age_relation (Meet_or_join_env.right_join_env env)
         in
         begin match
-          Code_age_relation.join ~target_t:target_code_age_rel
+          Code_age_relation.join ~target_t:target_code_age_rel ~resolver
             code_age_rel1 code_age_rel2 code_id1 code_id2
         with
         | Known code_id -> check_other_things_and_return code_id
@@ -275,6 +276,7 @@ struct
       }) ->
       let typing_env = Meet_or_join_env.target_join_env env in
       let target_code_age_rel = TE.code_age_relation typing_env in
+      let resolver = TE.code_age_relation_resolver typing_env in
       let check_other_things_and_return code_id : (t * TEE.t) Or_bottom.t =
         assert (Flambda_arity.equal param_arity1 param_arity2);
         assert (Flambda_arity.equal result_arity1 result_arity2);
@@ -300,7 +302,7 @@ struct
       match E.op () with
       | Meet ->
         begin match
-          Code_age_relation.meet target_code_age_rel code_id1 code_id2
+          Code_age_relation.meet target_code_age_rel ~resolver code_id1 code_id2
         with
         | Ok code_id -> check_other_things_and_return code_id
         | Bottom -> Bottom
@@ -313,7 +315,7 @@ struct
           TE.code_age_relation (Meet_or_join_env.right_join_env env)
         in
         begin match
-          Code_age_relation.join ~target_t:target_code_age_rel
+          Code_age_relation.join ~target_t:target_code_age_rel ~resolver
             code_age_rel1 code_age_rel2 code_id1 code_id2
         with
         | Known code_id -> check_other_things_and_return code_id
