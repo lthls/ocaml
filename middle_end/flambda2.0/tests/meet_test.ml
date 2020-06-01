@@ -1,4 +1,4 @@
-open! Flambda2
+(* open! Flambda2 *)
 
 module K = Flambda_kind
 module T = Flambda_type
@@ -8,7 +8,8 @@ module TEE = T.Typing_env_extension
 let resolver _ = None
 
 let test_meet_chains_two_vars () =
-  let env = TE.create ~resolver in
+  let get_imported_names () = Name.Set.empty in
+  let env = TE.create ~resolver ~get_imported_names in
   let var1 = Variable.create "var1" in
   let var1' = Var_in_binding_pos.create var1 Name_mode.normal in
   let env =
@@ -47,7 +48,8 @@ let test_meet_chains_two_vars () =
     Format.eprintf "Final situation:@ %a\n%!" TE.print env
 
 let test_meet_chains_three_vars () =
-  let env = TE.create ~resolver in
+  let get_imported_names () = Name.Set.empty in
+  let env = TE.create ~resolver ~get_imported_names in
   let var1 = Variable.create "var1" in
   let var1' = Var_in_binding_pos.create var1 Name_mode.normal in
   let env =
