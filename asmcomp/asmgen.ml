@@ -238,9 +238,7 @@ module Flambda2_backend = struct
     assert (Ident.global id);
     assert (not (Ident.is_predef id));
     let comp_unit =
-      (* CR mshinwell: Get rid of this "caml" hack *)
-      Compilation_unit.create id
-        (Linkage_name.create ("caml" ^ Ident.name id))
+      Compilenv.unit_for_global id
     in
     Symbol.unsafe_create
       comp_unit
