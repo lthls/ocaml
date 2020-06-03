@@ -234,7 +234,7 @@ let () =
 (* Flambda2 backend *)
 
 module Flambda2_backend = struct
-  let _symbol_for_module_block id =
+  let symbol_for_module_block id =
     assert (Ident.global id);
     assert (not (Ident.is_predef id));
     let comp_unit =
@@ -248,8 +248,7 @@ module Flambda2_backend = struct
 
   let symbol_for_global' ?comp_unit id =
     if Ident.global id && not (Ident.is_predef id) then
-      (* symbol_for_module_block id *)
-      Compilenv.symbol_for_global' id
+      symbol_for_module_block id
     else
       let comp_unit =
         match comp_unit with
