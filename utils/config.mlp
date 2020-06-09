@@ -92,17 +92,17 @@ and cmo_magic_number = "Caml1999O028"
 and cma_magic_number = "Caml1999A028"
 and cmx_magic_number =
   if flambda then
-    "Caml1999y028"
+    "Caml1999y029"
   else
     "Caml1999Y028"
 and cmxa_magic_number =
   if flambda then
-    "Caml1999z028"
+    "Caml1999z029"
   else
     "Caml1999Z028"
 and ast_impl_magic_number = "Caml1999M028"
 and ast_intf_magic_number = "Caml1999N028"
-and cmxs_magic_number = "Caml1999D028"
+and cmxs_magic_number = "Caml1999D029"
 and cmt_magic_number = "Caml1999T028"
 
 let interface_suffix = ref ".mli"
