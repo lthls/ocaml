@@ -315,6 +315,7 @@ let reify_primitive_at_toplevel dacc bound_var ty =
   let typing_env = DA.typing_env dacc in
   match
     T.reify ~allowed_if_free_vars_defined_in:typing_env
+      ~allow_unique:true
       typing_env ~min_name_mode:NM.normal ty
   with
   | Lift to_lift ->

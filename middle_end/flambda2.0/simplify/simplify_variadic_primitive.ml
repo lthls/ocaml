@@ -62,8 +62,10 @@ let simplify_make_block_of_values dacc _prim dbg tag ~shape
     let tag = Tag.Scannable.to_tag tag in
     let ty =
       match mutable_or_immutable with
-      | Immutable -> T.immutable_block tag ~field_kind:K.value ~fields
-      | Immutable_unique -> T.immutable_block tag ~field_kind:K.value ~fields
+      | Immutable ->
+        T.immutable_block ~is_unique:false tag ~field_kind:K.value ~fields
+      | Immutable_unique ->
+        T.immutable_block ~is_unique:true tag ~field_kind:K.value ~fields
       | Mutable -> T.any_value ()
     in
     let env_extension = TEE.one_equation (Name.var result_var) ty in

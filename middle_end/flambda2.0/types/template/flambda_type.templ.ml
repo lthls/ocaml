@@ -537,7 +537,7 @@ let prove_is_a_tagged_immediate env t : _ proof_allowing_kind_mismatch =
   | Const (Tagged_immediate _) -> Proved ()
   | Const _ -> Wrong_kind
   | Value Unknown -> Unknown
-  | Value (Ok (Variant { blocks; immediates; })) ->
+  | Value (Ok (Variant { blocks; immediates; is_unique = _; })) ->
     begin match blocks, immediates with
     | Unknown, Unknown | Unknown, Known _ | Known _, Unknown -> Unknown
     | Known blocks, Known imms ->
@@ -702,8 +702,9 @@ type reification_result =
 
 (* CR mshinwell: Think more to identify all the cases that should be
    in this function. *)
-let reify ?allowed_if_free_vars_defined_in ?disallowed_free_vars env
-      ~min_name_mode t : reification_result =
+let reify ?allowed_if_free_vars_defined_in ?disallowed_free_vars
+      ?(allow_unique = false)
+      env ~min_name_mode t : reification_result =
   let var_allowed var =
     match allowed_if_free_vars_defined_in with
     | None -> false
@@ -735,6 +736,8 @@ let reify ?allowed_if_free_vars_defined_in ?disallowed_free_vars env
     match expand_head t env with
     | Const const -> Simple (Simple.const_from_descr const)
     | Value (Ok (Variant blocks_imms)) ->
+      if blocks_imms.is_unique && not allow_unique then try_canonical_simple ()
+      else
       begin match blocks_imms.blocks, blocks_imms.immediates with
       | Known blocks, Known imms ->
         if is_bottom env imms then
