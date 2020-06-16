@@ -285,7 +285,7 @@ struct
       Or_bottom_or_absorbing.of_or_bottom
         (meet_or_join_variant env ~blocks1 ~imms1 ~blocks2 ~imms2)
         ~f:(fun (blocks, immediates, env_extension) ->
-          (* Unicity tracks whether duplication/lifting is allowed.
+          (* Uniqueness tracks whether duplication/lifting is allowed.
              It must always be propagated, both for meet and join. *)
           let is_unique = is_unique1 || is_unique2 in
           Variant (Variant.create ~is_unique ~blocks ~immediates), env_extension)
