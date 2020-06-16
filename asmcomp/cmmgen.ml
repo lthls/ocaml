@@ -135,7 +135,7 @@ let invert_then_else = function
   | Then_false_else_true -> Then_true_else_false
   | Unknown -> Unknown
 
-let mut_from_env env ptr =
+let mut_from_env env ptr : Asttypes.mutable_flag =
   match env.environment_param with
   | None -> Mutable
   | Some environment_param ->
@@ -1170,7 +1170,7 @@ and transl_let env str kind id exp body =
       (* N.B. [body] must still be traversed even if [exp] will never return:
          there may be constant closures inside that need lifting out. *)
       begin match str, kind with
-      | Immutable, _ -> Clet(id, cexp, transl env body)
+      | (Immutable | Immutable_unique), _ -> Clet(id, cexp, transl env body)
       | Mutable, Pintval -> Clet_mut(id, typ_int, cexp, transl env body)
       | Mutable, _ -> Clet_mut(id, typ_val, cexp, transl env body)
       end
@@ -1181,7 +1181,7 @@ and transl_let env str kind id exp body =
       let body =
         transl (add_unboxed_id (VP.var id) unboxed_id boxed_number env) body in
       begin match str, boxed_number with
-      | Immutable, _ -> Clet (v, cexp, body)
+      | (Immutable | Immutable_unique), _ -> Clet (v, cexp, body)
       | Mutable, bn -> Clet_mut (v, typ_of_boxed_number bn, cexp, body)
       end
 
