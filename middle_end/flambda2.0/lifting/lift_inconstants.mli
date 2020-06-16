@@ -27,8 +27,17 @@ val lift_via_reification_of_continuation_param_types
   -> handler:Flambda.Expr.t
   -> Downwards_acc.t * Flambda.Expr.t
 
+type reify_primitive_at_toplevel_result =
+  | Lift of {
+    dacc : Downwards_acc.t;
+    symbol : Symbol.t;
+    static_const : Flambda.Static_const.t;
+  }
+  | Shared of { symbol : Symbol.t; }
+  | Cannot_reify
+
 val reify_primitive_at_toplevel
    : Downwards_acc.t
   -> Var_in_binding_pos.t
   -> Flambda_type.t
-  -> Downwards_acc.t * (Symbol.t * Flambda.Static_const.t) option
+  -> reify_primitive_at_toplevel_result

@@ -26,8 +26,10 @@ type simplify_named_result =
   | Reified of {
       definition : Named.t;
       bound_symbol : Let_symbol.Bound_symbols.t;
-      static_const :  Static_const.t;
+      static_const : Static_const.t;
+      dacc : Downwards_acc.t;
     }
+  | Shared of { symbol : Symbol.t; kind : Flambda_kind.t; }
 
 let bindings_result bindings_outermost_first dacc =
   Bindings { bindings_outermost_first; dacc; }
@@ -57,8 +59,8 @@ let simplify_named0 dacc ~(bound_vars : Bindable_let_bound.t)
       Simplify_primitive.simplify_primitive dacc ~original_named:named
         prim dbg ~result_var:bound_var
     in
+    let kind = P.result_kind' prim in
     let dacc =
-      let kind = P.result_kind' prim in
       let dacc = DA.add_variable dacc bound_var (T.unknown kind) in
       DA.extend_typing_environment dacc env_extension
     in
@@ -72,17 +74,19 @@ let simplify_named0 dacc ~(bound_vars : Bindable_let_bound.t)
       else defining_expr
     in
     if DE.at_unit_toplevel (DA.denv dacc) then begin
-      let dacc, reified_definition =
+      match
         Lift_inconstants.reify_primitive_at_toplevel dacc bound_var ty
-      in
-      match reified_definition with
-      | None -> bindings_result [bound_vars, defining_expr] dacc
-      | Some (symbol, static_const) ->
+      with
+      | Cannot_reify -> bindings_result [bound_vars, defining_expr] dacc
+      | Shared { symbol; } ->
+        Shared { symbol; kind; }
+      | Lift { dacc; symbol; static_const; } ->
         let named = Named.create_simple (Simple.symbol symbol) in
         Reified
           { definition = named;
             bound_symbol = Let_symbol.Bound_symbols.Singleton symbol;
             static_const;
+            dacc;
           }
     end
     else
