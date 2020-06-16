@@ -31,6 +31,7 @@ let rec simplify_let
   : 'a. DA.t -> Let.t -> 'a k -> Expr.t * 'a * UA.t
 = fun dacc let_expr k ->
   let module L = Flambda.Let in
+  let original_dacc = dacc in
   (* CR mshinwell: Find out if we need the special fold function for lets. *)
   L.pattern_match let_expr ~f:(fun ~bound_vars ~body ->
     let simplify_named_result =
@@ -48,6 +49,9 @@ let rec simplify_let
         Let_symbol.create Dominator bound_symbol static_const let_expr
         |> Expr.create_let_symbol
       in
+      (* We need to keep the shareable constants in dacc, but
+         revert to the typing env from original_dacc *)
+      let dacc = DA.with_r original_dacc (DA.r dacc) in
       simplify_expr dacc let_symbol_expr k
     | Shared { symbol; kind; } ->
       let var = Bindable_let_bound.must_be_singleton bound_vars in
