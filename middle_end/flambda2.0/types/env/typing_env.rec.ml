@@ -697,6 +697,15 @@ let mem_simple t simple =
     ~name:(fun name -> mem t name)
     ~const:(fun _ -> true)
 
+let mem_normal_mode t name =
+  Name.pattern_match name
+    ~var:(fun _var ->
+      match Name.Map.find name (names_to_types t) with
+      | exception Not_found -> false
+      | (_ty, _binding_time, name_mode) ->
+        Name_mode.is_normal name_mode)
+    ~symbol:(fun sym -> Symbol.Set.mem sym t.defined_symbols)
+
 let with_current_level t ~current_level =
   let t = { t with current_level; } in
   invariant t;

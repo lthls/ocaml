@@ -71,6 +71,8 @@ val mem : t -> Name.t -> bool
 
 val mem_simple : t -> Simple.t -> bool
 
+val mem_normal_mode : t -> Name.t -> bool
+
 val add_cse
    : t
   -> Flambda_primitive.Eligible_for_cse.t

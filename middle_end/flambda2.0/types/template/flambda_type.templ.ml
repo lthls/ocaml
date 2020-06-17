@@ -709,7 +709,9 @@ let reify ?allowed_if_free_vars_defined_in ?disallowed_free_vars
     match allowed_if_free_vars_defined_in with
     | None -> false
     | Some allowed_if_free_vars_defined_in ->
-      Typing_env.mem allowed_if_free_vars_defined_in (Name.var var)
+      (* Only allow variables in normal mode, otherwise they will not be
+         allowed as static const fields *)
+      Typing_env.mem_normal_mode allowed_if_free_vars_defined_in (Name.var var)
         && match disallowed_free_vars with
            | None -> true
            | Some disallowed_free_vars ->
