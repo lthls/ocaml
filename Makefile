@@ -54,29 +54,29 @@ CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink
 ARCHES=amd64 i386 arm arm64 power s390x riscv
 INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \
         -I lambda -I middle_end -I middle_end/closure \
-        -I middle_end/flambda2.0/compilenv_deps \
-        -I middle_end/flambda2.0 \
-        -I middle_end/flambda2.0/basic \
-        -I middle_end/flambda2.0/cmx \
-        -I middle_end/flambda2.0/from_lambda \
-        -I middle_end/flambda2.0/inlining \
-        -I middle_end/flambda2.0/lifting \
-        -I middle_end/flambda2.0/naming \
-        -I middle_end/flambda2.0/parser \
-        -I middle_end/flambda2.0/simplify \
-        -I middle_end/flambda2.0/simplify/basic \
-        -I middle_end/flambda2.0/simplify/env \
-        -I middle_end/flambda2.0/simplify/typing_helpers \
-        -I middle_end/flambda2.0/terms \
-        -I middle_end/flambda2.0/to_cmm \
-        -I middle_end/flambda2.0/types \
-        -I middle_end/flambda2.0/types/basic \
-        -I middle_end/flambda2.0/types/env \
-        -I middle_end/flambda2.0/types/kinds \
-        -I middle_end/flambda2.0/types/structures \
-        -I middle_end/flambda2.0/types/type_of_kind \
-        -I middle_end/flambda2.0/types/type_of_kind/boilerplate \
-        -I middle_end/flambda2.0/unboxing \
+        -I middle_end/flambda/compilenv_deps \
+        -I middle_end/flambda \
+        -I middle_end/flambda/basic \
+        -I middle_end/flambda/cmx \
+        -I middle_end/flambda/from_lambda \
+        -I middle_end/flambda/inlining \
+        -I middle_end/flambda/lifting \
+        -I middle_end/flambda/naming \
+        -I middle_end/flambda/parser \
+        -I middle_end/flambda/simplify \
+        -I middle_end/flambda/simplify/basic \
+        -I middle_end/flambda/simplify/env \
+        -I middle_end/flambda/simplify/typing_helpers \
+        -I middle_end/flambda/terms \
+        -I middle_end/flambda/to_cmm \
+        -I middle_end/flambda/types \
+        -I middle_end/flambda/types/basic \
+        -I middle_end/flambda/types/env \
+        -I middle_end/flambda/types/kinds \
+        -I middle_end/flambda/types/structures \
+        -I middle_end/flambda/types/type_of_kind \
+        -I middle_end/flambda/types/type_of_kind/boilerplate \
+        -I middle_end/flambda/unboxing \
         -I asmcomp -I asmcomp/debug \
         -I driver -I toplevel
 
@@ -485,13 +485,13 @@ endif
 #	    middle_end/flambda/base_types/*.cmi \
 #	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
-	    middle_end/flambda2.0/*.cmi \
+	    middle_end/flambda/*.cmi \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
-	    middle_end/flambda2.0/from_lambda/*.cmi \
+	    middle_end/flambda/from_lambda/*.cmi \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
-	    middle_end/flambda2.0/terms/*.cmi \
+	    middle_end/flambda/terms/*.cmi \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
 	    asmcomp/*.cmi \
@@ -509,19 +509,19 @@ ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
 	    middle_end/closure/*.mli \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
-	    middle_end/flambda2.0/*.cmt \
-            middle_end/flambda2.0/*.cmti \
-	    middle_end/flambda2.0/*.mli \
+	    middle_end/flambda/*.cmt \
+            middle_end/flambda/*.cmti \
+	    middle_end/flambda/*.mli \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
-	    middle_end/flambda2.0/from_lambda/*.cmt \
-            middle_end/flambda2.0/from_lambda/*.cmti \
-	    middle_end/flambda2.0/from_lambda/*.mli \
+	    middle_end/flambda/from_lambda/*.cmt \
+            middle_end/flambda/from_lambda/*.cmti \
+	    middle_end/flambda/from_lambda/*.mli \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
-	    middle_end/flambda2.0/terms/*.cmt \
-            middle_end/flambda2.0/terms/*.cmti \
-	    middle_end/flambda2.0/terms/*.mli \
+	    middle_end/flambda/terms/*.cmt \
+            middle_end/flambda/terms/*.cmti \
+	    middle_end/flambda/terms/*.mli \
 	    "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
 	    asmcomp/*.cmt asmcomp/*.cmti \
@@ -574,9 +574,9 @@ installoptopt:
 	   driver/*.cmx asmcomp/*.cmx middle_end/*.cmx \
            middle_end/closure/*.cmx \
 	   asmcomp/debug/*.cmx \
-           middle_end/flambda2.0/*.cmx \
-	   middle_end/flambda2.0/from_lambda/*.cmx \
-	   middle_end/flambda2.0/terms/*.cmx \
+           middle_end/flambda/*.cmx \
+	   middle_end/flambda/from_lambda/*.cmx \
+	   middle_end/flambda/terms/*.cmx \
           "$(INSTALL_COMPLIBDIR)"
 	$(INSTALL_DATA) \
 	   compilerlibs/*.cmxa compilerlibs/*.$(A) \
@@ -610,9 +610,9 @@ ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
      middle_end/flambda/*.ml middle_end/flambda/base_types/*.ml \
 	   asmcomp/*.ml \
 	   asmcmp/debug/*.ml \
-	   middle_end/flambda2.0/*.ml \
-	   middle_end/flambda2.0/from_lambda/*.ml \
-	   middle_end/flambda2.0/types/*.ml \
+	   middle_end/flambda/*.ml \
+	   middle_end/flambda/from_lambda/*.ml \
+	   middle_end/flambda/types/*.ml \
 	   "$(INSTALL_COMPLIBDIR)"
 endif
 
@@ -932,47 +932,47 @@ ocamltest.opt: ocamlc.opt ocamlyacc ocamllex
 partialclean::
 	$(MAKE) -C ocamltest clean
 
-# Flambda2 recursive modules black magic
+# Flambda recursive modules black magic
 
-FLAMBDA_TYPE0_DEPS=$(shell sed -e "s|^\(.*\)|middle_end/flambda2.0/types/\1 middle_end/flambda2.0/types/\1i|g" \
-  middle_end/flambda2.0/types/rec_modules | tr '\n' ' ')
-middle_end/flambda2.0/types/flambda_type.ml: \
-  middle_end/flambda2.0/types/template/flambda_type.templ.ml \
-  middle_end/flambda2.0/types/rec_modules \
+FLAMBDA_TYPE0_DEPS=$(shell sed -e "s|^\(.*\)|middle_end/flambda/types/\1 middle_end/flambda/types/\1i|g" \
+  middle_end/flambda/types/rec_modules | tr '\n' ' ')
+middle_end/flambda/types/flambda_type.ml: \
+  middle_end/flambda/types/template/flambda_type.templ.ml \
+  middle_end/flambda/types/rec_modules \
   $(FLAMBDA_TYPE0_DEPS)
-	cd middle_end/flambda2.0/types && \
+	cd middle_end/flambda/types && \
 	  ../scripts/assemble_rec_modules.sh template/flambda_type.templ.ml \
 	    rec_modules flambda_type.ml
 
-FLAMBDA_DEPS=$(shell sed -e "s|^\(.*\)|middle_end/flambda2.0/terms/\1 middle_end/flambda2.0/terms/\1i|g" \
-  middle_end/flambda2.0/terms/rec_modules | tr '\n' ' ')
-middle_end/flambda2.0/terms/flambda.ml: \
-  middle_end/flambda2.0/terms/template/flambda.templ.ml \
-  middle_end/flambda2.0/terms/rec_modules \
+FLAMBDA_DEPS=$(shell sed -e "s|^\(.*\)|middle_end/flambda/terms/\1 middle_end/flambda/terms/\1i|g" \
+  middle_end/flambda/terms/rec_modules | tr '\n' ' ')
+middle_end/flambda/terms/flambda.ml: \
+  middle_end/flambda/terms/template/flambda.templ.ml \
+  middle_end/flambda/terms/rec_modules \
   $(FLAMBDA_DEPS)
-	cd middle_end/flambda2.0/terms && \
+	cd middle_end/flambda/terms && \
 	  ../scripts/assemble_rec_modules.sh template/flambda.templ.ml \
 	    rec_modules flambda.ml
 
-SIMPLIFY_DEPS=$(shell sed -e "s|^\(.*\)|middle_end/flambda2.0/simplify/\1 middle_end/flambda2.0/simplify/\1i|g" \
-  middle_end/flambda2.0/simplify/rec_modules | tr '\n' ' ')
-middle_end/flambda2.0/simplify/simplify.ml: \
-  middle_end/flambda2.0/simplify/template/simplify.templ.ml \
-  middle_end/flambda2.0/simplify/rec_modules \
+SIMPLIFY_DEPS=$(shell sed -e "s|^\(.*\)|middle_end/flambda/simplify/\1 middle_end/flambda/simplify/\1i|g" \
+  middle_end/flambda/simplify/rec_modules | tr '\n' ' ')
+middle_end/flambda/simplify/simplify.ml: \
+  middle_end/flambda/simplify/template/simplify.templ.ml \
+  middle_end/flambda/simplify/rec_modules \
   $(SIMPLIFY_DEPS)
-	cd middle_end/flambda2.0/simplify && \
+	cd middle_end/flambda/simplify && \
 	  ../scripts/assemble_rec_modules.sh template/simplify.templ.ml \
 	    rec_modules simplify.ml
 
 beforedepend:: \
-  middle_end/flambda2.0/types/flambda_type.ml \
-  middle_end/flambda2.0/terms/flambda.ml \
-  middle_end/flambda2.0/simplify/simplify.ml
+  middle_end/flambda/types/flambda_type.ml \
+  middle_end/flambda/terms/flambda.ml \
+  middle_end/flambda/simplify/simplify.ml
 
 clean::
-	rm -f middle_end/flambda2.0/types/flambda_type.ml;
-	rm -f middle_end/flambda2.0/terms/flambda.ml;
-	rm -f middle_end/flambda2.0/simplify/simplify.ml
+	rm -f middle_end/flambda/types/flambda_type.ml;
+	rm -f middle_end/flambda/terms/flambda.ml;
+	rm -f middle_end/flambda/simplify/simplify.ml
 
 
 # Documentation
@@ -1153,28 +1153,28 @@ partialclean::
 	for d in utils parsing typing bytecomp asmcomp middle_end file_formats \
            lambda middle_end/closure middle_end/flambda \
            middle_end/flambda/base_types asmcomp/debug \
-           middle_end/flambda2.0/compilenv_deps \
-           middle_end/flambda2.0 \
-           middle_end/flambda2.0/basic \
-           middle_end/flambda2.0/cmx \
-           middle_end/flambda2.0/from_lambda \
-           middle_end/flambda2.0/inlining \
-           middle_end/flambda2.0/naming \
-           middle_end/flambda2.0/parser \
-           middle_end/flambda2.0/simplify \
-           middle_end/flambda2.0/simplify/basic \
-           middle_end/flambda2.0/simplify/env \
-           middle_end/flambda2.0/simplify/typing_helpers \
-           middle_end/flambda2.0/terms \
-           middle_end/flambda2.0/to_cmm \
-           middle_end/flambda2.0/types \
-           middle_end/flambda2.0/types/basic \
-           middle_end/flambda2.0/types/env \
-           middle_end/flambda2.0/types/kinds \
-           middle_end/flambda2.0/types/structures \
-           middle_end/flambda2.0/types/type_of_kind \
-           middle_end/flambda2.0/types/type_of_kind/boilerplate \
-           middle_end/flambda2.0/unboxing \
+           middle_end/flambda/compilenv_deps \
+           middle_end/flambda \
+           middle_end/flambda/basic \
+           middle_end/flambda/cmx \
+           middle_end/flambda/from_lambda \
+           middle_end/flambda/inlining \
+           middle_end/flambda/naming \
+           middle_end/flambda/parser \
+           middle_end/flambda/simplify \
+           middle_end/flambda/simplify/basic \
+           middle_end/flambda/simplify/env \
+           middle_end/flambda/simplify/typing_helpers \
+           middle_end/flambda/terms \
+           middle_end/flambda/to_cmm \
+           middle_end/flambda/types \
+           middle_end/flambda/types/basic \
+           middle_end/flambda/types/env \
+           middle_end/flambda/types/kinds \
+           middle_end/flambda/types/structures \
+           middle_end/flambda/types/type_of_kind \
+           middle_end/flambda/types/type_of_kind/boilerplate \
+           middle_end/flambda/unboxing \
            driver toplevel tools; do \
 	  rm -f $$d/*.cm[ioxt] $$d/*.cmti $$d/*.annot $$d/*.s $$d/*.asm \
 	    $$d/*.o $$d/*.obj $$d/*.so $$d/*.dll; \
@@ -1185,29 +1185,29 @@ depend: beforedepend
 	(for d in utils parsing typing bytecomp asmcomp middle_end \
          lambda file_formats middle_end/closure middle_end/flambda \
          middle_end/flambda/base_types asmcomp/debug \
-         middle_end/flambda2.0/compilenv_deps \
-         middle_end/flambda2.0 \
-         middle_end/flambda2.0/basic \
-         middle_end/flambda2.0/cmx \
-         middle_end/flambda2.0/from_lambda \
-         middle_end/flambda2.0/inlining \
-         middle_end/flambda2.0/lifting \
-         middle_end/flambda2.0/naming \
-         middle_end/flambda2.0/parser \
-         middle_end/flambda2.0/simplify \
-         middle_end/flambda2.0/simplify/basic \
-         middle_end/flambda2.0/simplify/env \
-         middle_end/flambda2.0/simplify/typing_helpers \
-         middle_end/flambda2.0/terms \
-         middle_end/flambda2.0/to_cmm \
-         middle_end/flambda2.0/types \
-         middle_end/flambda2.0/types/basic \
-         middle_end/flambda2.0/types/env \
-         middle_end/flambda2.0/types/kinds \
-         middle_end/flambda2.0/types/structures \
-         middle_end/flambda2.0/types/type_of_kind \
-         middle_end/flambda2.0/types/type_of_kind/boilerplate \
-         middle_end/flambda2.0/unboxing \
+         middle_end/flambda/compilenv_deps \
+         middle_end/flambda \
+         middle_end/flambda/basic \
+         middle_end/flambda/cmx \
+         middle_end/flambda/from_lambda \
+         middle_end/flambda/inlining \
+         middle_end/flambda/lifting \
+         middle_end/flambda/naming \
+         middle_end/flambda/parser \
+         middle_end/flambda/simplify \
+         middle_end/flambda/simplify/basic \
+         middle_end/flambda/simplify/env \
+         middle_end/flambda/simplify/typing_helpers \
+         middle_end/flambda/terms \
+         middle_end/flambda/to_cmm \
+         middle_end/flambda/types \
+         middle_end/flambda/types/basic \
+         middle_end/flambda/types/env \
+         middle_end/flambda/types/kinds \
+         middle_end/flambda/types/structures \
+         middle_end/flambda/types/type_of_kind \
+         middle_end/flambda/types/type_of_kind/boilerplate \
+         middle_end/flambda/unboxing \
          driver toplevel; \
          do $(CAMLDEP) $(DEPFLAGS) $(DEPINCLUDES) $$d/*.mli $$d/*.ml || exit; \
          done) > .depend
