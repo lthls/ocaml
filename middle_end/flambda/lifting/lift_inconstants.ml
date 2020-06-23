@@ -234,7 +234,7 @@ let reify_types_of_continuation_param_types dacc ~params =
              already have been lifted. *)
           let inconstant =
             match to_lift with
-            | Immutable_block (_, _, fields) ->
+            | Immutable_block { tag = _; is_unique = _; fields; } ->
               List.exists (fun (field : T.var_or_symbol_or_tagged_immediate) ->
                   match field with
                   | Var _ -> true
