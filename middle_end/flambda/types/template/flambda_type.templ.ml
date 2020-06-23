@@ -682,7 +682,7 @@ let prove_strings env t : String_info.Set.t proof =
   | Naked_nativeint _ -> wrong_kind ()
 
 type to_lift =
-  | Immutable_block of Tag.Scannable.t
+  | Immutable_block of Tag.Scannable.t * bool (* is_unique *)
       * (var_or_symbol_or_tagged_immediate list)
   | Boxed_float of Float.t
   | Boxed_int32 of Int32.t
@@ -776,7 +776,8 @@ let reify ?allowed_if_free_vars_defined_in ?disallowed_free_vars
               match Tag.Scannable.of_tag tag with
               | Some tag ->
                 Lift (Immutable_block (
-                  tag, vars_or_symbols_or_tagged_immediates))
+                  tag, blocks_imms.is_unique,
+                  vars_or_symbols_or_tagged_immediates))
               | None -> try_canonical_simple ()
             else
               try_canonical_simple ()
