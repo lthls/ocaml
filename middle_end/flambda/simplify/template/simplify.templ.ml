@@ -25,6 +25,7 @@ open! Simplify_import
 type simplify_result = {
   cmx : Flambda_cmx_format.t option;
   unit : Flambda_unit.t;
+  all_code : Exported_code.t;
 }
 
 let predefined_exception_typing_env ~backend ~resolver ~get_imported_names =
@@ -103,4 +104,5 @@ let run ~backend ~round unit =
   in
   { cmx;
     unit;
+    all_code;
   }

@@ -1378,16 +1378,14 @@ and params_and_body env res fun_name p =
 
 let unit (middle_end_result : Flambda_middle_end.middle_end_result) =
   let unit = middle_end_result.unit in
-  let offsets, functions_info =
+  let offsets =
     match middle_end_result.cmx with
     | None ->
-      Exported_offsets.imported_offsets (),
-      (* CR vlaviron: recover imported code *)
-      Exported_code.empty
+      Exported_offsets.imported_offsets ()
     | Some cmx ->
-      Flambda_cmx_format.exported_offsets cmx,
-      Flambda_cmx_format.functions_info cmx
+      Flambda_cmx_format.exported_offsets cmx
   in
+  let functions_info = middle_end_result.all_code in
   Profile.record_call "flambda_to_cmm" (fun () ->
     let offsets = Un_cps_closure.compute_offsets offsets unit in
     begin match middle_end_result.cmx with

@@ -26,6 +26,7 @@
 type simplify_result = private {
   cmx : Flambda_cmx_format.t option;
   unit : Flambda_unit.t;
+  all_code : Exported_code.t;
 }
 
 val run
