@@ -70,6 +70,8 @@ let csc = "%%CSC%%"
 
 let csc_flags = "%%CSCFLAGS%%"
 
+let exe = "%%EXE%%"
+
 let mkdll = "%%MKDLL%%"
 let mkexe = "%%mkexe%%"
 
@@ -82,3 +84,5 @@ let windows_unicode = %%WINDOWS_UNICODE%% != 0
 let function_sections = %%FUNCTION_SECTIONS%%
 
 let has_instrumented_runtime = %%RUNTIMEI%%
+
+let naked_pointers = %%NAKED_POINTERS%%

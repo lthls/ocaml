@@ -42,10 +42,7 @@ module Filename = struct
 
   let make_path components = List.fold_left Filename.concat "" components
 
-  let mkexe =
-    if Sys.win32
-    then fun name -> make_filename name "exe"
-    else fun name -> name
+  let mkexe filename = filename ^ Ocamltest_config.exe
 end
 
 module List = struct
@@ -110,6 +107,7 @@ module Sys = struct
       (fun () -> f ic)
 
   let file_is_empty filename =
+    not (Sys.file_exists filename) ||
     with_input_file filename in_channel_length = 0
 
   let string_of_file filename =
@@ -123,6 +121,19 @@ module Sys = struct
       with End_of_file ->
         failwith ("Got unexpected end of file while reading " ^ filename)
     end
+
+  let iter_lines_of_file f filename =
+    let rec go ic =
+      match input_line ic with
+      | exception End_of_file -> ()
+      | l -> f l; go ic
+    in
+    with_input_file filename go
+
+  let dump_file oc ?(prefix = "") filename =
+    let f s =
+      output_string oc prefix; output_string oc s; output_char oc '\n' in
+    iter_lines_of_file f filename
 
   let with_output_file ?(bin=false) x f =
     let oc = (if bin then open_out_bin else open_out) x in
