@@ -118,8 +118,7 @@ let add_assignment t var =
 
 let make_var_info (clam : Clambda.ulambda) : var_info =
   let t : var V.Tbl.t = V.Tbl.create 42 in
-  let environment_vars = ref V.Set.empty in
-  let rec loop ~depth : Clambda.ulambda -> unit = function
+  let rec loop ~depth ~environment_vars : Clambda.ulambda -> unit = function
     (* No underscores in the pattern match, to reduce the chance of failing
        to traverse some subexpression. *)
     | Uvar var -> add_use t var depth
@@ -133,117 +132,120 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       ignore_uconstant const
     | Udirect_apply (label, args, dbg) ->
       ignore_function_label label;
-      List.iter (loop ~depth) args;
+      List.iter (loop ~depth ~environment_vars) args;
       ignore_debuginfo dbg
     | Ugeneric_apply (func, args, dbg) ->
-      loop ~depth func;
-      List.iter (loop ~depth) args;
+      loop ~depth ~environment_vars func;
+      List.iter (loop ~depth ~environment_vars) args;
       ignore_debuginfo dbg
     | Uclosure (functions, captured_variables) ->
-      List.iter (loop ~depth) captured_variables;
+      List.iter (loop ~depth ~environment_vars) captured_variables;
       List.iter (fun (
         { Clambda. label; arity; params; return; body; dbg; env; } as clos) ->
           (match closure_environment_var clos with
            | None -> ()
            | Some env_var ->
-             environment_vars :=
-               V.Set.add (VP.var env_var) !environment_vars);
+             add_assignment t (VP.var env_var); );
           ignore_function_label label;
           ignore_int arity;
           ignore_params_with_value_kind params;
           ignore_value_kind return;
-          loop ~depth:(depth + 1) body;
+          loop ~depth:(depth + 1) ~environment_vars body;
           ignore_debuginfo dbg;
           ignore_var_option env)
         functions
     | Uoffset (expr, offset) ->
-      loop ~depth expr;
+      loop ~depth ~environment_vars expr;
       ignore_int offset
     | Ulet (_let_kind, _value_kind, var, def, body) ->
       add_definition t (VP.var var) depth;
-      loop ~depth def;
-      loop ~depth body
+      loop ~depth ~environment_vars def;
+      loop ~depth ~environment_vars body
     | Uphantom_let (var, defining_expr_opt, body) ->
       ignore_var_with_provenance var;
       ignore_uphantom_defining_expr_option defining_expr_opt;
-      loop ~depth body
+      loop ~depth ~environment_vars body
     | Uletrec (defs, body) ->
       List.iter (fun (var, def) ->
           ignore_var_with_provenance var;
-          loop ~depth def)
+          loop ~depth ~environment_vars def)
         defs;
-      loop ~depth body
+      loop ~depth ~environment_vars body
     | Uprim (prim, args, dbg) ->
       ignore_primitive prim;
-      List.iter (loop ~depth) args;
+      List.iter (loop ~depth ~environment_vars) args;
       ignore_debuginfo dbg
     | Uswitch (cond, { us_index_consts; us_actions_consts;
           us_index_blocks; us_actions_blocks }, dbg) ->
-      loop ~depth cond;
+      loop ~depth ~environment_vars cond;
       ignore_int_array us_index_consts;
-      Array.iter (loop ~depth) us_actions_consts;
+      Array.iter (loop ~depth ~environment_vars) us_actions_consts;
       ignore_int_array us_index_blocks;
-      Array.iter (loop ~depth) us_actions_blocks;
+      Array.iter (loop ~depth ~environment_vars) us_actions_blocks;
       ignore_debuginfo dbg
     | Ustringswitch (cond, branches, default) ->
-      loop ~depth cond;
+      loop ~depth ~environment_vars cond;
       List.iter (fun (str, branch) ->
           ignore_string str;
-          loop ~depth branch)
+          loop ~depth ~environment_vars branch)
         branches;
-      Option.iter (loop ~depth) default
+      Option.iter (loop ~depth ~environment_vars) default
     | Ustaticfail (static_exn, args) ->
       ignore_int static_exn;
-      List.iter (loop ~depth) args
+      List.iter (loop ~depth ~environment_vars) args
     | Ucatch (static_exn, vars, body, handler) ->
       ignore_int static_exn;
       ignore_params_with_value_kind vars;
-      loop ~depth body;
-      loop ~depth handler
+      loop ~depth ~environment_vars body;
+      loop ~depth ~environment_vars handler
     | Utrywith (body, var, handler) ->
-      loop ~depth body;
+      loop ~depth ~environment_vars body;
       ignore_var_with_provenance var;
-      loop ~depth handler
+      loop ~depth ~environment_vars handler
     | Uifthenelse (cond, ifso, ifnot) ->
-      loop ~depth cond;
-      loop ~depth ifso;
-      loop ~depth ifnot
+      loop ~depth ~environment_vars cond;
+      loop ~depth ~environment_vars ifso;
+      loop ~depth ~environment_vars ifnot
     | Usequence (e1, e2) ->
-      loop ~depth e1;
-      loop ~depth e2
+      loop ~depth ~environment_vars e1;
+      loop ~depth ~environment_vars e2
     | Uwhile (cond, body) ->
-      loop ~depth:(depth + 1) cond;
-      loop ~depth:(depth + 1) body
+      loop ~depth:(depth + 1) ~environment_vars cond;
+      loop ~depth:(depth + 1) ~environment_vars body
     | Ufor (var, low, high, direction_flag, body) ->
       ignore_var_with_provenance var;
-      loop ~depth low;
-      loop ~depth high;
+      loop ~depth ~environment_vars low;
+      loop ~depth ~environment_vars high;
       ignore_direction_flag direction_flag;
-      loop ~depth:(depth + 1) body
+      loop ~depth:(depth + 1) ~environment_vars body
     | Uassign (var, expr) ->
       add_assignment t var;
-      loop ~depth expr
+      loop ~depth ~environment_vars expr
     | Usend (meth_kind, e1, e2, args, dbg) ->
       ignore_meth_kind meth_kind;
-      loop ~depth e1;
-      loop ~depth e2;
-      List.iter (loop ~depth) args;
+      loop ~depth ~environment_vars e1;
+      loop ~depth ~environment_vars e2;
+      List.iter (loop ~depth ~environment_vars) args;
       ignore_debuginfo dbg
     | Uunreachable ->
       ()
   in
-  loop ~depth:0 clam;
-  let linear_let_bound_vars, used_let_bound_vars, assigned =
-    V.Tbl.fold (fun var desc ((linear, used, assigned) as acc) ->
+  loop ~depth:0 ~environment_vars:0 clam;
+  let linear_let_bound_vars, used_let_bound_vars, assigned, environment_vars =
+    V.Tbl.fold (fun var desc ((linear, used,
+     assigned, environment_vars) as acc) ->
       match desc.uses with
       | Zero -> acc
-      | One -> (V.Set.add var linear, V.Set.add var used, assigned)
-      | More_than_one -> (linear, V.Set.add var used, assigned)
-      | Assigned -> (linear, V.Set.add var used, V.Set.add var assigned))
-      t (V.Set.empty, V.Set.empty, V.Set.empty)
+      | One -> (V.Set.add var linear, V.Set.add var used,
+       assigned, environment_vars)
+      | More_than_one -> (linear, V.Set.add var used,
+      assigned, environment_vars)
+      | Assigned -> (linear, V.Set.add var used, V.Set.add var assigned,
+      V.Set.add var environment_vars))
+      t (V.Set.empty, V.Set.empty, V.Set.empty, V.Set.empty)
   in
   { used_let_bound_vars; linear_let_bound_vars; assigned;
-    closure_environment = !environment_vars;
+    closure_environment = environment_vars;
     let_bound_vars_that_can_be_moved = V.Set.empty;
   }
 
