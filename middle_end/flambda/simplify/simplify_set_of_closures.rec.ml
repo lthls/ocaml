@@ -406,7 +406,7 @@ let simplify_function context r closure_id function_decl
     let function_decl = FD.update_code_id function_decl new_code_id in
     let function_type =
       (* We need to use [dacc_after_body] to ensure that all [code_ids] in
-         [function_decl] are available for the inlining decision code. *)
+         [params_and_body] are available for the inlining decision code. *)
       function_decl_type (DA.denv dacc_after_body) function_decl
         ~params_and_body Rec_info.initial
     in
