@@ -150,7 +150,7 @@ module Typing_env : sig
     -> flambda_type
     -> Name_occurrences.t
 
-  val clean_for_export : t -> module_symbol:Symbol.t -> t
+  val clean_for_export : t -> reachable_names:Name_occurrences.t -> t
 
   module Serializable : sig
     type typing_env = t
@@ -234,6 +234,8 @@ module Closures_entry : sig
   val function_decl_types : t -> Function_declaration_type.t Closure_id.Map.t
   val closure_var_types : t -> flambda_type Var_within_closure.Map.t
 end
+
+val free_names : t -> Name_occurrences.t
 
 (** This function takes a type [t] and an environment [env] that assigns types
     to all the free names of [t].  It also takes an environment, called
