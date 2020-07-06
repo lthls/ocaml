@@ -37,6 +37,7 @@ type var_info =
     linear_let_bound_vars : V.Set.t;
     assigned : V.Set.t;
     closure_environment : V.Set.t;
+    environment_vars : V.Set.t;
     let_bound_vars_that_can_be_moved : V.Set.t;
   }
 
@@ -142,6 +143,7 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       List.iter (loop ~depth ~environment_vars) captured_variables;
       List.iter (fun (
         { Clambda. label; arity; params; return; body; dbg; env; } as clos) ->
+        let environment_vars = V.Set.add (VP.var env_var) environment_vars in
           (match closure_environment_var clos with
            | None -> ()
            | Some env_var ->
@@ -228,20 +230,17 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       List.iter (loop ~depth ~environment_vars) args;
       ignore_debuginfo dbg
     | Uunreachable ->
-      ()
+      environment_vars
   in
-  loop ~depth:0 ~environment_vars:0 clam;
-  let linear_let_bound_vars, used_let_bound_vars, assigned, environment_vars =
+  let environment_vars = loop ~depth:0 ~environment_vars:V.Set.empty clam in
+  let linear_let_bound_vars, used_let_bound_vars, assigned =
     V.Tbl.fold (fun var desc ((linear, used,
-     assigned, environment_vars) as acc) ->
+     assigned) as acc) ->
       match desc.uses with
       | Zero -> acc
-      | One -> (V.Set.add var linear, V.Set.add var used,
-       assigned, environment_vars)
-      | More_than_one -> (linear, V.Set.add var used,
-      assigned, environment_vars)
-      | Assigned -> (linear, V.Set.add var used, V.Set.add var assigned,
-      V.Set.add var environment_vars))
+      | One -> (V.Set.add var linear, V.Set.add var used, assigned)
+      | More_than_one -> (linear, V.Set.add var used, assigned)
+      | Assigned -> (linear, V.Set.add var used, V.Set.add var assigned))
       t (V.Set.empty, V.Set.empty, V.Set.empty, V.Set.empty)
   in
   { used_let_bound_vars; linear_let_bound_vars; assigned;
