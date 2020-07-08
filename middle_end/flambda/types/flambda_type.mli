@@ -112,6 +112,8 @@ module Typing_env : sig
 
   val find : t -> Name.t -> Flambda_kind.t option -> flambda_type
 
+  val find_or_missing : t -> Name.t -> flambda_type option
+
   val find_params : t -> Kinded_parameter.t list -> flambda_type list
 
   val find_cse : t -> Flambda_primitive.Eligible_for_cse.t -> Simple.t option

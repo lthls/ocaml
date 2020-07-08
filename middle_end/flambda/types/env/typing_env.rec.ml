@@ -580,7 +580,9 @@ let check_optional_kind_matches name ty kind_opt =
         K.print kind
     end
 
-let find_with_binding_time_and_mode t name kind =
+exception Missing_cmx_and_kind
+
+let find_with_binding_time_and_mode' t name kind =
   match Name.Map.find name (names_to_types t) with
   | exception Not_found ->
     let comp_unit = Name.compilation_unit name in
@@ -620,9 +622,7 @@ let find_with_binding_time_and_mode t name kind =
               Type_grammar.unknown kind, Binding_time.imported_variables,
                 Name_mode.in_types
             | None ->
-              Misc.fatal_errorf "Don't know kind of variable %a from another \
-                  unit whose .cmx file is unavailable"
-                Name.print name)
+              raise Missing_cmx_and_kind)
       | Some t ->
         match Name.Map.find name (names_to_types t) with
         | exception Not_found ->
@@ -649,11 +649,24 @@ let find_with_binding_time_and_mode t name kind =
     check_optional_kind_matches name ty kind;
     found
 
+let find_with_binding_time_and_mode t name kind =
+  try find_with_binding_time_and_mode' t name kind
+  with
+  | Missing_cmx_and_kind ->
+    Misc.fatal_errorf "Don't know kind of variable %a from another \
+                       unit whose .cmx file is unavailable"
+      Name.print name
+
 let find t name kind =
   let ty, _binding_time, _name_mode =
     find_with_binding_time_and_mode t name kind
   in
   ty
+
+let find_or_missing t name =
+  match find_with_binding_time_and_mode' t name None with
+  | ty, _, _ -> Some ty
+  | exception Missing_cmx_and_kind -> None
 
 let find_params t params =
   List.map (fun param ->

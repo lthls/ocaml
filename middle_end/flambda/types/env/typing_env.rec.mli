@@ -63,6 +63,8 @@ val add_equations_on_params
     [variable_is_from_missing_cmx_file]. *)
 val find : t -> Name.t -> Flambda_kind.t option -> Type_grammar.t
 
+val find_or_missing : t -> Name.t -> Type_grammar.t option
+
 val find_params : t -> Kinded_parameter.t list -> Type_grammar.t list
 
 val variable_is_from_missing_cmx_file : t -> Name.t -> bool
