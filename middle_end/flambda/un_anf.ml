@@ -143,11 +143,11 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       List.iter (loop ~depth ~environment_vars) captured_variables;
       List.iter (fun (
         { Clambda. label; arity; params; return; body; dbg; env; } as clos) ->
-        let environment_vars = V.Set.add (VP.var env_var) environment_vars in
+        let environment_vars = V.Set.empty in
           (match closure_environment_var clos with
            | None -> ()
            | Some env_var ->
-             add_assignment t (VP.var env_var); );
+            V.Set.add (VP.var env_var) environment_vars; );
           ignore_function_label label;
           ignore_int arity;
           ignore_params_with_value_kind params;
@@ -232,7 +232,7 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
     | Uunreachable ->
       environment_vars
   in
-  let environment_vars = loop ~depth:0 ~environment_vars:V.Set.empty clam in
+let environment_vars = loop ~depth:0 ~environment_vars: V.Set.empty clam in
   let linear_let_bound_vars, used_let_bound_vars, assigned =
     V.Tbl.fold (fun var desc ((linear, used,
      assigned) as acc) ->
