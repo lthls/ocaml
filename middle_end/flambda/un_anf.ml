@@ -147,12 +147,12 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
           (match closure_environment_var clos with
            | None -> ()
            | Some env_var ->
-            V.Set.add (VP.var env_var) environment_vars; );
+            environment_vars = V.Set.add (VP.var env_var) environment_vars;; );
           ignore_function_label label;
           ignore_int arity;
           ignore_params_with_value_kind params;
           ignore_value_kind return;
-          loop ~depth:(depth + 1) ~environment_vars body;
+          loop ~depth:(depth + 1) ~environment_vars:environment_vars body;
           ignore_debuginfo dbg;
           ignore_var_option env)
         functions
