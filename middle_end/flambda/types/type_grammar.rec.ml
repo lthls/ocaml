@@ -428,11 +428,35 @@ let this_tagged_immediate_without_alias imm =
 
 let tag_immediate t : t =
   match t with
-  | Naked_immediate _ ->
-    Value (T_V.create_no_alias (Ok (Variant (Variant.create
-      ~is_unique:false
-      ~immediates:(Known t)
-      ~blocks:(Known (Row_like.For_blocks.create_bottom ()))))))
+  | Naked_immediate naked_imms ->
+    let default () =
+      Value (T_V.create_no_alias (Ok (Variant (Variant.create
+        ~is_unique:false
+        ~immediates:(Known t)
+        ~blocks:(Known (Row_like.For_blocks.create_bottom ()))))))
+    in
+    begin match T_NI.descr naked_imms with
+    | No_alias (Ok (Naked_immediates naked_imms)) ->
+      begin match Target_imm.Set.get_singleton naked_imms with
+      | Some imm -> this_tagged_immediate imm
+      | None -> default ()
+      end
+    | No_alias (Unknown | Bottom | Ok (Is_int _ | Get_tag _)) ->
+      default ()
+    | Equals simple ->
+      Simple.pattern_match simple
+        ~name:(fun _ -> default ())
+        ~const:(fun const ->
+          match Reg_width_things.Const.descr const with
+          | Naked_immediate imm -> this_tagged_immediate imm
+          | Tagged_immediate _
+          | Naked_float _
+          | Naked_int32 _
+          | Naked_int64 _
+          | Naked_nativeint _ ->
+            Misc.fatal_errorf "Const of wrong kind for [tag_immediate]: %a"
+              Reg_width_things.Const.print const)
+    end
   | Value _ | Naked_float _ | Naked_int32 _ | Naked_int64 _
   | Naked_nativeint _ ->
     Misc.fatal_errorf "Type of wrong kind for [tag_immediate]: %a"
