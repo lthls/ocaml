@@ -79,6 +79,7 @@ let simplify_named0 dacc (bindable_let_bound : Bindable_let_bound.t)
       else defining_expr
     in
     if DE.at_unit_toplevel (DA.denv dacc)
+      && allow_lifting
       && Name_mode.is_normal (Var_in_binding_pos.name_mode bound_var)
     then begin
       match
