@@ -122,7 +122,8 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
   let rec loop ~depth ~environment_vars : Clambda.ulambda -> unit = function
     (* No underscores in the pattern match, to reduce the chance of failing
        to traverse some subexpression. *)
-    | Uvar var -> add_use t var depth; environment_vars
+    | Uvar var -> add_use t var depth;
+    environment_vars
     | Uconst const ->
       (* The only variables that might occur in [const] are those in constant
          closures---and those are all bound by such closures.  It follows that
@@ -130,35 +131,57 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
          scope, so we do not need to count them here.  (The function bodies
          of the closures will be traversed when this function is called from
          [Flambda_to_clambda.to_clambda_closed_set_of_closures].) *)
-      ignore_uconstant const; environment_vars
+      ignore_uconstant const;
+      environment_vars
     | Udirect_apply (label, args, dbg) ->
       ignore_function_label label;
-      List.fold_left (loop ~depth ~environment_vars) args;
-      ignore_debuginfo dbg; environment_vars
+      let environment_vars =
+        List.fold_left
+          (fun environment_vars arg -> loop ~depth ~environment_vars arg)
+          environment_vars
+          args
+      in
+      ignore_debuginfo dbg;
+      environment_vars
     | Ugeneric_apply (func, args, dbg) ->
       loop ~depth ~environment_vars func;
-      List.fold_left (loop ~depth ~environment_vars) args;
-      ignore_debuginfo dbg; environment_vars
+      let environment_vars =
+        List.fold_left
+          (fun environment_vars arg -> loop ~depth ~environment_vars arg)
+          environment_vars
+          args
+      in
+      ignore_debuginfo dbg;
+      environment_vars
     | Uclosure (functions, captured_variables) ->
-      List.fold_left (loop ~depth ~environment_vars) captured_variables;
-      List.iter (fun (
+      let environment_vars =
+        List.fold_left
+          (fun environment_vars captured_variables -> loop ~depth ~environment_vars captured_variables)
+          environment_vars
+          captured_variables
+      in
+      let environment_vars =
+      List.fold_left (fun (
         { Clambda. label; arity; params; return; body; dbg; env; } as clos) ->
-        let environment_vars =
-          (match closure_environment_var clos with
-           | None -> ()
-           | Some env_var ->
-            V.Set.add (VP.var env_var) environment_vars ) in
+          let environment_vars =
+            (match closure_environment_var clos with
+            | None -> environment_vars
+            | Some env_var ->
+              V.Set.add (VP.var env_var) environment_vars )
+          in
           ignore_function_label label;
           ignore_int arity;
           ignore_params_with_value_kind params;
           ignore_value_kind return;
           loop ~depth:(depth + 1) ~environment_vars:environment_vars body;
           ignore_debuginfo dbg;
-          ignore_var_option env)
-        functions
+          ignore_var_option env;
+          environment_vars)
+        in
+        functions;
         environment_vars
     | Uoffset (expr, offset) ->
-      loop ~depth ~environment_vars expr;
+      let environment_vars = loop ~depth ~environment_vars expr in
       ignore_int offset;
       environment_vars      
     | Ulet (_let_kind, _value_kind, var, def, body) ->
@@ -172,20 +195,28 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       loop ~depth ~environment_vars body;
       environment_vars
     | Uletrec (defs, body) ->
+    let environment_vars =
       List.fold_left (fun (var, def) ->
           ignore_var_with_provenance var;
           loop ~depth ~environment_vars def)
-        defs;
-      loop ~depth ~environment_vars body;
       environment_vars
+      defs
+    in
+    loop ~depth ~environment_vars body;
+    environment_vars
     | Uprim (prim, args, dbg) ->
       ignore_primitive prim;
-      List.fold_left (loop ~depth ~environment_vars) args;
+      let environment_vars =
+        List.fold_left
+          (fun environment_vars arg -> loop ~depth ~environment_vars arg)
+          environment_vars
+          args
+      in
       ignore_debuginfo dbg;
       environment_vars
     | Uswitch (cond, { us_index_consts; us_actions_consts;
           us_index_blocks; us_actions_blocks }, dbg) ->
-      loop ~depth ~environment_vars cond;
+      let environment_vars = loop ~depth ~environment_vars cond in
       ignore_int_array us_index_consts;
       Array.iter (loop ~depth ~environment_vars) us_actions_consts;
       ignore_int_array us_index_blocks;
@@ -194,15 +225,23 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       environment_vars
     | Ustringswitch (cond, branches, default) ->
       loop ~depth ~environment_vars cond;
-      List.fold_left (fun (str, branch) ->
+      let environment_vars =
+        List.fold_left (fun (str, branch) ->
           ignore_string str;
           loop ~depth ~environment_vars branch)
-        branches;
+        environment_vars
+        branches
+      in
       Option.iter (loop ~depth ~environment_vars) default;
       environment_vars
     | Ustaticfail (static_exn, args) ->
       ignore_int static_exn;
-      List.fold_left (loop ~depth ~environment_vars) args;
+      let environment_vars =
+        List.fold_left
+          (fun environment_vars arg -> loop ~depth ~environment_vars arg)
+          environment_vars
+          args
+      in
       environment_vars
     | Ucatch (static_exn, vars, body, handler) ->
       ignore_int static_exn;
@@ -211,7 +250,7 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       loop ~depth ~environment_vars handler;
       environment_vars
     | Utrywith (body, var, handler) ->
-      loop ~depth ~environment_vars body;
+      let environment_vars = loop ~depth ~environment_vars body in
       ignore_var_with_provenance var;
       loop ~depth ~environment_vars handler;
       environment_vars
@@ -231,7 +270,7 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
     | Ufor (var, low, high, direction_flag, body) ->
       ignore_var_with_provenance var;
       loop ~depth ~environment_vars low;
-      loop ~depth ~environment_vars high;
+      let environment_vars = loop ~depth ~environment_vars high in
       ignore_direction_flag direction_flag;
       loop ~depth:(depth + 1) ~environment_vars body;
       environment_vars
@@ -243,7 +282,12 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       ignore_meth_kind meth_kind;
       loop ~depth ~environment_vars e1;
       loop ~depth ~environment_vars e2;
-      List.fold_left (loop ~depth ~environment_vars) args;
+      let environment_vars =
+        List.fold_left
+          (fun environment_vars arg -> loop ~depth ~environment_vars arg)
+          environment_vars
+          args
+      in
       ignore_debuginfo dbg;
       environment_vars
     | Uunreachable ->
