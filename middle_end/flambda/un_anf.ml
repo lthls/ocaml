@@ -232,7 +232,10 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
         environment_vars
         branches
       in
-      Option.iter (loop ~depth ~environment_vars) default;
+      Option.fold
+      ~none:environment_vars
+      ~some:(fun environment_vars default -> loop ~depth ~environment_vars default)
+      default
       environment_vars
     | Ustaticfail (static_exn, args) ->
       ignore_int static_exn;
