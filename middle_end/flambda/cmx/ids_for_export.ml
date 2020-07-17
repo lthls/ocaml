@@ -112,14 +112,16 @@ module Import_map = struct
     simples : Simple.t Simple.Map.t;
     consts : Const.t Const.Map.t;
     code_ids : Code_id.t Code_id.Map.t;
+    used_closure_vars : Var_within_closure.Set.t;
   }
 
-  let create ~symbols ~variables ~simples ~consts ~code_ids =
+  let create ~symbols ~variables ~simples ~consts ~code_ids ~used_closure_vars =
     { symbols;
       variables;
       simples;
       consts;
       code_ids;
+      used_closure_vars;
     }
 
   let symbol t orig =
@@ -158,4 +160,7 @@ module Import_map = struct
           ~const:(fun c -> Simple.const (const t c))
       | Some _rec_info -> simple
       end
+
+  let closure_var_is_used t var =
+    Var_within_closure.Set.mem var t.used_closure_vars
 end
