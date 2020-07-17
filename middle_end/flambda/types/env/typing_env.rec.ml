@@ -873,7 +873,7 @@ let invariant_for_new_equation t name ty =
           print t
       else
         (* Some symbols are missing, but it's possible that we just haven't
-           loaded theiir cmx yet *)
+           loaded their cmx yet *)
         ()
     end
   end
