@@ -51,7 +51,8 @@ let rec load_cmx_file_contents backend comp_unit ~imported_units ~imported_names
         Compilation_unit.Map.add comp_unit (Some typing_env) !imported_units;
       Some typing_env
 
-let compute_reachable_names_and_code ~module_symbol typing_env code =
+let compute_reachable_names_and_code ~module_symbol ~used_closure_vars
+      typing_env code =
   let rec fixpoint names_to_add names_already_added =
     if Name_occurrences.is_empty names_to_add
     then names_already_added
@@ -77,7 +78,7 @@ let compute_reachable_names_and_code ~module_symbol typing_env code =
       let fold_name names_to_add name =
         match TE.find_or_missing typing_env name with
         | Some ty ->
-          let ty_names = T.free_names ty in
+          let ty_names = T.free_reachable_names ~used_closure_vars ty in
           let names_to_consider =
             Name_occurrences.with_only_names_and_code_ids ty_names
           in
@@ -108,7 +109,7 @@ let compute_reachable_names_and_code ~module_symbol typing_env code =
   fixpoint init_names Name_occurrences.empty
 
 let prepare_cmx_file_contents ~return_cont_env:cont_uses_env
-      ~return_continuation ~module_symbol all_code =
+      ~return_continuation ~module_symbol ~used_closure_vars all_code =
   match
     Continuation_uses_env.get_typing_env_no_more_than_one_use
       cont_uses_env return_continuation
@@ -119,7 +120,8 @@ let prepare_cmx_file_contents ~return_cont_env:cont_uses_env
     (* CR mshinwell: We should remove typing information about names that
        do not occur (transitively) in the type of the module block. *)
     let reachable_names =
-      compute_reachable_names_and_code ~module_symbol final_typing_env all_code
+      compute_reachable_names_and_code ~module_symbol ~used_closure_vars
+        final_typing_env all_code
     in
     let all_code =
       Exported_code.remove_unreachable all_code ~reachable_names

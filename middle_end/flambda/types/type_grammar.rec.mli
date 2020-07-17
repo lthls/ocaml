@@ -230,3 +230,8 @@ val join
   -> t
 
 val join' : Meet_or_join_env.t -> t -> t -> t
+
+val free_reachable_names
+   : used_closure_vars:Var_within_closure.Set.t
+  -> t
+  -> Name_occurrences.t

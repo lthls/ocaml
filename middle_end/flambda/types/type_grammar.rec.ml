@@ -149,6 +149,15 @@ let free_names t =
   | Naked_int64 ty -> T_N64.free_names ty
   | Naked_nativeint ty -> T_NN.free_names ty
 
+let free_reachable_names ~used_closure_vars t =
+  match t with
+  | Value ty -> T_V.free_reachable_names ~used_closure_vars ty
+  | Naked_immediate ty -> T_NI.free_reachable_names ~used_closure_vars ty
+  | Naked_float ty -> T_Nf.free_reachable_names ~used_closure_vars ty
+  | Naked_int32 ty -> T_N32.free_reachable_names ~used_closure_vars ty
+  | Naked_int64 ty -> T_N64.free_reachable_names ~used_closure_vars ty
+  | Naked_nativeint ty -> T_NN.free_reachable_names ~used_closure_vars ty
+
 let all_ids_for_export t =
   match t with
   | Value ty -> T_V.all_ids_for_export ty

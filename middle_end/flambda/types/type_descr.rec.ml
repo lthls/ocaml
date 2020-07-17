@@ -84,6 +84,16 @@ module Make (Head : Type_head_intf.S
 
   include With_delayed_permutation.Make (Descr)
 
+  let free_reachable_names ~used_closure_vars t =
+    match descr t with
+    | No_alias Bottom | No_alias Unknown -> Name_occurrences.empty
+    | No_alias (Ok head) ->
+      Head.free_reachable_names ~used_closure_vars head
+    | Equals simple ->
+      Name_occurrences.downgrade_occurrences_at_strictly_greater_kind
+        (Simple.free_names simple)
+        Name_mode.in_types
+
   let all_ids_for_export t =
     match descr t with
     | No_alias Bottom | No_alias Unknown -> Ids_for_export.empty

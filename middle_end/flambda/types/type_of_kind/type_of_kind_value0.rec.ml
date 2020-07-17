@@ -140,6 +140,27 @@ let free_names t =
   | String _ -> Name_occurrences.empty
   | Array { length; } -> T.free_names length
 
+let free_reachable_names ~used_closure_vars t =
+  match t with
+  | Variant { blocks; immediates; is_unique = _; } ->
+    Name_occurrences.union
+      (Or_unknown.free_names
+         (Blocks.free_reachable_names ~used_closure_vars)
+         blocks)
+      (Or_unknown.free_names
+         (T.free_reachable_names ~used_closure_vars)
+         immediates)
+  | Boxed_float ty -> T.free_reachable_names ~used_closure_vars ty
+  | Boxed_int32 ty -> T.free_reachable_names ~used_closure_vars ty
+  | Boxed_int64 ty -> T.free_reachable_names ~used_closure_vars ty
+  | Boxed_nativeint ty -> T.free_reachable_names ~used_closure_vars ty
+  | Closures { by_closure_id; } ->
+    Row_like.For_closures_entry_by_set_of_closures_contents.free_reachable_names
+      ~used_closure_vars
+      by_closure_id
+  | String _ -> Name_occurrences.empty
+  | Array { length; } -> T.free_reachable_names ~used_closure_vars length
+
 let all_ids_for_export t =
   match t with
   | Variant { blocks; immediates; is_unique = _; } ->

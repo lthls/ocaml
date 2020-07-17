@@ -45,4 +45,9 @@ module type S = sig
   end
 
   val apply_rec_info : t -> Rec_info.t -> t Or_bottom.t
+
+  val free_reachable_names
+     : used_closure_vars:Var_within_closure.Set.t
+    -> t
+    -> Name_occurrences.t
 end

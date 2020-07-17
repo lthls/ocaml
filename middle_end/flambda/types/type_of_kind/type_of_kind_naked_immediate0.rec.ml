@@ -56,6 +56,9 @@ let free_names t =
   | Naked_immediates _ -> Name_occurrences.empty
   | Is_int ty | Get_tag ty -> T.free_names ty
 
+let free_reachable_names ~used_closure_vars:_ t =
+  free_names t
+
 let all_ids_for_export t =
   match t with
   | Naked_immediates _ -> Ids_for_export.empty

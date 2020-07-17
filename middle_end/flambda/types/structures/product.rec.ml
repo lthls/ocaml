@@ -108,6 +108,15 @@ module Make (Index : Identifiable.S) = struct
       components_by_index
       Name_occurrences.empty
 
+  let free_reachable_names ~used_closure_vars
+        { components_by_index; kind = _; } =
+    Index.Map.fold (fun _index ty free_names ->
+        Name_occurrences.union
+          (Type_grammar.free_reachable_names ~used_closure_vars ty)
+          free_names)
+      components_by_index
+      Name_occurrences.empty
+
   let all_ids_for_export { components_by_index; kind = _; } =
     Index.Map.fold (fun _index ty ids ->
         Ids_for_export.union (Type_grammar.all_ids_for_export ty) ids)
@@ -143,7 +152,21 @@ end
 
 module Closure_id_indexed = Make (Closure_id)
 
-module Var_within_closure_indexed = Make (Var_within_closure)
+module Var_within_closure_indexed = struct
+  include Make (Var_within_closure)
+
+  (* Overriding free_reachable_names to be able to remove unused closure vars *)
+  let free_reachable_names ~used_closure_vars
+        { components_by_index; kind = _; } =
+    Var_within_closure.Map.fold (fun index ty free_names ->
+        if Var_within_closure.Set.mem index used_closure_vars then
+          Name_occurrences.union
+            (Type_grammar.free_reachable_names ~used_closure_vars ty)
+            free_names
+        else free_names)
+      components_by_index
+      Name_occurrences.empty
+end
 
 module Int_indexed = struct
   (* CR mshinwell: Add [Or_bottom].  However what should [width] return for
@@ -235,6 +258,14 @@ module Int_indexed = struct
   let free_names t =
     Array.fold_left (fun free_names ty ->
         Name_occurrences.union (Type_grammar.free_names ty) free_names)
+      Name_occurrences.empty
+      t.fields
+
+  let free_reachable_names ~used_closure_vars t =
+    Array.fold_left (fun free_names ty ->
+        Name_occurrences.union
+          (Type_grammar.free_reachable_names ~used_closure_vars ty)
+          free_names)
       Name_occurrences.empty
       t.fields
 

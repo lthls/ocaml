@@ -142,6 +142,9 @@ let free_names (t : t) =
     Name_occurrences.add_code_id Name_occurrences.empty code_id
       Name_mode.in_types
 
+let free_reachable_names ~used_closure_vars:_ (t : t) =
+  free_names t
+
 let all_ids_for_export (t : t) =
   match t with
   | Bottom | Unknown -> Ids_for_export.empty

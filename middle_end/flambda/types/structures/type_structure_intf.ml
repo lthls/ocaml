@@ -41,4 +41,9 @@ module type S = sig
   include Contains_names.S with type t := t
 
   include Contains_ids.S with type t := t
+
+  val free_reachable_names
+     : used_closure_vars:Var_within_closure.Set.t
+    -> t
+    -> Name_occurrences.t
 end

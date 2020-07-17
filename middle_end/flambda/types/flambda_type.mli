@@ -237,7 +237,10 @@ module Closures_entry : sig
   val closure_var_types : t -> flambda_type Var_within_closure.Map.t
 end
 
-val free_names : t -> Name_occurrences.t
+val free_reachable_names
+   : used_closure_vars:Var_within_closure.Set.t
+  -> t
+  -> Name_occurrences.t
 
 (** This function takes a type [t] and an environment [env] that assigns types
     to all the free names of [t].  It also takes an environment, called

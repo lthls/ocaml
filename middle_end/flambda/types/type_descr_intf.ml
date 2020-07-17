@@ -96,4 +96,9 @@ module type S = sig
       -> t
       -> flambda_type * typing_env_extension
   end
+
+  val free_reachable_names
+     : used_closure_vars:Var_within_closure.Set.t
+    -> t
+    -> Name_occurrences.t
 end

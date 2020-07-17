@@ -29,6 +29,9 @@ let apply_name_permutation t _perm = t
 
 let free_names _t = Name_occurrences.empty
 
+let free_reachable_names ~used_closure_vars:_ t =
+  free_names t
+
 let all_ids_for_export _t = Ids_for_export.empty
 
 let import _import_map t = t

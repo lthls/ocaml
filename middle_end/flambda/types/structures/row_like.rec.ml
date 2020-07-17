@@ -341,6 +341,22 @@ struct
           (Maps_to.free_names maps_to)
           from_known_tags
 
+    let free_reachable_names ~used_closure_vars { known_tags; other_tags; } =
+      let from_known_tags =
+        Tag.Map.fold (fun _tag { maps_to; index = _ } free_names ->
+            Name_occurrences.union free_names
+              (Maps_to.free_reachable_names ~used_closure_vars maps_to))
+          known_tags
+          Name_occurrences.empty
+      in
+      match other_tags with
+      | Bottom ->
+        from_known_tags
+      | Ok { maps_to; index = _ } ->
+        Name_occurrences.union
+          (Maps_to.free_reachable_names ~used_closure_vars maps_to)
+          from_known_tags
+
     let all_ids_for_export { known_tags; other_tags; } =
       let from_known_tags =
         Tag.Map.fold (fun _tag { maps_to; index = _ } ids ->

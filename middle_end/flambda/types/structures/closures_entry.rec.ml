@@ -148,6 +148,20 @@ let free_names { function_decls; closure_types; closure_var_types; } =
     (Name_occurrences.union (PC.free_names closure_types)
       (PV.free_names closure_var_types))
 
+let free_reachable_names
+      ~used_closure_vars
+      { function_decls; closure_types; closure_var_types; } =
+  let function_decls_free_names =
+    Closure_id.Map.fold (fun _closure_id function_decl free_names ->
+        Name_occurrences.union free_names (FDT.free_names function_decl))
+      function_decls
+      Name_occurrences.empty
+  in
+  Name_occurrences.union function_decls_free_names
+    (Name_occurrences.union
+      (PC.free_reachable_names ~used_closure_vars closure_types)
+      (PV.free_reachable_names ~used_closure_vars closure_var_types))
+
 let all_ids_for_export { function_decls; closure_types; closure_var_types; } =
   let function_decls_ids =
     Closure_id.Map.fold (fun _closure_id function_decl ids ->
