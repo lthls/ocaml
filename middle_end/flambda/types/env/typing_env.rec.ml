@@ -856,11 +856,25 @@ let invariant_for_new_equation t name ty =
     in
     if not (Name_occurrences.subset_domain free_names defined_names) then begin
       let unbound_names = Name_occurrences.diff free_names defined_names in
-      Misc.fatal_errorf "New equation@ %a@ =@ %a@ has unbound names@ (%a):@ %a"
-        Name.print name
-        Type_grammar.print ty
-        Name_occurrences.print unbound_names
-        print t
+      let unbound_names_not_imported =
+        Name_occurrences.filter_names unbound_names
+          ~f:(fun name ->
+            Name.pattern_match name
+              ~var:(fun _ -> true)
+              ~symbol:(fun sym ->
+                Compilation_unit.equal (Symbol.compilation_unit sym)
+                  (Compilation_unit.get_current_exn ())))
+      in
+      if not (Name_occurrences.is_empty unbound_names_not_imported) then
+        Misc.fatal_errorf "New equation@ %a@ =@ %a@ has unbound names@ (%a):@ %a"
+          Name.print name
+          Type_grammar.print ty
+          Name_occurrences.print unbound_names_not_imported
+          print t
+      else
+        (* Some symbols are missing, but it's possible that we just haven't
+           loaded theiir cmx yet *)
+        ()
     end
   end
 
