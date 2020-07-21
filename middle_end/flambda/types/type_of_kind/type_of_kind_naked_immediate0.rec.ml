@@ -230,11 +230,11 @@ struct
   let to_naked_immediates t =
     match t with
     | Naked_immediates imms -> imms
-    | Is_int _ -> I.Set.add I.zero (I.Set.singleton I.one)
+    | Is_int _ -> I.all_bools
     | Get_tag _ ->
       (* The current infrastructure around joins doesn't make it easy to
          return Unknown, so we compute the set of all possible tags *)
-      all_regular_tags
+      I.all_regular_tags
 
   let join env t1 t2 =
     match t1, t2 with
@@ -255,10 +255,6 @@ struct
       Naked_immediates all_regular_tags
 
   let meet_or_join env t1 t2 =
-  (*
-    Format.eprintf "NN meet_or_join %a and %a\n%!"
-      print t1 print t2 (*Typing_env.print (Meet_env.env env)*);
-      *)
     Or_bottom_or_absorbing.of_or_bottom (E.switch meet join env t1 t2)
       ~f:(fun x -> x)
 end
