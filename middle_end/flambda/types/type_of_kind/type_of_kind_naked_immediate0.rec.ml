@@ -92,7 +92,8 @@ struct
     | Get_tag ty1, Get_tag ty2 ->
       Or_bottom.map (T.meet env ty1 ty2)
         ~f:(fun (ty, env_extension) -> Get_tag ty, env_extension)
-    | Is_int ty, Naked_immediates is_int ->
+    | Is_int ty, Naked_immediates is_int
+    | Naked_immediates is_int, Is_int ty ->
       begin match I.Set.elements is_int with
       | [] -> Bottom
       | [is_int] ->
@@ -113,30 +114,8 @@ struct
            not containing either 0 or 1 or both, but this should be uncommon. *)
         Ok (Is_int ty, TEE.empty ())
       end
-    | Naked_immediates is_int, Is_int ty ->
-      begin match I.Set.elements is_int with
-      | [] -> Bottom
-      | [is_int] ->
-        let shape =
-          if I.equal is_int I.zero then Some (T.any_block ())
-          else if I.equal is_int I.one then Some (T.any_tagged_immediate ())
-          else None
-        in
-        begin match shape with
-        | Some shape ->
-          Or_bottom.map
-            (T.meet env shape ty)
-            ~f:(fun (ty, env_extension) -> Is_int ty, env_extension)
-        | None -> Bottom
-        end
-      | _ :: _ :: _ ->
-        (* Note: we're potentially losing precision because the set could end up
-           not containing either 0 or 1 or both, but this should be uncommon. *)
-        Ok (Is_int ty, TEE.empty ())
-      end
-    | Get_tag ty, Naked_immediates tags ->
-      (* CR mshinwell: eliminate code duplication, same above.  Or-patterns
-         aren't the answer, since join depends on the left/right envs! *)
+    | Get_tag ty, Naked_immediates tags
+    | Naked_immediates tags, Get_tag ty ->
       let exception Invalid_tag in
       begin try
         let tags =
@@ -176,41 +155,6 @@ struct
          do the actual meet with Naked_immediates, or just give up and return
          one of the arguments. *)
       Ok (t1, TEE.empty ())
-    | Naked_immediates tags, Get_tag ty ->
-      let exception Invalid_tag in
-      begin try
-        let tags =
-          I.Set.fold (fun tag tags ->
-              match Target_imm.to_tag tag with
-              | Some tag -> Tag.Set.add tag tags
-              | None -> raise Invalid_tag)
-            tags
-            Tag.Set.empty
-        in
-        begin match T.blocks_with_these_tags tags with
-        | Known shape ->
-          Or_bottom.map
-            (T.meet env ty shape)
-            ~f:(fun (ty, env_extension) -> Get_tag ty, env_extension)
-        | Unknown ->
-          Ok (Get_tag ty, TEE.empty ())
-        end
-      with Invalid_tag ->
-        (* There is a choice to make here: is it more interesting to keep
-           the Get_tag type, or the Naked_immediates type ?
-           In general the Get_tag type is more interesting, but we reach this
-           case only when we're doing a meet with something that cannot be
-           a regular tag, so it's likely that the Naked_immediates set is more
-           relevant. *)
-        let tags =
-          I.Set.filter (fun tag ->
-              match Tag.create_from_targetint (Target_imm.to_targetint tag) with
-              | None -> false
-              | Some _ -> true)
-            tags
-        in
-        Ok (Naked_immediates tags, TEE.empty ())
-      end
 
   let all_regular_tags =
     let rec compute_all_tags acc n =
