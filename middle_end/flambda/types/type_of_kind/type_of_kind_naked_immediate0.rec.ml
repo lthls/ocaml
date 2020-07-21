@@ -116,13 +116,11 @@ struct
       end
     | Get_tag ty, Naked_immediates tags
     | Naked_immediates tags, Get_tag ty ->
-      let exception Invalid_tag in
-      begin try
         let tags =
           I.Set.fold (fun tag tags ->
               match Target_imm.to_tag tag with
               | Some tag -> Tag.Set.add tag tags
-              | None -> raise Invalid_tag)
+              | None -> tags (* No blocks exist with this tag *))
             tags
             Tag.Set.empty
         in
@@ -134,22 +132,6 @@ struct
         | Unknown ->
           Ok (Get_tag ty, TEE.empty ())
         end
-      with Invalid_tag ->
-        (* There is a choice to make here: is it more interesting to keep
-           the Get_tag type, or the Naked_immediates type ?
-           In general the Get_tag type is more interesting, but we reach this
-           case only when we're doing a meet with something that cannot be
-           a regular tag, so it's likely that the Naked_immediates set is more
-           relevant. *)
-        let tags =
-          I.Set.filter (fun tag ->
-              match Tag.create_from_targetint (Target_imm.to_targetint tag) with
-              | None -> false
-              | Some _ -> true)
-            tags
-        in
-        Ok (Naked_immediates tags, TEE.empty ())
-      end
     | (Is_int _ | Get_tag _), (Is_int _ | Get_tag _) ->
       (* We can't return Bottom, as it would be unsound, so we need to either
          do the actual meet with Naked_immediates, or just give up and return
