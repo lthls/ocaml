@@ -116,22 +116,22 @@ struct
       end
     | Get_tag ty, Naked_immediates tags
     | Naked_immediates tags, Get_tag ty ->
-        let tags =
-          I.Set.fold (fun tag tags ->
-              match Target_imm.to_tag tag with
-              | Some tag -> Tag.Set.add tag tags
-              | None -> tags (* No blocks exist with this tag *))
-            tags
-            Tag.Set.empty
-        in
-        begin match T.blocks_with_these_tags tags with
-        | Known shape ->
-          Or_bottom.map
-            (T.meet env ty shape)
-            ~f:(fun (ty, env_extension) -> Get_tag ty, env_extension)
-        | Unknown ->
-          Ok (Get_tag ty, TEE.empty ())
-        end
+      let tags =
+        I.Set.fold (fun tag tags ->
+            match Target_imm.to_tag tag with
+            | Some tag -> Tag.Set.add tag tags
+            | None -> tags (* No blocks exist with this tag *))
+          tags
+          Tag.Set.empty
+      in
+      begin match T.blocks_with_these_tags tags with
+      | Known shape ->
+        Or_bottom.map
+          (T.meet env ty shape)
+          ~f:(fun (ty, env_extension) -> Get_tag ty, env_extension)
+      | Unknown ->
+        Ok (Get_tag ty, TEE.empty ())
+      end
     | (Is_int _ | Get_tag _), (Is_int _ | Get_tag _) ->
       (* We can't return Bottom, as it would be unsound, so we need to either
          do the actual meet with Naked_immediates, or just give up and return
