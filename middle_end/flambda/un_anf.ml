@@ -161,38 +161,38 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
           captured_variables
       in
       let environment_vars =
-      List.fold_left (fun (
+      List.fold_left (fun environment_vars (
         { Clambda. label; arity; params; return; body; dbg; env; } as clos) ->
-          let environment_vars =
             (match closure_environment_var clos with
             | None -> environment_vars
             | Some env_var ->
               V.Set.add (VP.var env_var) environment_vars )
-          in
-          ignore_function_label label;
+          ignore_function_label label; 
           ignore_int arity;
           ignore_params_with_value_kind params;
           ignore_value_kind return;
           loop ~depth:(depth + 1) ~environment_vars:environment_vars body;
           ignore_debuginfo dbg;
           ignore_var_option env;
-          environment_vars)
-        in
-        functions;
-        environment_vars
+          )
+          environment_vars
+          clos
+      in
+      functions;
+      environment_vars
     | Uoffset (expr, offset) ->
       let environment_vars = loop ~depth ~environment_vars expr in
       ignore_int offset;
       environment_vars      
     | Ulet (_let_kind, _value_kind, var, def, body) ->
       add_definition t (VP.var var) depth;
-      loop ~depth ~environment_vars def;
-      loop ~depth ~environment_vars body;
+      let environment_vars = loop ~depth ~environment_vars def in
+      let environment_vars = loop ~depth ~environment_vars body in
       environment_vars
     | Uphantom_let (var, defining_expr_opt, body) ->
       ignore_var_with_provenance var;
       ignore_uphantom_defining_expr_option defining_expr_opt;
-      loop ~depth ~environment_vars body;
+      let environment_vars = loop ~depth ~environment_vars body in
       environment_vars
     | Uletrec (defs, body) ->
     let environment_vars =
@@ -202,7 +202,7 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       environment_vars
       defs
     in
-    loop ~depth ~environment_vars body;
+    let environment_vars = loop ~depth ~environment_vars body in
     environment_vars
     | Uprim (prim, args, dbg) ->
       ignore_primitive prim;
@@ -218,13 +218,23 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
           us_index_blocks; us_actions_blocks }, dbg) ->
       let environment_vars = loop ~depth ~environment_vars cond in
       ignore_int_array us_index_consts;
-      Array.iter (loop ~depth ~environment_vars) us_actions_consts;
+      let environment_vars =
+        Array.fold_left
+          (fun environment_vars us_actions_const -> loop ~depth ~environment_vars us_actions_const)
+          environment_vars
+          us_actions_const
+      in
       ignore_int_array us_index_blocks;
-      Array.iter (loop ~depth ~environment_vars) us_actions_blocks;
+      let environment_vars =
+        Array.fold_left
+          (fun environment_vars us_actions_block -> loop ~depth ~environment_vars us_actions_block)
+          environment_vars
+          us_actions_block
+      in
       ignore_debuginfo dbg;
       environment_vars
     | Ustringswitch (cond, branches, default) ->
-      loop ~depth ~environment_vars cond;
+      let environment_vars = loop ~depth ~environment_vars cond in
       let environment_vars =
         List.fold_left (fun (str, branch) ->
           ignore_string str;
@@ -249,42 +259,42 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
     | Ucatch (static_exn, vars, body, handler) ->
       ignore_int static_exn;
       ignore_params_with_value_kind vars;
-      loop ~depth ~environment_vars body;
-      loop ~depth ~environment_vars handler;
+      let environment_vars = loop ~depth ~environment_vars body in
+      let environment_vars = loop ~depth ~environment_vars handler in
       environment_vars
     | Utrywith (body, var, handler) ->
       let environment_vars = loop ~depth ~environment_vars body in
       ignore_var_with_provenance var;
-      loop ~depth ~environment_vars handler;
+      let environment_vars = loop ~depth ~environment_vars handler in
       environment_vars
     | Uifthenelse (cond, ifso, ifnot) ->
-      loop ~depth ~environment_vars cond;
-      loop ~depth ~environment_vars ifso;
-      loop ~depth ~environment_vars ifnot;
+      let environment_vars = loop ~depth ~environment_vars cond in
+      let environment_vars = loop ~depth ~environment_vars ifso in
+      let environment_vars = loop ~depth ~environment_vars ifnot in
       environment_vars
     | Usequence (e1, e2) ->
-      loop ~depth ~environment_vars e1;
-      loop ~depth ~environment_vars e2;
+      let environment_vars = loop ~depth ~environment_vars e1 in
+      let environment_vars = loop ~depth ~environment_vars e2 in
       environment_vars
     | Uwhile (cond, body) ->
-      loop ~depth:(depth + 1) ~environment_vars cond;
-      loop ~depth:(depth + 1) ~environment_vars body;
+      let environment_vars = loop ~depth ~environment_vars cond in
+      let environment_vars = loop ~depth ~environment_vars body in
       environment_vars
     | Ufor (var, low, high, direction_flag, body) ->
       ignore_var_with_provenance var;
-      loop ~depth ~environment_vars low;
+      let environment_vars = loop ~depth ~environment_vars low in
       let environment_vars = loop ~depth ~environment_vars high in
       ignore_direction_flag direction_flag;
-      loop ~depth:(depth + 1) ~environment_vars body;
+      let environment_vars = loop ~depth:(depth + 1) ~environment_vars body in
       environment_vars
     | Uassign (var, expr) ->
       add_assignment t var;
-      loop ~depth ~environment_vars expr;
+      let environment_vars = loop ~depth ~environment_vars expr in
       environment_vars
     | Usend (meth_kind, e1, e2, args, dbg) ->
       ignore_meth_kind meth_kind;
-      loop ~depth ~environment_vars e1;
-      loop ~depth ~environment_vars e2;
+      let environment_vars = loop ~depth ~environment_vars e1 in
+      let environment_vars = loop ~depth ~environment_vars e2 in
       let environment_vars =
         List.fold_left
           (fun environment_vars arg -> loop ~depth ~environment_vars arg)
@@ -306,6 +316,7 @@ let environment_vars = loop ~depth:0 ~environment_vars:V.Set.empty clam in
       | More_than_one -> (linear, V.Set.add var used, assigned)
       | Assigned -> (linear, V.Set.add var used, V.Set.add var assigned))
       t (V.Set.empty, V.Set.empty, V.Set.empty)
+      acc
   in
   { used_let_bound_vars; linear_let_bound_vars; assigned;
     closure_environment = environment_vars;
