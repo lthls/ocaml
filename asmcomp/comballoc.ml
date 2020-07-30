@@ -74,7 +74,7 @@ let rec combine i allocstate =
       let newnext = combine_restart i.next in
       (instr_cons (Iswitch(table, newcases)) i.arg i.res newnext,
        allocated_size allocstate)
-  | Icatch(rec_flag, handlers, body) ->
+  | Icatch(rec_flag, ts, handlers, body) ->
       let (newbody, sz) = combine body allocstate in
       let newhandlers =
         List.map
@@ -82,7 +82,7 @@ let rec combine i allocstate =
           handlers
       in
       let newnext = combine_restart i.next in
-      (instr_cons (Icatch(rec_flag, newhandlers, newbody))
+      (instr_cons (Icatch(rec_flag, ts, newhandlers, newbody))
          i.arg i.res newnext, sz)
   | Itrywith(body, kind, (ts, handler)) ->
       let (newbody, sz) = combine body allocstate in

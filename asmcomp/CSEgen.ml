@@ -347,11 +347,12 @@ method private cse n i =
      let n1 = set_unknown_regs n (Proc.destroyed_at_oper i.desc) in
       {i with desc = Iswitch(index, Array.map (self#cse n1) cases);
               next = self#cse empty_numbering i.next}
-  | Icatch(rec_flag, handlers, body) ->
+  | Icatch(rec_flag, ts, handlers, body) ->
       let aux (nfail, ts, handler) =
         nfail, ts, self#cse empty_numbering handler
       in
-      {i with desc = Icatch(rec_flag, List.map aux handlers, self#cse n body);
+      {i with desc = Icatch(rec_flag, ts, List.map aux handlers,
+                            self#cse n body);
               next = self#cse empty_numbering i.next}
   | Itrywith(body, kind, (ts, handler)) ->
       {i with desc = Itrywith(self#cse n body, kind,
