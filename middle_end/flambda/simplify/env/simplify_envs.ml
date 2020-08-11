@@ -478,6 +478,8 @@ end = struct
   let set_inlined_debuginfo t dbg =
     { t with inlined_debuginfo = dbg; }
 
+  let get_inlined_debuginfo t = t.inlined_debuginfo
+
   let add_inlined_debuginfo' t dbg =
     Debuginfo.inline t.inlined_debuginfo dbg
 
