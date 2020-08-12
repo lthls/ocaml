@@ -119,7 +119,7 @@ let add_assignment t var =
 
 let make_var_info (clam : Clambda.ulambda) : var_info =
   let t : var V.Tbl.t = V.Tbl.create 42 in
-  let rec loop ~depth ~environment_vars : Clambda.ulambda -> unit = function
+  let rec loop ~depth ~environment_vars : Clambda.ulambda -> V.Set.t = function
     (* No underscores in the pattern match, to reduce the chance of failing
        to traverse some subexpression. *)
     | Uvar var -> add_use t var depth;
@@ -144,7 +144,9 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       ignore_debuginfo dbg;
       environment_vars
     | Ugeneric_apply (func, args, dbg) ->
-      loop ~depth ~environment_vars func;
+    let environment_vars =
+      loop ~depth ~environment_vars func
+    in  
       let environment_vars =
         List.fold_left
           (fun environment_vars arg -> loop ~depth ~environment_vars arg)
@@ -173,12 +175,15 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
           ignore_int arity;
           ignore_params_with_value_kind params;
           ignore_value_kind return;
-          loop ~depth:(depth + 1) ~environment_vars body;
+      let environment_vars =
+          loop ~depth:(depth + 1) ~environment_vars body
+      in
           ignore_debuginfo dbg;
           ignore_var_option env;
-          )
           environment_vars
-          functions
+          )
+        environment_vars
+        functions
       in
       environment_vars
     | Uoffset (expr, offset) ->
@@ -243,10 +248,13 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
         environment_vars
         branches
       in
+      let environment_vars =
       Option.fold
       ~none:environment_vars
       ~some:(fun environment_vars default -> loop ~depth ~environment_vars default)
+      environment_vars
       default
+      in
       environment_vars
     | Ustaticfail (static_exn, args) ->
       ignore_int static_exn;
