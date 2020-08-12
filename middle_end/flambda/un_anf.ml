@@ -226,14 +226,14 @@ let make_var_info (clam : Clambda.ulambda) : var_info =
       ignore_int_array us_index_consts;
       let environment_vars =
         Array.fold_left
-          (fun environment_vars us_actions_consts -> loop ~depth ~environment_vars us_actions_consts)
+          (fun environment_vars us_actions_const -> loop ~depth ~environment_vars us_actions_const)
           environment_vars
           us_actions_consts
       in
       ignore_int_array us_index_blocks;
       let environment_vars =
         Array.fold_left
-          (fun environment_vars us_actions_blocks -> loop ~depth ~environment_vars us_actions_blocks)
+          (fun environment_vars us_actions_block -> loop ~depth ~environment_vars us_actions_block)
           environment_vars
           us_actions_blocks
       in
