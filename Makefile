@@ -58,6 +58,7 @@ INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \
         -I middle_end/flambda \
         -I middle_end/flambda/basic \
         -I middle_end/flambda/cmx \
+        -I middle_end/flambda/compare \
         -I middle_end/flambda/from_lambda \
         -I middle_end/flambda/inlining \
         -I middle_end/flambda/lifting \
@@ -1157,6 +1158,7 @@ partialclean::
            middle_end/flambda \
            middle_end/flambda/basic \
            middle_end/flambda/cmx \
+           middle_end/flambda/compare \
            middle_end/flambda/from_lambda \
            middle_end/flambda/inlining \
            middle_end/flambda/naming \
@@ -1189,6 +1191,7 @@ depend: beforedepend
          middle_end/flambda \
          middle_end/flambda/basic \
          middle_end/flambda/cmx \
+         middle_end/flambda/compare \
          middle_end/flambda/from_lambda \
          middle_end/flambda/inlining \
          middle_end/flambda/lifting \
