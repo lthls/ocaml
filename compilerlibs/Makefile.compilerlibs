@@ -349,7 +349,11 @@ MIDDLE_END_FLAMBDA_PARSER=\
   middle_end/flambda/parser/flambda_parser.cmo \
   middle_end/flambda/parser/flambda_parser_messages.cmo \
   middle_end/flambda/parser/flambda_lex.cmo \
+  middle_end/flambda/parser/flambda_to_fexpr.cmo \
   middle_end/flambda/parser/parse_flambda.cmo
+
+MIDDLE_END_FLAMBDA_COMPARE=\
+  middle_end/flambda/compare/compare.cmo
 
 MIDDLE_END_FLAMBDA=\
   $(MIDDLE_END_FLAMBDA_BASIC) \
@@ -360,6 +364,7 @@ MIDDLE_END_FLAMBDA=\
   $(MIDDLE_END_FLAMBDA_SIMPLIFY) \
   $(MIDDLE_END_FLAMBDA_FROM_LAMBDA) \
   $(MIDDLE_END_FLAMBDA_PARSER) \
+  $(MIDDLE_END_FLAMBDA_COMPARE) \
   middle_end/flambda/flambda_middle_end.cmo
 
 MIDDLE_END=\
