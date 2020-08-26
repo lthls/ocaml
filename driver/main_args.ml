@@ -933,21 +933,9 @@ let mk_no_flambda_unbox_along_intra_function_control_flow f =
     " Pass values within a function in their normal representation"
 ;;
 
-let mk_flambda_lift_inconstants f =
-  "-flambda-lift-inconstants", Arg.Unit f,
-    " Attempt to statically-allocate values that require computations to \
-      initialize"
-;;
-
 let mk_flambda_lift_toplevel_inconstants f =
   "-flambda-lift-toplevel-inconstants", Arg.Unit f,
     " Attempt to statically-allocate toplevel computations"
-;;
-
-let mk_no_flambda_lift_inconstants f =
-  "-no-flambda-lift-inconstants", Arg.Unit f,
-    " Never statically-allocate values that require computations to \
-      initialize"
 ;;
 
 let mk_no_flambda_lift_toplevel_inconstants f =
@@ -1251,8 +1239,6 @@ module type Optcommon_options = sig
   val _no_flambda_join_points : unit -> unit
   val _flambda_unbox_along_intra_function_control_flow : unit -> unit
   val _no_flambda_unbox_along_intra_function_control_flow : unit -> unit
-  val _flambda_lift_inconstants : unit -> unit
-  val _no_flambda_lift_inconstants : unit -> unit
   val _flambda_lift_toplevel_inconstants : unit -> unit
   val _no_flambda_lift_toplevel_inconstants : unit -> unit
   val _flambda_backend_cse_at_toplevel : unit -> unit
@@ -1609,8 +1595,6 @@ struct
       F._flambda_unbox_along_intra_function_control_flow;
     mk_no_flambda_unbox_along_intra_function_control_flow
       F._no_flambda_unbox_along_intra_function_control_flow;
-    mk_flambda_lift_inconstants F._flambda_lift_inconstants;
-    mk_no_flambda_lift_inconstants F._no_flambda_lift_inconstants;
     mk_flambda_lift_toplevel_inconstants
       F._flambda_lift_toplevel_inconstants;
     mk_no_flambda_lift_toplevel_inconstants
@@ -1776,8 +1760,6 @@ module Make_opttop_options (F : Opttop_options) = struct
       F._flambda_unbox_along_intra_function_control_flow;
     mk_no_flambda_unbox_along_intra_function_control_flow
       F._no_flambda_unbox_along_intra_function_control_flow;
-    mk_flambda_lift_inconstants F._flambda_lift_inconstants;
-    mk_no_flambda_lift_inconstants F._no_flambda_lift_inconstants;
     mk_flambda_lift_toplevel_inconstants
       F._flambda_lift_toplevel_inconstants;
     mk_no_flambda_lift_toplevel_inconstants
@@ -2091,8 +2073,6 @@ module Default = struct
       set Flambda.unbox_along_intra_function_control_flow
     let _no_flambda_unbox_along_intra_function_control_flow =
       clear Flambda.unbox_along_intra_function_control_flow
-    let _flambda_lift_inconstants = set Flambda.lift_inconstants
-    let _no_flambda_lift_inconstants = clear Flambda.lift_inconstants
     let _flambda_lift_toplevel_inconstants =
       set Flambda.lift_toplevel_inconstants
     let _no_flambda_lift_toplevel_inconstants =
