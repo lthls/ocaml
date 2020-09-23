@@ -174,6 +174,9 @@ let all_regular_tags =
     Tag.all_regular_tags
     Set.empty
 
+let zero_one_and_minus_one =
+  Set.of_list [int TO.zero; int TO.one; int TO.minus_one]
+
 let map_value1 f t =
   { t with
     value = f t.value;

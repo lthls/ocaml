@@ -382,6 +382,14 @@ let binary_int_comp_primitive _env dbg kind signed cmp x y =
   | (Naked_int32|Naked_int64|Naked_nativeint|Naked_immediate), Unsigned, Ge ->
     C.uge ~dbg x y
 
+let binary_int_comp_primitive_yielding_int _env dbg _kind
+      (signed : Flambda_primitive.signed_or_unsigned) x y =
+  match signed with
+  | Signed -> C.mk_compare_ints_untagged dbg x y
+  | Unsigned ->
+    Misc.fatal_error "Translation of [Int_comp] yielding an integer -1, 0 or 1 \
+      in unsigned mode is not yet implemented"
+
 let binary_float_arith_primitive _env dbg op x y =
   match (op : Flambda_primitive.binary_float_arith_op) with
   | Add -> C.float_add ~dbg x y
@@ -397,6 +405,9 @@ let binary_float_comp_primitive _env dbg op x y =
   | Gt -> C.float_gt ~dbg x y
   | Le -> C.float_le ~dbg x y
   | Ge -> C.float_ge ~dbg x y
+
+let binary_float_comp_primitive_yielding_int _env dbg x y =
+  C.mk_compare_floats_untagged dbg x y
 
 (* Primitives *)
 
@@ -469,12 +480,16 @@ let binary_primitive env dbg f x y =
     binary_int_arith_primitive env dbg kind op x y
   | Int_shift (kind, op) ->
     binary_int_shift_primitive env dbg kind op x y
-  | Int_comp (kind, signed, cmp) ->
+  | Int_comp (kind, signed, Yielding_bool cmp) ->
     binary_int_comp_primitive env dbg kind signed cmp x y
+  | Int_comp (kind, signed, Yielding_int_like_compare_functions) ->
+    binary_int_comp_primitive_yielding_int env dbg kind signed x y
   | Float_arith op ->
     binary_float_arith_primitive env dbg op x y
-  | Float_comp cmp ->
+  | Float_comp (Yielding_bool cmp) ->
     binary_float_comp_primitive env dbg cmp x y
+  | Float_comp Yielding_int_like_compare_functions ->
+    binary_float_comp_primitive_yielding_int env dbg x y
 
 let ternary_primitive _env dbg f x y z =
   match (f : Flambda_primitive.ternary_primitive) with

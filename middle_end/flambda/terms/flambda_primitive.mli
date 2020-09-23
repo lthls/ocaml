@@ -262,6 +262,13 @@ type unary_primitive =
         the id of the closure pointed at in the set of closures
         given as argument. *)
 
+(** Whether a comparison is to yield a boolean result, as given by a
+    particular comparison operator, or whether it is to behave in the manner
+    of "compare" functions that yield tagged immediates -1, 0 or 1. *)
+type 'op comparison_behaviour =
+  | Yielding_bool of 'op
+  | Yielding_int_like_compare_functions
+
 (** Binary arithmetic operations on integers. *)
 type binary_int_arith_op =
   | Add | Sub | Mul | Div | Mod | And | Or | Xor
@@ -282,9 +289,9 @@ type binary_primitive =
   | Int_arith of Flambda_kind.Standard_int.t * binary_int_arith_op
   | Int_shift of Flambda_kind.Standard_int.t * int_shift_op
   | Int_comp of Flambda_kind.Standard_int.t * signed_or_unsigned
-      * ordered_comparison
+      * (ordered_comparison comparison_behaviour)
   | Float_arith of binary_float_arith_op
-  | Float_comp of comparison
+  | Float_comp of comparison comparison_behaviour
 
 (** Primitives taking exactly three arguments. *)
 type ternary_primitive =

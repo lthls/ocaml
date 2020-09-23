@@ -951,7 +951,7 @@ and transl_prim_2 env p arg1 arg2 dbg =
   | Pcompare_floats ->
       let a1 = transl_unbox_float dbg env arg1 in
       let a2 = transl_unbox_float dbg env arg2 in
-      mk_compare_floats dbg a1 a2
+      tag_int (mk_compare_floats_untagged dbg a1 a2) dbg
   | Pisout ->
       transl_isout (transl env arg1) (transl env arg2) dbg
   (* Float operations *)
