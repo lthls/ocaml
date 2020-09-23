@@ -309,6 +309,10 @@ let array_index_kind = K.value
 let string_or_bigstring_index_kind = K.value
 let bytes_or_bigstring_index_kind = K.value
 
+type 'op comparison_behaviour =
+  | Yielding_bool of 'op
+  | Yielding_int_like_compare_functions
+
 type comparison = Eq | Neq | Lt | Gt | Le | Ge
 
 let print_comparison ppf c =
@@ -321,6 +325,12 @@ let print_comparison ppf c =
   | Gt -> fprintf ppf ">"
   | Ge -> fprintf ppf ">="
   end
+
+let print_comparison_and_behaviour ppf behaviour =
+  match behaviour with
+  | Yielding_bool op -> print_comparison ppf op
+  | Yielding_int_like_compare_functions ->
+    Format.pp_print_string ppf "<compare>"
 
 type signed_or_unsigned =
   | Signed
@@ -345,6 +355,17 @@ let print_ordered_comparison ppf signedness c =
     | Gt -> fprintf ppf ">"
     | Ge -> fprintf ppf ">="
     end
+
+let print_ordered_comparison_and_behaviour ppf signedness behaviour =
+  match behaviour with
+  | Yielding_bool op -> print_ordered_comparison ppf signedness op
+  | Yielding_int_like_compare_functions ->
+    let signedness =
+      match signedness with
+      | Signed -> "signed"
+      | Unsigned -> "unsigned"
+    in
+    Format.fprintf ppf "<ordered-%s-compare>" signedness
 
 type equality_comparison = Eq | Neq
 
@@ -902,9 +923,9 @@ type binary_primitive =
   | Int_arith of Flambda_kind.Standard_int.t * binary_int_arith_op
   | Int_shift of Flambda_kind.Standard_int.t * int_shift_op
   | Int_comp of Flambda_kind.Standard_int.t * signed_or_unsigned
-      * ordered_comparison
+      * (ordered_comparison comparison_behaviour)
   | Float_arith of binary_float_arith_op
-  | Float_comp of comparison
+  | Float_comp of (comparison comparison_behaviour)
 
 let binary_primitive_eligible_for_cse p =
   match p with
@@ -1033,9 +1054,10 @@ let print_binary_primitive ppf p =
       print_equality_comparison op
   | Int_arith (_k, op) -> print_binary_int_arith_op ppf op
   | Int_shift (_k, op) -> print_int_shift_op ppf op
-  | Int_comp (_, signedness, c) -> print_ordered_comparison ppf signedness c
+  | Int_comp (_, signedness, c) ->
+    print_ordered_comparison_and_behaviour ppf signedness c
   | Float_arith op -> print_binary_float_arith_op ppf op
-  | Float_comp c -> print_comparison ppf c; fprintf ppf "."
+  | Float_comp c -> print_comparison_and_behaviour ppf c; fprintf ppf "."
 
 let args_kind_of_binary_primitive p =
   match p with

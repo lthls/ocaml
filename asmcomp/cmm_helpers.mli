@@ -153,9 +153,14 @@ val mk_if_then_else :
 (** Boolean negation *)
 val mk_not : Debuginfo.t -> expression -> expression
 
-(** Integer and float comparison that returns int not bool *)
+(** Integer and float comparison that returns int not bool.
+    The untagged versions do not tag the result and do not optimise
+    known-constant cases. *)
 val mk_compare_ints : Debuginfo.t -> expression -> expression -> expression
-val mk_compare_floats : Debuginfo.t -> expression -> expression -> expression
+val mk_compare_ints_untagged :
+  Debuginfo.t -> expression -> expression -> expression
+val mk_compare_floats_untagged :
+  Debuginfo.t -> expression -> expression -> expression
 
 (** Loop construction (while true do expr done).
     Used to be represented as Cloop. *)

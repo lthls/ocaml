@@ -289,6 +289,14 @@ let binary_int_comp_primitive kind signed cmp =
   | (Naked_int32|Naked_int64|Naked_nativeint|Naked_immediate), Unsigned, Ge ->
     2
 
+let int_comparison_like_compare_functions (kind : Flambda_kind.Standard_int.t) =
+  match kind with
+  | Tagged_immediate
+  | Naked_immediate
+  | Naked_int32
+  | Naked_int64
+  | Naked_nativeint -> 4
+
 let binary_float_arith_primitive _op = 2
 
 let binary_float_comp_primitive _op = 2
@@ -331,12 +339,15 @@ let binary_prim_size prim =
     binary_int_arith_primitive kind op
   | Int_shift (kind, op) ->
     binary_int_shift_primitive kind op
-  | Int_comp (kind, signed, cmp) ->
+  | Int_comp (kind, signed, Yielding_bool cmp) ->
     binary_int_comp_primitive kind signed cmp
+  | Int_comp (kind, _, Yielding_int_like_compare_functions) ->
+    int_comparison_like_compare_functions kind
   | Float_arith op ->
     binary_float_arith_primitive op
-  | Float_comp cmp ->
+  | Float_comp (Yielding_bool cmp) ->
     binary_float_comp_primitive cmp
+  | Float_comp Yielding_int_like_compare_functions -> 8
 
 let ternary_prim_size prim =
   match (prim : Flambda_primitive.ternary_primitive) with
