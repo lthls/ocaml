@@ -51,7 +51,7 @@ let static_exn_env = ref Numbers.Int.Map.empty
 let try_stack = ref []
 let try_stack_at_handler = ref Continuation.Map.empty
 let recursive_static_catches = ref Numbers.Int.Set.empty
-let seen_let_mutable = ref false
+let mutable_variables = ref Ident.Set.empty
 
 let _print_stack ppf stack =
   Format.fprintf ppf "%a"
@@ -114,7 +114,11 @@ let compile_staticfail ~(continuation : Continuation.t) ~args =
 let rec cps_non_tail (lam : L.lambda) (k : Ident.t -> Ilambda.t)
           (k_exn : Continuation.t) : Ilambda.t =
   match lam with
-  | Lvar id -> k id
+  | Lvar id ->
+    if Ident.Set.mem id !mutable_variables then
+      name_then_cps_non_tail "mutable_read" (I.Simple (I.Var id)) k k_exn
+    else
+      k id
   | Lconst const ->
     name_then_cps_non_tail "const" (I.Simple (Const const)) k k_exn
   | Lapply { ap_func; ap_args; ap_loc; ap_should_be_tailcall; ap_inlined;
@@ -155,7 +159,7 @@ let rec cps_non_tail (lam : L.lambda) (k : Ident.t -> Ilambda.t)
     let body = k id in
     Let_rec ([id, func], body)
   | Llet (Variable, value_kind, id, defining_expr, body) ->
-    seen_let_mutable := true;
+    mutable_variables := Ident.Set.add id !mutable_variables;
     let temp_id = Ident.create_local "let_mutable" in
     let body = cps_non_tail body k k_exn in
     let after_defining_expr = Continuation.create () in
@@ -400,8 +404,9 @@ let rec cps_non_tail (lam : L.lambda) (k : Ident.t -> Ilambda.t)
 and cps_non_tail_simple (lam : L.lambda) (k : Ilambda.simple -> Ilambda.t)
       (k_exn : Continuation.t) : Ilambda.t =
   match lam with
-  | Lvar id -> k (Ilambda.Var id)
+  | Lvar id when not (Ident.Set.mem id !mutable_variables) -> k (Ilambda.Var id)
   | Lconst const -> k (Ilambda.Const const)
+  | Lvar _ (* mutable read *)
   | Lapply _
   | Lfunction _
   | Llet _
@@ -424,7 +429,11 @@ and cps_non_tail_simple (lam : L.lambda) (k : Ilambda.simple -> Ilambda.t)
 and cps_tail (lam : L.lambda) (k : Continuation.t) (k_exn : Continuation.t)
       : Ilambda.t =
   match lam with
-  | Lvar id -> Apply_cont (k, None, [Ilambda.Var id])
+  | Lvar id ->
+    if Ident.Set.mem id !mutable_variables then
+      name_then_cps_tail "mutable_read" (I.Simple (I.Var id)) k k_exn
+    else
+      Apply_cont (k, None, [Ilambda.Var id])
   | Lconst const ->
     name_then_cps_tail "const" (I.Simple (Const const)) k k_exn
   | Lapply apply ->
@@ -452,7 +461,7 @@ and cps_tail (lam : L.lambda) (k : Continuation.t) (k_exn : Continuation.t)
     let func = cps_function func in
     Let_rec ([id, func], Apply_cont (k, None, [Ilambda.Var id]))
   | Llet (Variable, value_kind, id, defining_expr, body) ->
-    seen_let_mutable := true;
+    mutable_variables := Ident.Set.add id !mutable_variables;
     let temp_id = Ident.create_local "let_mutable" in
     let body = cps_tail body k k_exn in
     let after_defining_expr = Continuation.create () in
@@ -791,7 +800,7 @@ let lambda_to_ilambda lam ~recursive_static_catches:recursive_static_catches'
   try_stack := [];
   try_stack_at_handler := Continuation.Map.empty;
   recursive_static_catches := recursive_static_catches';
-  seen_let_mutable := false;
+  mutable_variables := Ident.Set.empty;
   let the_end = Continuation.create ~sort:Define_root_symbol () in
   let the_end_exn = Continuation.create ~sort:Exn () in
   let ilam = cps_tail lam the_end the_end_exn in
@@ -803,5 +812,5 @@ let lambda_to_ilambda lam ~recursive_static_catches:recursive_static_catches'
   { expr = ilam;
     return_continuation = the_end;
     exn_continuation;
-    uses_mutable_variables = !seen_let_mutable;
+    uses_mutable_variables = not (Ident.Set.is_empty !mutable_variables);
   }
