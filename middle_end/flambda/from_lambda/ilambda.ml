@@ -54,6 +54,7 @@ and named =
       exn_continuation : exn_continuation option;
     }
   | Assign of { being_assigned : Ident.t; new_value : simple; }
+  | Mutable_read of Ident.t
 
 and let_mutable = {
   id : Ident.t;
@@ -174,6 +175,8 @@ and print_named ppf (named : named) =
   | Assign { being_assigned; new_value; } ->
     fprintf ppf "@[<2>(assign@ %a@ %a)@]" Ident.print being_assigned
       print_simple new_value
+  | Mutable_read id ->
+    fprintf ppf "@[<2>(read %a)@]" Ident.print id
 
 and print_trap_action ppf trap_action =
   match trap_action with

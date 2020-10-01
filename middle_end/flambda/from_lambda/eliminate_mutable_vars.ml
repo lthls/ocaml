@@ -51,10 +51,7 @@ module Env : sig
     -> Continuation.t
     -> (Ident.t * Lambda.value_kind) list
 
-  val rename_variable : t -> Ident.t -> Ident.t
-
-  val rename_simple : t -> Ilambda.simple -> Ilambda.simple
-  val rename_simples : t -> Ilambda.simple list -> Ilambda.simple list
+  val rename_mutable_variable : t -> Ident.t -> Ident.t
 end = struct
   type t = {
     current_values_of_mutables_in_scope
@@ -166,18 +163,12 @@ end = struct
   let extra_args_for_continuation t cont =
     List.map fst (extra_args_for_continuation_with_kinds t cont)
 
-  let rename_variable t id =
+  let rename_mutable_variable t id =
     match Ident.Map.find id t.current_values_of_mutables_in_scope with
-    | exception Not_found -> id
+    | exception Not_found ->
+      Misc.fatal_errorf "Mutable variable %a not bound in env"
+        Ident.print id
     | (id, _kind) -> id
-
-  let rename_simple t (simple : Ilambda.simple) : Ilambda.simple =
-    match simple with
-    | Var id -> Var (rename_variable t id)
-    | Const _ -> simple
-
-  let rename_simples t simples =
-    List.map (fun simple -> rename_simple t simple) simples
 end
 
 let transform_exn_continuation env
@@ -211,7 +202,6 @@ let rec transform_expr env (expr : Ilambda.t) : Ilambda.t =
     Let_rec (func_decls, body)
   | Let_cont let_cont -> Let_cont (transform_let_cont env let_cont)
   | Apply ({ exn_continuation; _ } as apply) ->
-    let apply = transform_apply env apply in
     let exn_continuation = transform_exn_continuation env exn_continuation in
     let extra_args = Env.extra_args_for_continuation env apply.continuation in
     begin match extra_args with
@@ -237,17 +227,14 @@ let rec transform_expr env (expr : Ilambda.t) : Ilambda.t =
       }
     end
   | Apply_cont (cont, trap_action, args) ->
-    let args = Env.rename_simples env args in
     let extra_args =
       List.map (fun var : Ilambda.simple -> Var var)
         (Env.extra_args_for_continuation env cont)
     in
     Apply_cont (cont, trap_action, args @ extra_args)
   | Switch (id, switch) ->
-    let id = Env.rename_variable env id in
     let consts_rev =
       List.fold_left (fun consts_rev (arm, cont, trap, args) ->
-          let args = Env.rename_simples env args in
           let extra_args = Env.extra_args_for_continuation env cont in
           let extra_args =
             List.map (fun arg : Ilambda.simple -> Var arg)
@@ -262,7 +249,6 @@ let rec transform_expr env (expr : Ilambda.t) : Ilambda.t =
       match switch.failaction with
       | None -> None
       | Some (cont, trap, args) ->
-        let args = Env.rename_simples env args in
         let extra_args = Env.extra_args_for_continuation env cont in
         let extra_args =
           List.map (fun arg : Ilambda.simple -> Var arg)
@@ -284,10 +270,8 @@ and transform_named env id user_visible kind (named : Ilambda.named) k
     Let (id, user_visible, kind, named, k env)
   in
   match named with
-  | Simple (Var id) -> normal_case (Simple (Var (Env.rename_variable env id)))
-  | Simple (Const _) -> normal_case named
+  | Simple _ -> normal_case named
   | Prim { prim; args; loc; exn_continuation; } ->
-    let args = Env.rename_simples env args in
     let exn_continuation =
       Option.map (transform_exn_continuation env) exn_continuation
     in
@@ -295,9 +279,11 @@ and transform_named env id user_visible kind (named : Ilambda.named) k
   | Assign { being_assigned; new_value; } ->
     let env, new_id, new_kind = Env.new_id_for_mutable env being_assigned in
     Let (new_id, User_visible, new_kind,
-      Simple (Env.rename_simple env new_value),
+      Simple new_value,
       Let (id, Not_user_visible, kind,
         Simple (Const (Const_base (Const_int 0))), k env))
+  | Mutable_read id ->
+    normal_case (Simple (Var (Env.rename_mutable_variable env id)))
 
 and transform_let_mutable env
       ({ id; initial_value; contents_kind; body; } : Ilambda.let_mutable)
@@ -322,30 +308,6 @@ and transform_let_cont env
     recursive;
     body = transform_expr body_env body;
     handler = transform_expr handler_env handler;
-  }
-
-and transform_apply env
-      ({ kind; func; args; continuation; exn_continuation;
-         loc; should_be_tailcall; inlined; specialised;
-       } : Ilambda.apply) : Ilambda.apply =
-  let kind : Ilambda.apply_kind =
-    match kind with
-    | Function -> Function
-    | Method { kind; obj; } ->
-      Method {
-        kind;
-        obj = Env.rename_simple env obj;
-      }
-  in
-  { kind;
-    func = Env.rename_variable env func;
-    args = Env.rename_simples env args;
-    continuation;
-    exn_continuation;
-    loc;
-    should_be_tailcall;
-    inlined;
-    specialised;
   }
 
 and transform_function_declaration _env

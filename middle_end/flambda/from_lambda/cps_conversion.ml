@@ -116,7 +116,7 @@ let rec cps_non_tail (lam : L.lambda) (k : Ident.t -> Ilambda.t)
   match lam with
   | Lvar id ->
     if Ident.Set.mem id !mutable_variables then
-      name_then_cps_non_tail "mutable_read" (I.Simple (I.Var id)) k k_exn
+      name_then_cps_non_tail "mutable_read" (I.Mutable_read id) k k_exn
     else
       k id
   | Lconst const ->
@@ -431,7 +431,7 @@ and cps_tail (lam : L.lambda) (k : Continuation.t) (k_exn : Continuation.t)
   match lam with
   | Lvar id ->
     if Ident.Set.mem id !mutable_variables then
-      name_then_cps_tail "mutable_read" (I.Simple (I.Var id)) k k_exn
+      name_then_cps_tail "mutable_read" (I.Mutable_read id) k k_exn
     else
       Apply_cont (k, None, [Ilambda.Var id])
   | Lconst const ->
@@ -726,12 +726,13 @@ and cps_switch (switch : proto_switch) ~scrutinee (k : Continuation.t)
   let consts_rev, wrappers =
     List.fold_left (fun (consts_rev, wrappers) (arm, (action : L.lambda)) ->
         match action with
-        | Lvar var ->
+        | Lvar var when not (Ident.Set.mem var !mutable_variables) ->
           let consts_rev = (arm, k, None, [Ilambda.Var var]) :: consts_rev in
           consts_rev, wrappers
         | Lconst cst ->
           let consts_rev = (arm, k, None, [Ilambda.Const cst]) :: consts_rev in
           consts_rev, wrappers
+        | Lvar _ (* mutable *)
         | Lapply _
         | Lfunction _
         | Llet _

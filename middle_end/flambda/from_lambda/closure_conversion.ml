@@ -645,9 +645,9 @@ and close_named t env ~let_bound_var (named : Ilambda.named)
   | Prim { prim; args; loc; exn_continuation; } ->
     close_primitive t env ~let_bound_var named prim ~args loc
       exn_continuation k
-  | Assign _ ->
-    Misc.fatal_error "[Assign] should have been removed by \
-      [Eliminate_mutable_vars]"
+  | Assign _ | Mutable_read _ ->
+    Misc.fatal_error "[Assign] and [Mutable_read] should have been removed \
+      by [Eliminate_mutable_vars]"
 
 and close_let_rec t env ~defs ~body =
   let env =

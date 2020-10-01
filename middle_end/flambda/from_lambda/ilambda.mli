@@ -74,6 +74,7 @@ and named =
     (** Set [exn_continuation] to [None] iff the given primitive can never
         raise. *)
   | Assign of { being_assigned : Ident.t; new_value : simple; }
+  | Mutable_read of Ident.t
 
 and let_mutable = {
   id : Ident.t;
