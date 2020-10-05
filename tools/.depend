@@ -111,9 +111,11 @@ objinfo.cmx : \
     ../file_formats/cmi_format.cmx \
     ../bytecomp/bytesections.cmx
 ocamlcp.cmo : \
-    ../driver/main_args.cmi
+    ../driver/main_args.cmi \
+    ../driver/compenv.cmi
 ocamlcp.cmx : \
-    ../driver/main_args.cmx
+    ../driver/main_args.cmx \
+    ../driver/compenv.cmx
 ocamldep.cmo : \
     ../driver/makedepend.cmi
 ocamldep.cmx : \
@@ -133,9 +135,11 @@ ocamlmktop.cmo : \
 ocamlmktop.cmx : \
     ../utils/ccomp.cmx
 ocamloptp.cmo : \
-    ../driver/main_args.cmi
+    ../driver/main_args.cmi \
+    ../driver/compenv.cmi
 ocamloptp.cmx : \
-    ../driver/main_args.cmx
+    ../driver/main_args.cmx \
+    ../driver/compenv.cmx
 ocamlprof.cmo : \
     ../utils/warnings.cmi \
     ../parsing/parsetree.cmi \
