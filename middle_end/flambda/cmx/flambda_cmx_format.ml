@@ -106,12 +106,26 @@ let create ~final_typing_env ~all_code ~exported_offsets ~used_closure_vars =
 let import_typing_env_and_code0 t =
   (* First create map for data that does not contain ids, i.e. everything
      except simples *)
-  let symbols = Symbol.Map.map Symbol.import t.table_data.symbols in
-  let variables = Variable.Map.map Variable.import t.table_data.variables in
-  let consts = Const.Map.map Const.import t.table_data.consts in
-  let code_ids = Code_id.Map.map Code_id.import t.table_data.code_ids in
+  let filter import =
+    fun key data ->
+      let new_key = import data in
+      if key == new_key then None else Some new_key
+  in
+  let symbols =
+    Symbol.Map.filter_map (filter Symbol.import) t.table_data.symbols
+  in
+  let variables =
+    Variable.Map.filter_map (filter Variable.import) t.table_data.variables
+  in
+  let consts =
+    Const.Map.filter_map (filter Const.import) t.table_data.consts
+  in
+  let code_ids =
+    Code_id.Map.filter_map (filter Code_id.import) t.table_data.code_ids
+  in
   let continuations =
-    Continuation.Map.map Continuation.import t.table_data.continuations
+    Continuation.Map.filter_map (filter Continuation.import)
+      t.table_data.continuations
   in
   let used_closure_vars = t.used_closure_vars in
   (* Build a simple to simple converter from this *)
@@ -128,7 +142,8 @@ let import_typing_env_and_code0 t =
   let map_simple = Ids_for_export.Import_map.simple import_map in
   (* Then convert the simples *)
   let simples =
-    Simple.Map.map (Simple.import map_simple) t.table_data.simples
+    Simple.Map.filter_map (filter (Simple.import map_simple))
+      t.table_data.simples
   in
   let import_map =
     Ids_for_export.Import_map.create
