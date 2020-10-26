@@ -738,6 +738,8 @@ ocamlopt-memtrace.opt: ocamlopt.opt otherlibrariesopt memprof/memtrace
 	$(MAKE) -C memprof/memtrace allopt
 	cp memprof/memtrace/ocamlopt-memtrace.opt $@
 
+partialclean::
+	$(MAKE) -C memprof/memtrace clean
 
 ilambdac.opt: compilerlibs/ocamlcommon.cmxa compilerlibs/ocamloptcomp.cmxa \
               $(ILAMBDASTART:.cmo=.cmx)
