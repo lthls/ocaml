@@ -55,6 +55,7 @@ end
 module Data = struct
   type t = {
     compilation_unit : Compilation_unit.t;
+    previous_compilation_units : Compilation_unit.t list;
     name : string;
     name_stamp : int;
     sort : Sort.t;
@@ -62,7 +63,8 @@ module Data = struct
 
   let flags = continuation_flags
 
-  let print ppf { compilation_unit; name; name_stamp; sort; } =
+  let print ppf { compilation_unit; name; name_stamp; sort;
+                  previous_compilation_units = _; } =
     Format.fprintf ppf "@[<hov 1>(\
         @[<hov 1>(compilation_unit@ %a)@]@ \
         @[<hov 1>(name@ %s)@]@ \
@@ -74,22 +76,38 @@ module Data = struct
       name_stamp
       Sort.print sort
 
-  let hash { compilation_unit; name = _; name_stamp; sort = _; } =
-    Hashtbl.hash (Compilation_unit.hash compilation_unit, name_stamp)
+  let hash { compilation_unit; previous_compilation_units;
+             name = _; name_stamp; sort = _; } =
+    Hashtbl.hash (List.map Compilation_unit.hash
+                    (compilation_unit :: previous_compilation_units),
+                  name_stamp)
 
   let equal t1 t2 =
     if t1 == t2 then true
     else
       let { compilation_unit = compilation_unit1; name_stamp = name_stamp1;
+            previous_compilation_units = previous_compilation_units1;
             name = _; sort = _
           } = t1
       in
       let { compilation_unit = compilation_unit2; name_stamp = name_stamp2;
+            previous_compilation_units = previous_compilation_units2;
             name = _; sort = _
           } = t2
       in
+      let rec previous_compilation_units_match l1 l2 =
+        match l1, l2 with
+        | [], [] -> true
+        | [], _ :: _ | _ :: _, [] -> false
+        | unit1 :: tl1, unit2 :: tl2 ->
+          Compilation_unit.equal unit1 unit2
+          && previous_compilation_units_match tl1 tl2
+      in
       Int.equal name_stamp1 name_stamp2
         && Compilation_unit.equal compilation_unit1 compilation_unit2
+        && previous_compilation_units_match
+             previous_compilation_units1
+             previous_compilation_units2
 end
 
 type t = Id.t
@@ -106,14 +124,20 @@ let create ?sort ?name () : t =
   let sort = Option.value sort ~default:Sort.Normal in
   let name = Option.value name ~default:"k" in
   let compilation_unit = Compilation_unit.get_current_exn () in
+  let previous_compilation_units = [] in
   let name_stamp = next_raise_count () in
-  let data : Data.t = { compilation_unit; name; name_stamp; sort } in
+  let data : Data.t =
+    { compilation_unit; previous_compilation_units; name; name_stamp; sort }
+  in
   Table.add !grand_table_of_continuations data
 
 let find_data t = Table.find !grand_table_of_continuations t
 
 let rename t =
-  let { Data.name; sort; name_stamp = _; compilation_unit = _ } = find_data t in
+  let { Data.name; sort; name_stamp = _; compilation_unit = _;
+        previous_compilation_units = _;
+      } = find_data t
+  in
   create ~sort ~name ()
 
 let name t = (find_data t).name
@@ -156,8 +180,15 @@ let export t = find_data t
 
 let import data = Table.add !grand_table_of_continuations data
 
-let map_compilation_unit f (data : Data.t) =
-  { data with compilation_unit = f data.compilation_unit }
+let map_compilation_unit f (data : Data.t) : Data.t =
+  let new_compilation_unit = f data.compilation_unit in
+  if Compilation_unit.equal new_compilation_unit data.compilation_unit
+  then data
+  else
+    { data with compilation_unit = new_compilation_unit;
+                previous_compilation_units =
+                  data.compilation_unit :: data.previous_compilation_units;
+    }
 
 module With_args = struct
   type nonrec t = t * Variable.t list
