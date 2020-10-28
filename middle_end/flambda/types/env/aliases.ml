@@ -26,10 +26,10 @@ module Aliases_of_canonical_element : sig
 
   val add : t -> Simple.t -> Name_mode.t -> t
 
-  val find_earliest_candidates_exn
+  val find_earliest_candidates
      : t
     -> min_name_mode:Name_mode.t
-    -> Simple.Set.t
+    -> Simple.Set.t option
 
   val all : t -> Simple.Set.t
 
@@ -82,18 +82,21 @@ end = struct
       all;
     }
 
-  let find_earliest_candidates_exn t ~min_name_mode =
-    let _order, elts =
-      Name_mode.Map.find_first (fun order ->
-          match
+  let find_earliest_candidates t ~min_name_mode =
+    Name_mode.Map.fold (fun order aliases res_opt ->
+        match res_opt with
+        | Some _ -> res_opt
+        | None ->
+          begin match
             Name_mode.compare_partial_order
               order min_name_mode
           with
-          | None -> false
-          | Some result -> result >= 0)
-        t.aliases
-    in
-    elts
+          | None -> None
+          | Some result ->
+            if result >= 0 then Some aliases else None
+          end)
+      t.aliases
+      None
 
   let mem t elt =
     Simple.Set.mem elt t.all
@@ -452,21 +455,21 @@ Format.eprintf "looking for canonical for %a, candidate canonical %a, min order 
 *)
     let find_earliest () =
       let aliases = get_aliases_of_canonical_element t ~canonical_element in
-      let at_earliest_mode =
-        (* May raise Not_found if no aliases exist at a mode compatible with
-           min_name_mode *)
-        Aliases_of_canonical_element.find_earliest_candidates_exn aliases
+      match
+        Aliases_of_canonical_element.find_earliest_candidates aliases
           ~min_name_mode
-      in
-      (* Aliases_of_canonical_element.find_earliest_candidates_exn only returns
-         non-empty sets *)
-      assert (not (Simple.Set.is_empty at_earliest_mode));
-      Simple.Set.fold (fun elt min_elt ->
-          if defined_earlier t elt ~than:min_elt
-          then elt
-          else min_elt)
-        at_earliest_mode
-        (Simple.Set.min_elt at_earliest_mode)
+      with
+      | Some at_earliest_mode ->
+        (* Aliases_of_canonical_element.find_earliest_candidates only returns
+           non-empty sets *)
+        assert (not (Simple.Set.is_empty at_earliest_mode));
+        Simple.Set.fold (fun elt min_elt ->
+            if defined_earlier t elt ~than:min_elt
+            then elt
+            else min_elt)
+          at_earliest_mode
+          (Simple.Set.min_elt at_earliest_mode)
+      | None -> raise Not_found
     in
     match
       Name_mode.compare_partial_order
