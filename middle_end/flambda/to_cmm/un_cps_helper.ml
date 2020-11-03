@@ -143,7 +143,11 @@ let and_ = binary Cmm.Cand
 let or_ = binary Cmm.Cor
 let xor_ = binary Cmm.Cxor
 
-let eq = binary Cmm.(Ccmpi Ceq)
+let eq ?(dbg=Debuginfo.none) x y =
+  match x, y with
+  | Cmm.Cconst_int (n, _), Cmm.Cop(Csubi, [Cconst_int (m, _); c], _) ->
+    binary Cmm.(Ccmpi Ceq) ~dbg c (Cmm.Cconst_int (m - n, dbg))
+  | _, _ -> binary Cmm.(Ccmpi Ceq) ~dbg x y
 let neq = binary Cmm.(Ccmpi Cne)
 
 let lt = binary Cmm.(Ccmpi Clt)
