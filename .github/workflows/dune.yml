@@ -42,7 +42,7 @@ jobs:
     # ### STEP 0 ###
     # Setup the env
     - name: Setup PATH
-      run: echo "::add-path::$GITHUB_WORKSPACE/install/bin"
+      run: echo "$GITHUB_WORKSPACE/install/bin" >> $GITHUB_PATH
     # Checkout the branch to test
     - name: Checkout the repo
       uses: actions/checkout@master
