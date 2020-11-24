@@ -534,7 +534,8 @@ end = struct
                   ~suitable_for:typing_env
                   ~bind_to:sym
               in
-              TE.add_env_extension typing_env env_extension)
+              TE.add_env_extension_with_extra_variables typing_env
+                env_extension)
           types_of_symbols
           typing_env)
     in

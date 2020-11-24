@@ -19,7 +19,9 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-type t
+type t = private {
+  equations : Type_grammar.t Name.Map.t;
+}[@@unboxed]
 
 val print : Format.formatter -> t -> unit
 
@@ -27,22 +29,36 @@ val invariant : t -> unit
 
 val empty : unit -> t
 
-val is_empty : t -> bool
-
-val create : Typing_env_level.t -> t
-
-val pattern_match : t -> f:(Typing_env_level.t -> 'a) -> 'a
-
 val one_equation : Name.t -> Type_grammar.t -> t
 
 val add_or_replace_equation : t -> Name.t -> Type_grammar.t -> t
 
-val meet : Meet_env.t -> t -> t -> t
-
-(** Same as [meet], but more efficient when the domains are disjoint.
-    Optimised for when the [ext] argument is smaller. *)
-val extend : Meet_env.t -> t -> ext:t -> t
+val meet : Meet_env.t -> t -> t -> t Or_bottom.t
 
 val n_way_meet : Meet_env.t -> t list -> t
 
-val join : Meet_or_join_env.t -> params:Kinded_parameter.t list -> t -> t -> t
+(* Note: [join] takes a [Meet_env.t] argument on purpose: Typing_env_extensions
+   are created for meets, and this function is here for case where a meet
+   produces a disjunction, in which case the extensions must be joined together.
+*)
+val join : Meet_env.t -> t -> t -> t
+
+module With_extra_variables : sig
+  type t = private {
+    existential_vars : Flambda_kind.t Variable.Map.t;
+    equations : Type_grammar.t Name.Map.t;
+  }
+
+  val print : Format.formatter -> t -> unit
+
+  val empty : unit -> t
+
+  val add_definition
+     : t
+    -> Variable.t
+    -> Flambda_kind.t
+    -> Type_grammar.t
+    -> t
+
+  val add_or_replace_equation : t -> Name.t -> Type_grammar.t -> t
+end

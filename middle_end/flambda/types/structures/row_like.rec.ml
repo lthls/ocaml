@@ -134,13 +134,12 @@ struct
   let meet (meet_env : Meet_env.t) t1 t2 : (t * Typing_env_extension.t) Or_bottom.t =
     let ({ known_tags = known1; other_tags = other1; } : t) = t1 in
     let ({ known_tags = known2; other_tags = other2; } : t) = t2 in
-    let join_env = Meet_or_join_env.create_for_meet meet_env in
     let env_extension = ref None in
     let join_env_extension ext =
       match !env_extension with
       | None -> env_extension := Some ext
       | Some ext2 ->
-        env_extension := Some (TEE.join ~params:[] join_env ext2 ext)
+        env_extension := Some (TEE.join meet_env ext2 ext)
     in
     let meet_index i1 i2 : index Or_bottom.t =
       match i1, i2 with
@@ -212,7 +211,7 @@ struct
       in
       Ok (result, env_extension)
 
-    let join (env : Meet_or_join_env.t) t1 t2 : t =
+    let join (env : Meet_or_join_env.t) t1 t2 : _ Or_unknown.t =
       let ({ known_tags = known1; other_tags = other1; } : t) = t1 in
       let ({ known_tags = known2; other_tags = other2; } : t) = t2 in
       let join_index i1 i2 : index =
@@ -231,7 +230,13 @@ struct
       in
       let join_case env case1 case2 =
         let index = join_index case1.index case2.index in
-        let maps_to = Maps_to.join env case1.maps_to case2.maps_to in
+        let maps_to =
+          match Maps_to.join env case1.maps_to case2.maps_to with
+          | Known maps_to -> maps_to
+          | Unknown ->
+            (* CR vlaviron: Handle this properly *)
+            Misc.fatal_error "Row_like.join: Unexpected Unknown result"
+        in
         { maps_to; index }
       in
       let join_knowns_tags case1 case2 : case option =
@@ -246,7 +251,7 @@ struct
                  Same bellow *)
               (* CR pchambart: This seams terribly inefficient. *)
               let env =
-                Meet_or_join_env.create_for_join
+                Meet_or_join_env.create
                   (Meet_or_join_env.target_join_env env)
                   ~left_env:(Meet_or_join_env.left_join_env env)
                   ~right_env:(Meet_or_join_env.left_join_env env)
@@ -261,7 +266,7 @@ struct
             | Bottom ->
               (* See at the other bottom case *)
               let env =
-                Meet_or_join_env.create_for_join
+                Meet_or_join_env.create
                   (Meet_or_join_env.target_join_env env)
                   ~left_env:(Meet_or_join_env.right_join_env env)
                   ~right_env:(Meet_or_join_env.right_join_env env)
@@ -285,7 +290,7 @@ struct
         | Ok other1, Bottom ->
           (* See the previous cases *)
           let env =
-            Meet_or_join_env.create_for_join
+            Meet_or_join_env.create
               (Meet_or_join_env.target_join_env env)
               ~left_env:(Meet_or_join_env.left_join_env env)
               ~right_env:(Meet_or_join_env.left_join_env env)
@@ -295,7 +300,7 @@ struct
         | Bottom, Ok other2 ->
           (* See the previous cases *)
           let env =
-            Meet_or_join_env.create_for_join
+            Meet_or_join_env.create
               (Meet_or_join_env.target_join_env env)
               ~left_env:(Meet_or_join_env.right_join_env env)
               ~right_env:(Meet_or_join_env.right_join_env env)
@@ -305,7 +310,7 @@ struct
         | Ok other1, Ok other2 ->
           Ok (join_case env other1 other2)
       in
-      { known_tags; other_tags }
+      Known { known_tags; other_tags }
 
     let get_singleton { known_tags; other_tags; } =
       match other_tags with

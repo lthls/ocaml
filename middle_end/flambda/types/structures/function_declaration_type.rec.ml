@@ -139,155 +139,156 @@ let apply_name_permutation (t : t) perm : t =
   | Ok (Non_inlinable non_inlinable) ->
     Ok (Non_inlinable (Non_inlinable.apply_name_permutation non_inlinable perm))
 
-module Make_meet_or_join
-  (E : Lattice_ops_intf.S
-   with type meet_env := Meet_env.t
-   with type meet_or_join_env := Meet_or_join_env.t
-   with type typing_env := Typing_env.t
-   with type typing_env_extension := Typing_env_extension.t) =
-struct
-  let meet_or_join (env : Meet_or_join_env.t) (t1 : t) (t2 : t)
-        : (t * TEE.t) Or_bottom.t =
-    match t1, t2 with
-    (* CR mshinwell: Try to factor out "Or_unknown_or_bottom" handling from here
-       and elsewhere *)
-    | Bottom, Bottom -> Ok (Bottom, TEE.empty ())
-    | Bottom, _ ->
-      begin match E.op () with
-      | Meet -> Ok (Bottom, TEE.empty ())
-      | Join -> Ok (t2, TEE.empty ())
-      end
-    | _, Bottom ->
-      begin match E.op () with
-      | Meet -> Ok (Bottom, TEE.empty ())
-      | Join -> Ok (t1, TEE.empty ())
-      end
-    | Unknown, Unknown -> Ok (Unknown, TEE.empty ())
-    | Unknown, _ ->
-      begin match E.op () with
-      | Meet -> Ok (t2, TEE.empty ())
-      | Join -> Ok (Unknown, TEE.empty ())
-      end
-    | _, Unknown ->
-      begin match E.op () with
-      | Meet -> Ok (t1, TEE.empty ())
-      | Join -> Ok (Unknown, TEE.empty ())
-      end
-    | Ok (Non_inlinable {
-        code_id = code_id1; is_tupled = is_tupled1;
-      }), Ok (Non_inlinable {
-        code_id = code_id2; is_tupled = is_tupled2;
-      }) ->
-      let typing_env = Meet_or_join_env.target_join_env env in
-      let target_code_age_rel = TE.code_age_relation typing_env in
-      let resolver = TE.code_age_relation_resolver typing_env in
-      let check_other_things_and_return code_id : (t * TEE.t) Or_bottom.t =
-        assert (Bool.equal is_tupled1 is_tupled2);
-        Ok (Ok (Non_inlinable {
-            code_id;
-            is_tupled = is_tupled1;
-          }),
-          TEE.empty ())
-      in
-      begin match E.op () with
-      | Meet ->
-        begin match
-          Code_age_relation.meet target_code_age_rel ~resolver code_id1 code_id2
-        with
-        | Ok code_id -> check_other_things_and_return code_id
-        | Bottom -> Bottom
-        end
-      | Join ->
-        let code_age_rel1 =
-          TE.code_age_relation (Meet_or_join_env.left_join_env env)
-        in
-        let code_age_rel2 =
-          TE.code_age_relation (Meet_or_join_env.right_join_env env)
-        in
-        begin match
-          Code_age_relation.join ~target_t:target_code_age_rel ~resolver
-            code_age_rel1 code_age_rel2 code_id1 code_id2
-        with
-        | Known code_id -> check_other_things_and_return code_id
-        | Unknown -> Ok (Unknown, TEE.empty ())
-        end
-      end
-    | Ok (Non_inlinable _), Ok (Inlinable _)
-    | Ok (Inlinable _), Ok (Non_inlinable _) ->
-      (* CR mshinwell: This should presumably return [Non_inlinable] if
-         the arities match. *)
-      Ok (Unknown, TEE.empty ())
-    | Ok (Inlinable {
-        code_id = code_id1;
-        dbg = dbg1;
-        rec_info = _rec_info1;
-        is_tupled = is_tupled1;
-      }),
-      Ok (Inlinable {
-        code_id = code_id2;
-        dbg = dbg2;
-        rec_info = _rec_info2;
-        is_tupled = is_tupled2;
-      }) ->
-      let typing_env = Meet_or_join_env.target_join_env env in
-      let target_code_age_rel = TE.code_age_relation typing_env in
-      let resolver = TE.code_age_relation_resolver typing_env in
-      let check_other_things_and_return code_id : (t * TEE.t) Or_bottom.t =
-        assert (Int.equal (Debuginfo.compare dbg1 dbg2) 0);
-        assert (Bool.equal is_tupled1 is_tupled2);
-        Ok (Ok (Inlinable {
-            code_id;
-            dbg = dbg1;
-            rec_info = _rec_info1;
-            is_tupled = is_tupled1;
-          }),
-          TEE.empty ())
-      in
-      (* CR mshinwell: What about [rec_info]? *)
-      match E.op () with
-      | Meet ->
-        begin match
-          Code_age_relation.meet target_code_age_rel ~resolver code_id1 code_id2
-        with
-        | Ok code_id -> check_other_things_and_return code_id
-        | Bottom -> Bottom
-        end
-      | Join ->
-        let code_age_rel1 =
-          TE.code_age_relation (Meet_or_join_env.left_join_env env)
-        in
-        let code_age_rel2 =
-          TE.code_age_relation (Meet_or_join_env.right_join_env env)
-        in
-        begin match
-          Code_age_relation.join ~target_t:target_code_age_rel ~resolver
-            code_age_rel1 code_age_rel2 code_id1 code_id2
-        with
-        | Known code_id -> check_other_things_and_return code_id
-        | Unknown -> Ok (Unknown, TEE.empty ())
-        end
-end
+let meet (env : Meet_env.t) (t1 : t) (t2 : t)
+      : (t * TEE.t) Or_bottom.t =
+  match t1, t2 with
+  (* CR mshinwell: Try to factor out "Or_unknown_or_bottom" handling from here
+     and elsewhere *)
+  | Bottom, _ | _, Bottom -> Ok (Bottom, TEE.empty ())
+  | Unknown, t | t, Unknown -> Ok (t, TEE.empty ())
+  | Ok (Non_inlinable {
+      code_id = code_id1; is_tupled = is_tupled1;
+    }), Ok (Non_inlinable {
+      code_id = code_id2; is_tupled = is_tupled2;
+    }) ->
+    let typing_env = Meet_env.env env in
+    let target_code_age_rel = TE.code_age_relation typing_env in
+    let resolver = TE.code_age_relation_resolver typing_env in
+    let check_other_things_and_return code_id : (t * TEE.t) Or_bottom.t =
+      assert (Bool.equal is_tupled1 is_tupled2);
+      Ok (Ok (Non_inlinable {
+          code_id;
+          is_tupled = is_tupled1;
+        }),
+        TEE.empty ())
+    in
+    begin match
+      Code_age_relation.meet target_code_age_rel ~resolver code_id1 code_id2
+    with
+    | Ok code_id -> check_other_things_and_return code_id
+    | Bottom -> Bottom
+    end
+  | Ok (Non_inlinable _), Ok (Inlinable _)
+  | Ok (Inlinable _), Ok (Non_inlinable _) ->
+    (* CR mshinwell: This should presumably return [Non_inlinable] if
+       the arities match. *)
+    (* CR vlaviron: The above comment was from before meet and join were split.
+       Now that we know we're in meet, we can actually keep either of them
+       (the inlinable one seems better) *)
+    Ok (Unknown, TEE.empty ())
+  | Ok (Inlinable {
+      code_id = code_id1;
+      dbg = dbg1;
+      rec_info = _rec_info1;
+      is_tupled = is_tupled1;
+    }),
+    Ok (Inlinable {
+      code_id = code_id2;
+      dbg = dbg2;
+      rec_info = _rec_info2;
+      is_tupled = is_tupled2;
+    }) ->
+    let typing_env = Meet_env.env env in
+    let target_code_age_rel = TE.code_age_relation typing_env in
+    let resolver = TE.code_age_relation_resolver typing_env in
+    let check_other_things_and_return code_id : (t * TEE.t) Or_bottom.t =
+      assert (Int.equal (Debuginfo.compare dbg1 dbg2) 0);
+      assert (Bool.equal is_tupled1 is_tupled2);
+      Ok (Ok (Inlinable {
+          code_id;
+          dbg = dbg1;
+          rec_info = _rec_info1;
+          is_tupled = is_tupled1;
+        }),
+        TEE.empty ())
+    in
+    (* CR mshinwell: What about [rec_info]? *)
+    begin match
+      Code_age_relation.meet target_code_age_rel ~resolver code_id1 code_id2
+    with
+    | Ok code_id -> check_other_things_and_return code_id
+    | Bottom -> Bottom
+    end
 
-module Meet = Make_meet_or_join (Lattice_ops.For_meet)
-module Join = Make_meet_or_join (Lattice_ops.For_join)
-
-let meet env t1 t2 : _ Or_bottom.t =
-  let env = Meet_or_join_env.create_for_meet env in
-  match Meet.meet_or_join env t1 t2 with
-  | Bottom | Ok (Bottom, _) -> Bottom
-  | Ok ((Ok _ | Unknown) as t, env_extension) -> Ok (t, env_extension)
-
-let join env t1 t2 : t =
-(*
-  Format.eprintf "FDT.join:@ %a@ and@ %a@ in:@ %a\n%!"
-    print t1 print t2
-    Meet_or_join_env.print env;
-    *)
-  match Join.meet_or_join env t1 t2 with
-  | Bottom | Ok (Bottom, _) -> Bottom
-  | Ok ((Ok _ | Unknown) as t, env_extension) ->
-    assert (TEE.is_empty env_extension);
-    t
+let join (env : Meet_or_join_env.t) (t1 : t) (t2 : t)
+      : t Or_unknown.t =
+  let unknown : t Or_unknown.t = Known Unknown in
+  match t1, t2 with
+  (* CR mshinwell: Try to factor out "Or_unknown_or_bottom" handling from here
+     and elsewhere *)
+  | Bottom, t | t, Bottom -> Known t
+  | Unknown, _ | _, Unknown -> unknown
+  | Ok (Non_inlinable {
+      code_id = code_id1; is_tupled = is_tupled1;
+    }), Ok (Non_inlinable {
+      code_id = code_id2; is_tupled = is_tupled2;
+    }) ->
+    let typing_env = Meet_or_join_env.target_join_env env in
+    let target_code_age_rel = TE.code_age_relation typing_env in
+    let resolver = TE.code_age_relation_resolver typing_env in
+    let check_other_things_and_return code_id : t Or_unknown.t =
+      assert (Bool.equal is_tupled1 is_tupled2);
+      Known (Ok (Non_inlinable {
+          code_id;
+          is_tupled = is_tupled1; }))
+    in
+    let code_age_rel1 =
+      TE.code_age_relation (Meet_or_join_env.left_join_env env)
+    in
+    let code_age_rel2 =
+      TE.code_age_relation (Meet_or_join_env.right_join_env env)
+    in
+    begin match
+      Code_age_relation.join ~target_t:target_code_age_rel ~resolver
+        code_age_rel1 code_age_rel2 code_id1 code_id2
+    with
+    | Known code_id -> check_other_things_and_return code_id
+    | Unknown -> unknown
+    end
+  | Ok (Non_inlinable _), Ok (Inlinable _)
+  | Ok (Inlinable _), Ok (Non_inlinable _) ->
+    (* CR mshinwell: This should presumably return [Non_inlinable] if
+       the arities match. *)
+    unknown
+  | Ok (Inlinable {
+      code_id = code_id1;
+      dbg = dbg1;
+      rec_info = _rec_info1;
+      is_tupled = is_tupled1;
+    }),
+    Ok (Inlinable {
+      code_id = code_id2;
+      dbg = dbg2;
+      rec_info = _rec_info2;
+      is_tupled = is_tupled2;
+    }) ->
+    let typing_env = Meet_or_join_env.target_join_env env in
+    let target_code_age_rel = TE.code_age_relation typing_env in
+    let resolver = TE.code_age_relation_resolver typing_env in
+    let check_other_things_and_return code_id : t Or_unknown.t =
+      assert (Int.equal (Debuginfo.compare dbg1 dbg2) 0);
+      assert (Bool.equal is_tupled1 is_tupled2);
+      Known (Ok (Inlinable {
+          code_id;
+          dbg = dbg1;
+          rec_info = _rec_info1;
+          is_tupled = is_tupled1;
+        }))
+    in
+    (* CR mshinwell: What about [rec_info]? *)
+    let code_age_rel1 =
+      TE.code_age_relation (Meet_or_join_env.left_join_env env)
+    in
+    let code_age_rel2 =
+      TE.code_age_relation (Meet_or_join_env.right_join_env env)
+    in
+    begin match
+      Code_age_relation.join ~target_t:target_code_age_rel ~resolver
+        code_age_rel1 code_age_rel2 code_id1 code_id2
+    with
+    | Known code_id -> check_other_things_and_return code_id
+    | Unknown -> unknown
+    end
 
 let apply_rec_info (t : t) rec_info : t Or_bottom.t =
   match t with

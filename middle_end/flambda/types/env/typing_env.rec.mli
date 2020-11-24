@@ -83,11 +83,6 @@ val mem : ?min_name_mode:Name_mode.t -> t -> Name.t -> bool
 
 val mem_simple : ?min_name_mode:Name_mode.t -> t -> Simple.t -> bool
 
-val add_env_extension_from_level
-   : t
-  -> Typing_env_level.t
-  -> t
-
 (* CR mshinwell: clarify that this does not meet *)
 (* CR vlaviron: If the underlying level in the extension defines several
    variables, then there is no guarantee that the binding order in the result
@@ -96,6 +91,11 @@ val add_env_extension_from_level
 val add_env_extension
    : t
   -> Typing_env_extension.t
+  -> t
+
+val add_env_extension_with_extra_variables
+   : t
+  -> Typing_env_extension.With_extra_variables.t
   -> t
 
 val get_canonical_simple_exn
@@ -138,7 +138,7 @@ val cut_and_n_way_join
   -> unknown_if_defined_at_or_later_than:Scope.t
   -> extra_lifted_consts_in_use_envs:Symbol.Set.t
   -> extra_allowed_names:Name_occurrences.t
-  -> Typing_env_extension.t
+  -> t
 
 val free_names_transitive : t -> Type_grammar.t -> Name_occurrences.t
 

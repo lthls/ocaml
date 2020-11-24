@@ -920,12 +920,14 @@ let rec add_equation0 t aliases name ty =
           match t.closure_env with
           | None -> None
           | Some closure_env ->
-            let level, ty =
+            let extension, ty =
               Type_grammar.make_suitable_for_environment0 ty t
-                ~suitable_for:closure_env (Typing_env_level.empty ())
+                ~suitable_for:closure_env
+                (Typing_env_extension.With_extra_variables.empty ())
             in
             let closure_env =
-              add_equation (add_env_extension_from_level closure_env level)
+              add_equation
+                (add_env_extension_with_extra_variables closure_env extension)
                 name ty
             in
             Some closure_env
@@ -1044,7 +1046,36 @@ and add_equation t name ty =
   let [@inline always] name name = add_equation0 t aliases name ty in
   Simple.pattern_match simple ~name ~const:(fun _ -> t)
 
-and add_env_extension_from_level t level : t =
+and add_env_extension t (env_extension : Typing_env_extension.t) =
+  Name.Map.fold (fun name ty t -> add_equation t name ty)
+    env_extension.equations
+    t
+
+and add_env_extension_with_extra_variables t
+      (env_extension : Typing_env_extension.With_extra_variables.t) =
+  let t =
+    Variable.Map.fold (fun var kind t ->
+        add_variable_definition t var kind Name_mode.in_types)
+      env_extension.existential_vars
+      t
+  in
+  let t =
+    Name.Map.fold (fun name ty t -> add_equation t name ty)
+      env_extension.equations
+      t
+  in
+  t
+
+(* These version is outside the [let rec] and thus does not cause
+   [caml_apply*] to be used when calling from outside this module. *)
+let add_equation t name ty = add_equation t name ty
+
+let add_env_extension t env_extension = add_env_extension t env_extension
+
+let add_env_extension_with_extra_variables t env_extension =
+  add_env_extension_with_extra_variables t env_extension
+
+let add_env_extension_from_level t level : t =
   let t =
     Typing_env_level.fold_on_defined_vars (fun var kind t ->
         add_variable_definition t var kind Name_mode.in_types)
@@ -1059,18 +1090,6 @@ and add_env_extension_from_level t level : t =
   Variable.Map.fold (fun var proj t -> add_symbol_projection t var proj)
     (Typing_env_level.symbol_projections level)
     t
-
-and add_env_extension t env_extension =
-  let [@inline always] f level =
-    (add_env_extension_from_level [@inlined never]) t level
-  in
-  Typing_env_extension.pattern_match env_extension ~f
-
-(* These version is outside the [let rec] and thus does not cause
-   [caml_apply*] to be used when calling from outside this module. *)
-let add_equation t name ty = add_equation t name ty
-
-let add_env_extension t env_extension = add_env_extension t env_extension
 
 let add_definitions_of_params t ~params =
   List.fold_left (fun t param ->
@@ -1168,7 +1187,7 @@ let cut_and_n_way_join definition_typing_env ts_and_use_ids ~params
     Typing_env_level.n_way_join ~env_at_fork:definition_typing_env
       after_cuts ~params ~extra_lifted_consts_in_use_envs ~extra_allowed_names
   in
-  Typing_env_extension.create level
+  add_env_extension_from_level definition_typing_env level
 
 let get_canonical_simple_with_kind_exn t ?min_name_mode simple =
   let kind = kind_of_simple t simple in

@@ -37,4 +37,4 @@ val now_meeting : t -> Simple.t -> Simple.t -> t
     as when [now_meeting] was called. *)
 val already_meeting : t -> Simple.t -> Simple.t -> bool
 
-val with_typing_env : t -> Typing_env.t -> t
+(* val with_typing_env : t -> Typing_env.t -> t *)

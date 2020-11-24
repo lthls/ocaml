@@ -105,7 +105,8 @@ end = struct
             ~bind_to:(Name.var var)
         in
         let env_inside_function =
-          TE.add_env_extension env_inside_function env_extension
+          TE.add_env_extension_with_extra_variables env_inside_function
+            env_extension
         in
         let types_inside_function =
           Var_within_closure.Map.add clos_var

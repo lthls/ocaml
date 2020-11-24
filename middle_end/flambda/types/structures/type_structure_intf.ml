@@ -36,7 +36,7 @@ module type S = sig
   (* CR mshinwell: The signature of [join] implies that each [t] must have
      a bottom element in itself.  How do we reconcile that against the fact
      that we're trying to propagate bottom upwards? *)
-  val join : meet_or_join_env -> t -> t -> t
+  val join : meet_or_join_env -> t -> t -> t Or_unknown.t
 
   include Contains_names.S with type t := t
 

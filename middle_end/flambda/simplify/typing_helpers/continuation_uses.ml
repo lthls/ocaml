@@ -226,7 +226,7 @@ Format.eprintf "Unknown at or later than %a\n%!"
               | None -> Name_occurrences.empty
               | Some cse_join_result -> cse_join_result.extra_allowed_names
             in
-            let env_extension =
+            let env =
               TE.cut_and_n_way_join typing_env
                 use_envs_with_ids'
                 ~params
@@ -247,7 +247,7 @@ Format.eprintf "The extra params and args are:@ %a\n%!"
   Continuation_extra_params_and_args.print extra_params_and_args;
 *)
             let handler_env =
-              typing_env
+              env
               |> TE.add_definitions_of_params
                 ~params:extra_params_and_args.extra_params
             in
@@ -259,9 +259,6 @@ Format.eprintf "The extra params and args are:@ %a\n%!"
                     TE.add_equation handler_env name ty)
                   cse_join_result.extra_equations
                   handler_env
-            in
-            let handler_env =
-              TE.add_env_extension handler_env env_extension
             in
             let denv =
               let denv = DE.with_typing_env denv handler_env in

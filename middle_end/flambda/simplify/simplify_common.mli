@@ -49,7 +49,9 @@ val simplify_projection
   -> shape:Flambda_type.t
   -> result_var:Var_in_binding_pos.t
   -> result_kind:Flambda_kind.t
-  -> Simplified_named.t * Flambda_type.Typing_env_extension.t * Downwards_acc.t
+  -> Simplified_named.t
+     * Flambda_type.Typing_env_extension.t
+     * Downwards_acc.t
 
 type cse =
   | Invalid of Flambda_type.t

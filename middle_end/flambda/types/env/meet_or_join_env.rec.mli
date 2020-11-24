@@ -18,17 +18,15 @@
 
 type t
 
-val print : Format.formatter -> t -> unit
+(* val print : Format.formatter -> t -> unit *)
 
-val create_for_meet : Meet_env.t -> t
-
-val create_for_join
+val create
    : Typing_env.t
   -> left_env:Typing_env.t
   -> right_env:Typing_env.t
   -> t
 
-val meet_env : t -> Meet_env.t
+(* val create_for_meet : Meet_env.t -> t *)
 
 val target_join_env : t -> Typing_env.t
 

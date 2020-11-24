@@ -236,107 +236,166 @@ let join_unknown join_contents (env : Meet_or_join_env.t)
   | _, Unknown
   | Unknown, _ -> Unknown
   | Known contents1, Known contents2 ->
-    Known (join_contents env contents1 contents2)
+    join_contents env contents1 contents2
 
-module Make_meet_or_join
-  (E : Lattice_ops_intf.S
-   with type meet_env := Meet_env.t
-   with type meet_or_join_env := Meet_or_join_env.t
-   with type typing_env := Typing_env.t
-   with type typing_env_extension := Typing_env_extension.t) =
-struct
-  let meet_or_join_variant env
-        ~blocks1 ~imms1 ~blocks2 ~imms2 : _ Or_bottom.t =
-    let blocks =
-      E.switch (meet_unknown Blocks.meet ~contents_is_bottom:Blocks.is_bottom)
-        (join_unknown Blocks.join)
-        env blocks1 blocks2
+let meet_variant env
+      ~blocks1 ~imms1 ~blocks2 ~imms2 : _ Or_bottom.t =
+  let blocks =
+    meet_unknown Blocks.meet ~contents_is_bottom:Blocks.is_bottom
+      env blocks1 blocks2
+  in
+  let blocks : _ Or_bottom.t =
+    (* XXX Clean this up *)
+    match blocks with
+    | Bottom | Ok (Or_unknown.Unknown, _) -> blocks
+    | Ok (Or_unknown.Known blocks', _) ->
+      if Blocks.is_bottom blocks' then Bottom else blocks
+  in
+  let imms =
+    meet_unknown T.meet ~contents_is_bottom:T.is_obviously_bottom
+      env imms1 imms2
+  in
+  let imms : _ Or_bottom.t =
+    match imms with
+    | Bottom | Ok (Or_unknown.Unknown, _) -> imms
+    | Ok (Or_unknown.Known imms', _) ->
+      if T.is_obviously_bottom imms' then Bottom else imms
+  in
+  match blocks, imms with
+  | Bottom, Bottom -> Bottom
+  | Ok (blocks, env_extension), Bottom ->
+    let immediates : _ Or_unknown.t = Known (T.bottom K.naked_immediate) in
+    Ok (blocks, immediates, env_extension)
+  | Bottom, Ok (immediates, env_extension) ->
+    let blocks : _ Or_unknown.t = Known (Blocks.create_bottom ()) in
+    Ok (blocks, immediates, env_extension)
+  | Ok (blocks, env_extension1), Ok (immediates, env_extension2) ->
+    begin match (blocks : _ Or_unknown.t) with
+    | Unknown -> ()
+    | Known blocks -> assert (not (Blocks.is_bottom blocks));
+    end;
+    begin match (immediates : _ Or_unknown.t) with
+    | Unknown -> ()
+    | Known imms -> assert (not (T.is_obviously_bottom imms));
+    end;
+    let env_extension =
+      TEE.join env env_extension1 env_extension2
     in
-    let blocks : _ Or_bottom.t =
-      (* XXX Clean this up *)
-      match blocks with
-      | Bottom | Ok (Or_unknown.Unknown, _) -> blocks
-      | Ok (Or_unknown.Known blocks', _) ->
-        if Blocks.is_bottom blocks' then Bottom else blocks
-    in
-    let imms =
-      E.switch (meet_unknown T.meet ~contents_is_bottom:T.is_obviously_bottom)
-        (join_unknown T.join') env imms1 imms2
-    in
-    let imms : _ Or_bottom.t =
-      match imms with
-      | Bottom | Ok (Or_unknown.Unknown, _) -> imms
-      | Ok (Or_unknown.Known imms', _) ->
-        if T.is_obviously_bottom imms' then Bottom else imms
-    in
-    match blocks, imms with
-    | Bottom, Bottom -> Bottom
-    | Ok (blocks, env_extension), Bottom ->
-      let immediates : _ Or_unknown.t = Known (T.bottom K.naked_immediate) in
-      Ok (blocks, immediates, env_extension)
-    | Bottom, Ok (immediates, env_extension) ->
-      let blocks : _ Or_unknown.t = Known (Blocks.create_bottom ()) in
-      Ok (blocks, immediates, env_extension)
-    | Ok (blocks, env_extension1), Ok (immediates, env_extension2) ->
-      begin match (blocks : _ Or_unknown.t) with
-      | Unknown -> ()
-      | Known blocks -> assert (not (Blocks.is_bottom blocks));
-      end;
-      begin match (immediates : _ Or_unknown.t) with
-      | Unknown -> ()
-      | Known imms -> assert (not (T.is_obviously_bottom imms));
-      end;
-      let env_extension = TEE.join env ~params:[] env_extension1 env_extension2 in
-      Ok (blocks, immediates, env_extension)
+    Ok (blocks, immediates, env_extension)
 
-  let meet_or_join env t1 t2 : _ Or_bottom_or_absorbing.t =
-    match t1, t2 with
-    | Variant { blocks = blocks1; immediates = imms1; is_unique = is_unique1; },
-      Variant { blocks = blocks2; immediates = imms2; is_unique = is_unique2; } ->
-      Or_bottom_or_absorbing.of_or_bottom
-        (meet_or_join_variant env ~blocks1 ~imms1 ~blocks2 ~imms2)
-        ~f:(fun (blocks, immediates, env_extension) ->
-          (* Uniqueness tracks whether duplication/lifting is allowed.
-             It must always be propagated, both for meet and join. *)
-          let is_unique = is_unique1 || is_unique2 in
-          Variant (Variant.create ~is_unique ~blocks ~immediates), env_extension)
-    | Boxed_float n1, Boxed_float n2 ->
-      Or_bottom_or_absorbing.of_or_bottom
-        (E.switch T.meet T.join' env n1 n2)
-        ~f:(fun (n, env_extension) -> Boxed_float n, env_extension)
-    | Boxed_int32 n1, Boxed_int32 n2 ->
-      Or_bottom_or_absorbing.of_or_bottom
-        (E.switch T.meet T.join' env n1 n2)
-        ~f:(fun (n, env_extension) -> Boxed_int32 n, env_extension)
-    | Boxed_int64 n1, Boxed_int64 n2 ->
-      Or_bottom_or_absorbing.of_or_bottom
-        (E.switch T.meet T.join' env n1 n2)
-        ~f:(fun (n, env_extension) -> Boxed_int64 n, env_extension)
-    | Boxed_nativeint n1, Boxed_nativeint n2 ->
-      Or_bottom_or_absorbing.of_or_bottom
-        (E.switch T.meet T.join' env n1 n2)
-        ~f:(fun (n, env_extension) -> Boxed_nativeint n, env_extension)
-    | Closures { by_closure_id = by_closure_id1; },
-        Closures { by_closure_id = by_closure_id2; } ->
-      let module C = Row_like.For_closures_entry_by_set_of_closures_contents in
-      Or_bottom_or_absorbing.of_or_bottom
-        (E.switch C.meet C.join env by_closure_id1 by_closure_id2)
-        ~f:(fun (by_closure_id, env_extension) ->
-          Closures { by_closure_id; }, env_extension)
-    | String strs1, String strs2 ->
-      let strs = E.String_info.Set.union_or_inter strs1 strs2 in
-      if String_info.Set.is_empty strs then Bottom
-      else Or_bottom_or_absorbing.Ok (String strs, TEE.empty ())
-    | Array { length = length1; }, Array { length = length2; } ->
-      Or_bottom_or_absorbing.of_or_bottom
-        (E.switch T.meet T.join' env length1 length2)
-        ~f:(fun (length, env_extension) -> Array { length; }, env_extension)
-    | (Variant _
-        | Boxed_float _
-        | Boxed_int32 _
-        | Boxed_int64 _
-        | Boxed_nativeint _
-        | Closures _
-        | String _
-        | Array _), _ -> Absorbing
-end
+let meet env t1 t2 : _ Or_bottom.t =
+  match t1, t2 with
+  | Variant { blocks = blocks1; immediates = imms1; is_unique = is_unique1; },
+    Variant { blocks = blocks2; immediates = imms2; is_unique = is_unique2; } ->
+    Or_bottom.map
+      (meet_variant env ~blocks1 ~imms1 ~blocks2 ~imms2)
+      ~f:(fun (blocks, immediates, env_extension) ->
+        (* Uniqueness tracks whether duplication/lifting is allowed.
+           It must always be propagated, both for meet and join. *)
+        let is_unique = is_unique1 || is_unique2 in
+        Variant (Variant.create ~is_unique ~blocks ~immediates), env_extension)
+  | Boxed_float n1, Boxed_float n2 ->
+    Or_bottom.map
+      (T.meet env n1 n2)
+      ~f:(fun (n, env_extension) -> Boxed_float n, env_extension)
+  | Boxed_int32 n1, Boxed_int32 n2 ->
+    Or_bottom.map
+      (T.meet env n1 n2)
+      ~f:(fun (n, env_extension) -> Boxed_int32 n, env_extension)
+  | Boxed_int64 n1, Boxed_int64 n2 ->
+    Or_bottom.map
+      (T.meet env n1 n2)
+      ~f:(fun (n, env_extension) -> Boxed_int64 n, env_extension)
+  | Boxed_nativeint n1, Boxed_nativeint n2 ->
+    Or_bottom.map
+      (T.meet env n1 n2)
+      ~f:(fun (n, env_extension) -> Boxed_nativeint n, env_extension)
+  | Closures { by_closure_id = by_closure_id1; },
+    Closures { by_closure_id = by_closure_id2; } ->
+    let module C = Row_like.For_closures_entry_by_set_of_closures_contents in
+    Or_bottom.map
+      (C.meet env by_closure_id1 by_closure_id2)
+      ~f:(fun (by_closure_id, env_extension) ->
+        Closures { by_closure_id; }, env_extension)
+  | String strs1, String strs2 ->
+    let strs = String_info.Set.inter strs1 strs2 in
+    if String_info.Set.is_empty strs then Bottom
+    else Or_bottom.Ok (String strs, TEE.empty ())
+  | Array { length = length1; }, Array { length = length2; } ->
+    Or_bottom.map
+      (T.meet env length1 length2)
+      ~f:(fun (length, env_extension) -> Array { length; }, env_extension)
+  | (Variant _
+    | Boxed_float _
+    | Boxed_int32 _
+    | Boxed_int64 _
+    | Boxed_nativeint _
+    | Closures _
+    | String _
+    | Array _), _ ->
+    (* CR vlaviron: This assumes that all the different constructors are
+       incompatible. This could break very hard for users of Obj. *)
+    Bottom
+
+let join_variant env
+      ~blocks1 ~imms1 ~blocks2 ~imms2 : _ Or_unknown.t =
+  let blocks =
+    join_unknown Blocks.join env blocks1 blocks2
+  in
+  let imms =
+    join_unknown (T.join ?bound_name:None) env imms1 imms2
+  in
+  match blocks, imms with
+  | Unknown, Unknown -> Unknown
+  | Known _, Unknown | Unknown, Known _ | Known _, Known _ ->
+    Known (blocks, imms)
+
+let join env t1 t2 : _ Or_unknown.t =
+  match t1, t2 with
+  | Variant { blocks = blocks1; immediates = imms1; is_unique = is_unique1; },
+    Variant { blocks = blocks2; immediates = imms2; is_unique = is_unique2; } ->
+    Or_unknown.map
+      (join_variant env ~blocks1 ~imms1 ~blocks2 ~imms2)
+      ~f:(fun (blocks, immediates) ->
+        (* Uniqueness tracks whether duplication/lifting is allowed.
+           It must always be propagated, both for meet and join. *)
+        let is_unique = is_unique1 || is_unique2 in
+        Variant (Variant.create ~is_unique ~blocks ~immediates))
+  | Boxed_float n1, Boxed_float n2 ->
+    Or_unknown.map
+      (T.join env n1 n2)
+      ~f:(fun n -> Boxed_float n)
+  | Boxed_int32 n1, Boxed_int32 n2 ->
+    Or_unknown.map
+      (T.join env n1 n2)
+      ~f:(fun n -> Boxed_int32 n)
+  | Boxed_int64 n1, Boxed_int64 n2 ->
+    Or_unknown.map
+      (T.join env n1 n2)
+      ~f:(fun n -> Boxed_int64 n)
+  | Boxed_nativeint n1, Boxed_nativeint n2 ->
+    Or_unknown.map
+      (T.join env n1 n2)
+      ~f:(fun n -> Boxed_nativeint n)
+  | Closures { by_closure_id = by_closure_id1; },
+    Closures { by_closure_id = by_closure_id2; } ->
+    let module C = Row_like.For_closures_entry_by_set_of_closures_contents in
+    Or_unknown.map
+      (C.join env by_closure_id1 by_closure_id2)
+      ~f:(fun by_closure_id ->
+        Closures { by_closure_id; })
+  | String strs1, String strs2 ->
+    let strs = String_info.Set.union strs1 strs2 in
+    Known (String strs)
+  | Array { length = length1; }, Array { length = length2; } ->
+    Or_unknown.map
+      (T.join env length1 length2)
+      ~f:(fun length -> Array { length; })
+  | (Variant _
+    | Boxed_float _
+    | Boxed_int32 _
+    | Boxed_int64 _
+    | Boxed_nativeint _
+    | Closures _
+    | String _
+    | Array _), _ -> Unknown

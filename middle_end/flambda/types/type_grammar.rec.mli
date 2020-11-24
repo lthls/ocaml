@@ -195,33 +195,25 @@ val make_suitable_for_environment0
    : t
   -> Typing_env.t
   -> suitable_for:Typing_env.t
-  -> Typing_env_level.t
-  -> Typing_env_level.t * t
+  -> Typing_env_extension.With_extra_variables.t
+  -> Typing_env_extension.With_extra_variables.t * t
 
 val make_suitable_for_environment
    : t
   -> Typing_env.t
   -> suitable_for:Typing_env.t
   -> bind_to:Name.t
-  -> Typing_env_extension.t
+  -> Typing_env_extension.With_extra_variables.t
 
 val expand_head : t -> Typing_env.t -> Resolved_type.t
 
 (** Greatest lower bound of two types. *)
 val meet : Meet_env.t -> t -> t -> (t * Typing_env_extension.t) Or_bottom.t
-val meet' : Meet_env.t -> t -> t -> t * Typing_env_extension.t
 
-(** [join env ~left_env ~left_ty ~right_env ~right_ty] calculates the least
-    upper bound of two types.  [left_ty] is to be valid in [left_env] and
-    [right_ty] is to be valid in [right_env].  The result will be computed
-    so as to be valid in [env]. *)
+(** Least upper bound of two types. *)
 val join
    : ?bound_name:Name.t
-  -> Typing_env.t
-  -> left_env:Typing_env.t
-  -> left_ty:t
-  -> right_env:Typing_env.t
-  -> right_ty:t
+  -> Meet_or_join_env.t
   -> t
-
-val join' : Meet_or_join_env.t -> t -> t -> t
+  -> t
+  -> t Or_unknown.t

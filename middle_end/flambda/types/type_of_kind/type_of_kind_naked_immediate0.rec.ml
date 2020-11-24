@@ -73,14 +73,7 @@ let apply_rec_info t rec_info : _ Or_bottom.t =
 
 let eviscerate _ : _ Or_unknown.t = Unknown
 
-module Make_meet_or_join
-  (E : Lattice_ops_intf.S
-    with type meet_env := Meet_env.t
-    with type meet_or_join_env := Meet_or_join_env.t
-    with type typing_env := Typing_env.t
-    with type typing_env_extension := Typing_env_extension.t) =
-struct
-  let meet env t1 t2 : _ Or_bottom.t =
+let meet env t1 t2 : _ Or_bottom.t =
     match t1, t2 with
     | Naked_immediates is1, Naked_immediates is2 ->
       let is = I.Set.inter is1 is2 in
@@ -138,51 +131,31 @@ struct
          one of the arguments. *)
       Ok (t1, TEE.empty ())
 
-  let all_regular_tags =
-    let rec compute_all_tags acc n =
-      match Tag.create n with
-      | None -> acc
-      | Some t ->
-        if Tag.is_structured_block_but_not_a_variant t
-        then acc
-        else begin
-          assert (Tag.is_structured_block t);
-          let imm =
-            Target_imm.int (Targetint.OCaml.of_int n)
-          in
-          compute_all_tags (I.Set.add imm acc) (succ n)
-        end
-    in
-    compute_all_tags I.Set.empty 0
-
-  let to_naked_immediates t =
-    match t with
-    | Naked_immediates imms -> imms
-    | Is_int _ -> I.all_bools
-    | Get_tag _ ->
-      (* The current infrastructure around joins doesn't make it easy to
-         return Unknown, so we compute the set of all possible tags *)
-      I.all_regular_tags
-
-  let join env t1 t2 =
-    match t1, t2 with
-    | Naked_immediates is1, Naked_immediates is2 ->
-      let is = I.Set.union is1 is2 in
-      Naked_immediates is
-    | Is_int ty1, Is_int ty2 ->
-      Is_int (T.join' env ty1 ty2)
-    | Get_tag ty1, Get_tag ty2 ->
-      Get_tag (T.join' env ty1 ty2)
-    | ty, Naked_immediates nimms
-    | Naked_immediates nimms, ty ->
-      if I.Set.is_empty nimms then ty
-      else Naked_immediates (I.Set.union nimms (to_naked_immediates ty))
-    | Is_int _, Get_tag _ | Get_tag _, Is_int _ ->
-      (* There's a possibility that we could get a more precise result, but again
-         it's probably not worth the trouble *)
-      Naked_immediates all_regular_tags
-
-  let meet_or_join env t1 t2 =
-    Or_bottom_or_absorbing.of_or_bottom (E.switch meet join env t1 t2)
-      ~f:(fun x -> x)
-end
+let join env t1 t2 : _ Or_unknown.t =
+  match t1, t2 with
+  | Naked_immediates is1, Naked_immediates is2 ->
+    let is = I.Set.union is1 is2 in
+    Known (Naked_immediates is)
+  | Is_int ty1, Is_int ty2 ->
+    Or_unknown.map (T.join env ty1 ty2)
+      ~f:(fun ty -> Is_int ty)
+  | Get_tag ty1, Get_tag ty2 ->
+    Or_unknown.map (T.join env ty1 ty2)
+      ~f:(fun ty -> Get_tag ty)
+  (* From now on: Irregular cases
+     CR vlaviron: There could be improvements based on reduction
+     (trying to reduce the is_int and get_tag cases to naked_immediate sets,
+     then joining those) but this looks unlikely to be useful and could end up
+     begin quite expensive. *)
+  | Is_int ty, Naked_immediates is_int
+  | Naked_immediates is_int, Is_int ty ->
+    if I.Set.is_empty is_int then Known (Is_int ty)
+    else
+      (* Slightly better than Unknown *)
+      Known (Naked_immediates (I.Set.add I.zero (I.Set.add I.one is_int)))
+  | Get_tag ty, Naked_immediates tags
+  | Naked_immediates tags, Get_tag ty ->
+    if I.Set.is_empty tags then Known (Get_tag ty)
+    else Unknown
+  | (Is_int _ | Get_tag _), (Is_int _ | Get_tag _) ->
+    Unknown

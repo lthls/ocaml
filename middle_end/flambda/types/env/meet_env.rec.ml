@@ -54,7 +54,7 @@ let now_meeting t simple1 simple2 =
     already_meeting;
   }
 
-let with_typing_env t typing_env =
-  { t with
-    env = typing_env;
-  }
+(* let with_typing_env t typing_env =
+ *   { t with
+ *     env = typing_env;
+ *   } *)

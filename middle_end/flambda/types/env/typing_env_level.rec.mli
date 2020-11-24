@@ -18,21 +18,21 @@
 
 type t
 
-val print_with_cache
-   : cache:Printing_cache.t
-  -> Format.formatter
-  -> t
-  -> unit
+(* val print_with_cache
+ *    : cache:Printing_cache.t
+ *   -> Format.formatter
+ *   -> t
+ *   -> unit *)
 
 val print : Format.formatter -> t -> unit
 
-val invariant : t -> unit
+(* val invariant : t -> unit *)
 
 val empty : unit -> t
 
 val is_empty : t -> bool
 
-val defined_vars : t -> Flambda_kind.t Variable.Map.t
+(* val defined_vars : t -> Flambda_kind.t Variable.Map.t *)
 
 val defined_names : t -> Name.Set.t
 
@@ -48,7 +48,7 @@ val fold_on_defined_vars
 
 val equations : t -> Type_grammar.t Name.Map.t
 
-val one_equation : Name.t -> Type_grammar.t -> t
+(* val one_equation : Name.t -> Type_grammar.t -> t *)
 
 val add_definition : t -> Variable.t -> Flambda_kind.t -> Binding_time.t -> t
 
@@ -60,11 +60,7 @@ val symbol_projections : t -> Symbol_projection.t Variable.Map.t
 
 val concat : t -> t -> t
 
-val meet : Meet_env.t -> t -> t -> t
-
-(** Same as [meet], but more efficient when the domains are disjoint.
-    Optimised for when the [ext] argument is smaller. *)
-val extend : Meet_env.t -> t -> ext:t -> t
+(* val meet : Meet_env.t -> t -> t -> t *)
 
 val n_way_join
    : env_at_fork:Typing_env.t

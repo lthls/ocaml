@@ -15,7 +15,7 @@
 (**************************************************************************)
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
-
+(*
 module TE = Typing_env
 module TEE = Typing_env_extension
 
@@ -90,3 +90,4 @@ module For_join = struct
   let switch _meet join meet_or_join_env thing1 thing2 : _ Or_bottom.t =
     Ok (join meet_or_join_env thing1 thing2, TEE.empty ())
 end
+*)

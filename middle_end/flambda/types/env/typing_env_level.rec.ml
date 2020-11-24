@@ -23,7 +23,7 @@ type t = {
   symbol_projections : Symbol_projection.t Variable.Map.t;
 }
 
-let defined_vars t = t.defined_vars
+(* let defined_vars t = t.defined_vars *)
 
 let defined_names t =
   Name.set_of_var_set (Variable.Map.keys t.defined_vars)
@@ -77,7 +77,7 @@ let print_with_cache ~cache ppf
 let print ppf t =
   print_with_cache ~cache:(Printing_cache.create ()) ppf t
 
-let invariant _t = ()
+(* let invariant _t = () *)
 
 let fold_on_defined_vars f t init =
   Binding_time.Map.fold (fun _bt vars acc ->
@@ -245,14 +245,6 @@ let check_equation t name ty =
     end
   end
 
-let one_equation name ty =
-  check_equation (empty ()) name ty;
-  { defined_vars = Variable.Map.empty;
-    binding_times = Binding_time.Map.empty;
-    equations = Name.Map.singleton name ty;
-    symbol_projections = Variable.Map.empty;
-  }
-
 let add_or_replace_equation t name ty =
   check_equation t name ty;
   if Type_grammar.is_obviously_unknown ty then
@@ -297,206 +289,6 @@ let concat (t1 : t) (t2 : t) =
     Variable.Map.union (fun _var _proj1 proj2 -> Some proj2)
       t1.symbol_projections
       t2.symbol_projections
-  in
-  { defined_vars;
-    binding_times;
-    equations;
-    symbol_projections;
-  }
-
-let meet_equation0 env t name typ =
-  check_equation t name typ;
-  let meet_typ, env_extension =
-    match Name.Map.find name t.equations with
-    | exception Not_found -> typ, Typing_env_extension.empty ()
-    | existing_typ -> Type_grammar.meet' env typ existing_typ
-  in
-  let env =
-    let typing_env =
-      let typing_env = Meet_env.env env in
-      Typing_env.add_equation
-        (Typing_env.add_env_extension typing_env env_extension)
-        name typ
-    in
-    Meet_env.with_typing_env env typing_env
-  in
-  (* CR mshinwell: This special case needs further thinking about *)
-  (* When meeting recursive types we can end up attempting to add
-     equations "x : =x". *)
-  let equations =
-    if equation_is_directly_recursive name meet_typ then t.equations
-    else Name.Map.add (* replace *) name meet_typ t.equations
-  in
-  let equations =
-    Typing_env_extension.pattern_match env_extension ~f:(fun t_from_meet ->
-      if not (Variable.Map.is_empty t_from_meet.defined_vars) then begin
-        Misc.fatal_errorf "Didn't expect [defined_vars] in:@ %a"
-          print t_from_meet
-      end;
-      Name.Map.fold (fun name typ equations ->
-          check_equation t name typ;
-          Name.Map.add (* replace *) name typ equations)
-        t_from_meet.equations
-        equations)
-  in
-  let t = { t with equations; } in
-  t, env
-
-let meet_equation env t name typ =
-  try meet_equation0 env t name typ
-  with Misc.Fatal_error ->
-    if !Clflags.flambda_context_on_error then begin
-      Format.eprintf "\n%sContext is:%s meeting equation %a : %a@ in \
-          level@ %a@ and environment@ %a\n"
-        (Flambda_colours.error ())
-        (Flambda_colours.normal ())
-        Name.print name
-        Type_grammar.print typ
-        print t
-        Typing_env.print (Meet_env.env env)
-    end;
-    raise Misc.Fatal_error
-
-let meet0 env (t1 : t) (t2 : t) =
-  (* Format.eprintf "Typing_env_level.meet:@ t1=%a@ t2=%a@." print t1 print t2; *)
-  let defined_vars =
-    Variable.Map.union (fun var kind1 kind2 ->
-        if Flambda_kind.equal kind1 kind2 then Some kind1
-        else
-          Misc.fatal_errorf "Cannot meet levels that have overlapping \
-              defined variables (e.g. %a) that disagree on kind and/or \
-              binding time:@ %a@ and@ %a"
-            Variable.print var
-            print t1
-            print t2)
-      t1.defined_vars
-      t2.defined_vars
-  in
-  let binding_times =
-    Binding_time.Map.union (fun _bt vars1 vars2 ->
-        Some (Variable.Set.union vars1 vars2))
-      t1.binding_times
-      t2.binding_times
-  in
-  let env =
-    let typing_env =
-      (* Iterating on binding_times ensures that the resulting typing env
-         is compatible with both inputs regarding binding times.
-         When several variables have the same binding time, we assume they
-         come from distinct contexts and that their relative ordering does not
-         matter. *)
-      Binding_time.Map.fold (fun _bt vars typing_env ->
-          Variable.Set.fold (fun var typing_env ->
-              let kind = Variable.Map.find var defined_vars in
-              let name =
-                Name_in_binding_pos.create (Name.var var) Name_mode.in_types
-              in
-              Typing_env.add_definition typing_env name kind)
-            vars
-            typing_env)
-        binding_times
-        (Meet_env.env env)
-    in
-    Meet_env.with_typing_env env typing_env
-  in
-  let t =
-    { (empty ()) with
-      defined_vars;
-      binding_times;
-    }
-  in
-  let t, env =
-    Name.Map.fold (fun name ty (t, env) -> meet_equation env t name ty)
-      t1.equations
-      (t, env)
-  in
-  let t, _env =
-    Name.Map.fold (fun name ty (t, env) -> meet_equation env t name ty)
-      t2.equations
-      (t, env)
-  in
-  let symbol_projections =
-    Variable.Map.union (fun _ proj1 proj2 ->
-        (* CR vlaviron:
-           I'm not sure whether this can come up at all, but
-           if proj1 and proj2 are different then it means the corresponding
-           variable can be accessed through two different projections.
-           I think it would be safe to use any of them, but forgetting
-           the projection is guaranteed to be sound and I think it is
-           better for debugging problems if the meet function is kept
-           symmetrical. *)
-        if Symbol_projection.equal proj1 proj2 then Some proj1
-        else None)
-      t1.symbol_projections t2.symbol_projections
-  in
-  { t with
-    symbol_projections;
-  }
-
-let meet env t1 t2 =
-  (* Care: the domains of [t1] and [t2] are treated as contravariant.
-     As such, since this is [meet], we perform unions on the domains.
-     So if one of them is bottom, the result of meeting it with any other
-     level is that level, not bottom. *)
-  if is_empty t1 then t2
-  else if is_empty t2 then t1
-  else meet0 env t1 t2
-
-let extend env t1 ~ext:t2 =
-  let defined_vars =
-    Variable.Map.fold (fun var kind defined_vars ->
-        match Variable.Map.find_opt var defined_vars with
-        | None -> Variable.Map.add var kind defined_vars
-        | Some kind2 ->
-          if Flambda_kind.equal kind kind2 then defined_vars
-          else
-            Misc.fatal_errorf "Cannot meet levels that have overlapping \
-                defined variables (e.g. %a) that disagree on kind and/or \
-                binding time:@ %a@ and@ %a"
-              Variable.print var
-              print t1
-              print t2)
-      t2.defined_vars
-      t1.defined_vars
-  in
-  let binding_times =
-    Binding_time.Map.fold (fun bt vars binding_times ->
-        match Binding_time.Map.find_opt bt binding_times with
-        | None -> Binding_time.Map.add bt vars binding_times
-        | Some vars2 ->
-          let vars = Variable.Set.union vars vars2 in
-          Binding_time.Map.add bt vars binding_times)
-      t2.binding_times
-      t1.binding_times
-  in
-  let rec add_equation name typ equations =
-    match Name.Map.find name equations with
-    | exception Not_found ->
-      if equation_is_directly_recursive name typ then equations
-      else Name.Map.add name typ equations
-    | existing_typ ->
-      let meet_typ, extension = Type_grammar.meet' env typ existing_typ in
-      if equation_is_directly_recursive name meet_typ then equations
-      else
-        let equations = Name.Map.add name meet_typ equations in
-        Typing_env_extension.pattern_match extension ~f:(fun t ->
-          (* Sanity check *)
-          if not (Variable.Map.is_empty t.defined_vars) then begin
-            Misc.fatal_errorf "Didn't expect [defined_vars] in:@ %a"
-              print t
-          end;
-          Name.Map.fold add_equation t.equations equations)
-  in
-  let equations = Name.Map.fold add_equation t2.equations t1.equations in
-  let symbol_projections =
-    Variable.Map.fold (fun var proj symbol_projections ->
-        match Variable.Map.find var symbol_projections with
-        | exception Not_found -> Variable.Map.add var proj symbol_projections
-        | existing_proj ->
-          if Symbol_projection.equal proj existing_proj then symbol_projections
-          else Variable.Map.remove var symbol_projections)
-      t2.symbol_projections
-      t1.symbol_projections
   in
   { defined_vars;
     binding_times;
@@ -593,10 +385,13 @@ let join_types ~env_at_fork envs_with_levels ~extra_lifted_consts_in_use_envs =
                  be names in types in [env_at_fork] that are not defined in
                  [env_at_use] -- see the comment in [check_join_inputs]
                  below. *)
+              let join_env =
+                Meet_or_join_env.create env_at_fork
+                  ~left_env:join_env
+                  ~right_env:env_at_fork
+              in
               Type_grammar.join ~bound_name:name
-                env_at_fork
-                ~left_env:join_env ~left_ty
-                ~right_env:env_at_fork ~right_ty:use_ty
+                join_env left_ty use_ty
             | Some joined_ty, None ->
               (* There is no equation, at all (not even saying "unknown"), on
                  the current level for [name].  However we have seen an
@@ -606,24 +401,34 @@ let join_types ~env_at_fork envs_with_levels ~extra_lifted_consts_in_use_envs =
               assert (not is_first_join);
               let expected_kind = Some (Type_grammar.kind joined_ty) in
               let right_ty = Typing_env.find env_at_fork name expected_kind in
+              let join_env =
+                Meet_or_join_env.create env_at_fork
+                  ~left_env:join_env
+                  ~right_env:env_at_fork
+              in
               Type_grammar.join ~bound_name:name
-                env_at_fork
-                ~left_env:join_env ~left_ty:joined_ty
-                ~right_env:env_at_fork ~right_ty
+                join_env joined_ty right_ty
             | Some joined_ty, Some use_ty ->
               (* This is the straightforward case, where we have already
                  started computing a joined type for [name], and there is an
                  equation for [name] on the current level. *)
               assert (not is_first_join);
+              let join_env =
+                Meet_or_join_env.create env_at_fork
+                  ~left_env:join_env
+                  ~right_env:env_at_use
+              in
               Type_grammar.join ~bound_name:name
-                env_at_fork
-                ~left_env:join_env ~left_ty:joined_ty
-                ~right_env:env_at_use ~right_ty:use_ty
+                join_env joined_ty use_ty
             | None, None -> assert false
           in
-          next_join_env :=
-            Typing_env.add_equation !next_join_env name joined_ty;
-          Some joined_ty
+          begin match joined_ty with
+          | Known joined_ty ->
+            next_join_env :=
+              Typing_env.add_equation !next_join_env name joined_ty;
+            Some joined_ty
+          | Unknown -> None
+          end
       in
       let joined_types = Name.Map.merge join_types joined_types t.equations in
       !next_join_env, joined_types, false)

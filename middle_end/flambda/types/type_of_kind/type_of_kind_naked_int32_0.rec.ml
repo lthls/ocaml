@@ -40,15 +40,10 @@ let apply_rec_info t rec_info : _ Or_bottom.t =
 
 let eviscerate _ : _ Or_unknown.t = Unknown
 
-module Make_meet_or_join
-  (E : Lattice_ops_intf.S
-    with type meet_env := Meet_env.t
-    with type meet_or_join_env := Meet_or_join_env.t
-    with type typing_env := Typing_env.t
-    with type typing_env_extension := Typing_env_extension.t) =
-struct
-  let meet_or_join _env t1 t2 : _ Or_bottom_or_absorbing.t =
-    let t = E.Int32.Set.union_or_inter t1 t2 in
-    if Int32.Set.is_empty t then Bottom
-    else Ok (t, TEE.empty ())
-end
+let meet _env t1 t2 : _ Or_bottom.t =
+  let t = Int32.Set.inter t1 t2 in
+  if Int32.Set.is_empty t then Bottom
+  else Ok (t, TEE.empty ())
+
+let join _env t1 t2 : _ Or_unknown.t =
+  Known (Int32.Set.union t1 t2)

@@ -52,6 +52,23 @@ module Typing_env_extension : sig
   val one_equation : Name.t -> flambda_type -> t
 
   val add_or_replace_equation : t -> Name.t -> flambda_type -> t
+
+  module With_extra_variables : sig
+    type t
+
+    val print : Format.formatter -> t -> unit
+
+    val empty : unit -> t
+
+    val add_definition
+       : t
+      -> Variable.t
+      -> Flambda_kind.t
+      -> flambda_type
+      -> t
+
+    val add_or_replace_equation : t -> Name.t -> flambda_type -> t
+  end
 end
 
 module Typing_env : sig
@@ -118,6 +135,11 @@ module Typing_env : sig
 
   val add_env_extension : t -> Typing_env_extension.t -> t
 
+  val add_env_extension_with_extra_variables
+     : t
+    -> Typing_env_extension.With_extra_variables.t
+    -> t
+
   (** Raises [Not_found] if no canonical [Simple] was found. *)
   val get_canonical_simple_exn
      : t
@@ -145,7 +167,7 @@ module Typing_env : sig
     -> unknown_if_defined_at_or_later_than:Scope.t
     -> extra_lifted_consts_in_use_envs:Symbol.Set.t
     -> extra_allowed_names:Name_occurrences.t
-    -> Typing_env_extension.t
+    -> t
 
   val free_names_transitive
      : t
@@ -253,7 +275,7 @@ val make_suitable_for_environment
   -> Typing_env.t
   -> suitable_for:Typing_env.t
   -> bind_to:Name.t
-  -> Typing_env_extension.t
+  -> Typing_env_extension.With_extra_variables.t
 
 val apply_rec_info : flambda_type -> Rec_info.t -> flambda_type Or_bottom.t
 

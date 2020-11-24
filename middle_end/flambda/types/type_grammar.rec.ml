@@ -19,7 +19,7 @@
 module K = Flambda_kind
 module TE = Typing_env
 module TEE = Typing_env_extension
-module TEL = Typing_env_level
+module TEL = Typing_env_extension.With_extra_variables
 
 module T_V = Type_of_kind_value
 module T_NI = Type_of_kind_naked_immediate
@@ -813,66 +813,49 @@ let rec make_suitable_for_environment0_core t env ~depth ~suitable_for level =
     if Name_occurrences.is_empty to_erase then level, t
     else if depth > 1 then level, unknown (kind t)
     else
-      let result_level, perm =
+      let level, perm =
         (* To avoid writing an erasure operation, we define irrelevant fresh
            variables in the returned [Typing_env_level], and swap them with
            the variables that we wish to erase throughout the type. *)
         Name_occurrences.fold_names to_erase
           ~init:(level, Name_permutation.empty)
-          ~f:(fun ((result_level, perm) as acc) to_erase_name ->
+          ~f:(fun ((level, perm) as acc) to_erase_name ->
             Name.pattern_match to_erase_name
               ~symbol:(fun _ -> acc)
               ~var:(fun to_erase ->
                 let original_type = TE.find env to_erase_name None in
                 let kind = kind original_type in
                 let fresh_var = Variable.rename to_erase in
-                let fresh_var_name = Name.var fresh_var in
-                let result_level =
-                  (* The binding time doesn't matter here, as the extension
-                     created from the resulting level will only contain
-                     fresh variables whose relative order isn't important *)
-                  TEL.add_definition result_level fresh_var kind
-                    Binding_time.earliest_var
-                in
-                let result_level =
+                let level =
                   let level, ty =
                     match
                       TE.get_canonical_simple_exn env
                         ~min_name_mode:Name_mode.in_types
                         (Simple.var to_erase)
                     with
-                    | exception Not_found -> None, unknown kind
+                    | exception Not_found -> level, unknown kind
                     | canonical_simple ->
                       if TE.mem_simple suitable_for canonical_simple then
-                        None, alias_type_of kind canonical_simple
+                        level, alias_type_of kind canonical_simple
                       else
                         let t = TE.find env (Name.var to_erase) (Some kind) in
                         let t = expand_head' t env in
-                        let level, t =
-                          make_suitable_for_environment0_core t env
-                            ~depth:(depth + 1) ~suitable_for level
-                        in
-                        Some level, t
+                        make_suitable_for_environment0_core t env
+                          ~depth:(depth + 1) ~suitable_for level
                   in
-                  let result_level =
-                    match level with
-                    | None -> result_level
-                    | Some level ->
-                      TEL.meet (Meet_env.create suitable_for) level result_level
-                  in
-                  TEL.add_or_replace_equation result_level fresh_var_name ty
+                  TEL.add_definition level fresh_var kind ty
                 in
                 let perm =
                   Name_permutation.add_variable perm to_erase fresh_var
                 in
-                result_level, perm))
+                level, perm))
       in
-      result_level, apply_name_permutation t perm
+      level, apply_name_permutation t perm
 
-  let make_suitable_for_environment0 t env ~suitable_for level =
-    make_suitable_for_environment0_core t env ~depth:0 ~suitable_for level
+let make_suitable_for_environment0 t env ~suitable_for level =
+  make_suitable_for_environment0_core t env ~depth:0 ~suitable_for level
 
-  let make_suitable_for_environment t env ~suitable_for ~bind_to =
+let make_suitable_for_environment t env ~suitable_for ~bind_to =
 (*
     if TE.mem env bind_to then begin
       Misc.fatal_errorf "[bind_to] %a must not be bound in the \
@@ -881,98 +864,91 @@ let rec make_suitable_for_environment0_core t env ~depth ~suitable_for level =
         TE.print env
     end;
 *)
-    if not (TE.mem suitable_for bind_to) then begin
-      Misc.fatal_errorf "[bind_to] %a is expected to be bound in the \
-          [suitable_for] environment:@ %a"
-        Name.print bind_to
-        TE.print suitable_for
-    end;
-    let level, t =
-      make_suitable_for_environment0 t env ~suitable_for (TEL.empty ())
-    in
-    let level = TEL.add_or_replace_equation level bind_to t in
-    TEE.create level
-
-module Make_meet_or_join
-  (E : Lattice_ops_intf.S
-   with type meet_env := Meet_env.t
-   with type meet_or_join_env := Meet_or_join_env.t
-   with type typing_env := Typing_env.t
-   with type typing_env_extension := Typing_env_extension.t) =
-struct
-  module T_V_meet_or_join = T_V.Make_meet_or_join (E)
-  module T_NI_meet_or_join = T_NI.Make_meet_or_join (E)
-  module T_Nf_meet_or_join = T_Nf.Make_meet_or_join (E)
-  module T_N32_meet_or_join = T_N32.Make_meet_or_join (E)
-  module T_N64_meet_or_join = T_N64.Make_meet_or_join (E)
-  module T_NN_meet_or_join = T_NN.Make_meet_or_join (E)
-
-  let meet_or_join ?bound_name (env : Meet_or_join_env.t) t1 t2 =
-    match t1, t2 with
-    | Value ty1, Value ty2 ->
-      T_V_meet_or_join.meet_or_join ?bound_name env
-        K.value t1 t2 ty1 ty2
-        ~force_to_kind:force_to_kind_value
-        ~to_type:(fun ty -> Value ty)
-    | Naked_immediate ty1, Naked_immediate ty2 ->
-      T_NI_meet_or_join.meet_or_join ?bound_name env
-        K.naked_immediate t1 t2 ty1 ty2
-        ~force_to_kind:force_to_kind_naked_immediate
-        ~to_type:(fun ty -> Naked_immediate ty)
-    | Naked_float ty1, Naked_float ty2 ->
-      T_Nf_meet_or_join.meet_or_join ?bound_name env
-        K.naked_float t1 t2 ty1 ty2
-        ~force_to_kind:force_to_kind_naked_float
-        ~to_type:(fun ty -> Naked_float ty)
-    | Naked_int32 ty1, Naked_int32 ty2 ->
-      T_N32_meet_or_join.meet_or_join ?bound_name env
-        K.naked_int32 t1 t2 ty1 ty2
-        ~force_to_kind:force_to_kind_naked_int32
-        ~to_type:(fun ty -> Naked_int32 ty)
-    | Naked_int64 ty1, Naked_int64 ty2 ->
-      T_N64_meet_or_join.meet_or_join ?bound_name env
-        K.naked_int64 t1 t2 ty1 ty2
-        ~force_to_kind:force_to_kind_naked_int64
-        ~to_type:(fun ty -> Naked_int64 ty)
-    | Naked_nativeint ty1, Naked_nativeint ty2 ->
-      T_NN_meet_or_join.meet_or_join ?bound_name env
-        K.naked_nativeint t1 t2 ty1 ty2
-        ~force_to_kind:force_to_kind_naked_nativeint
-        ~to_type:(fun ty -> Naked_nativeint ty)
-    | (Value _ | Naked_immediate _ | Naked_float _ | Naked_int32 _
-        | Naked_int64 _ | Naked_nativeint _), _ ->
-      Misc.fatal_errorf "Kind mismatch upon %s:@ %a@ versus@ %a"
-        (E.name ())
-        print t1
-        print t2
-end
-
-module Meet = Make_meet_or_join (Lattice_ops.For_meet)
-module Join = Make_meet_or_join (Lattice_ops.For_join)
-
-let meet' env t1 t2 =
-  let env = Meet_or_join_env.create_for_meet env in
-  Meet.meet_or_join env t1 t2
-
-let meet env t1 t2 : _ Or_bottom.t =
-  let ty, env_extension = meet' env t1 t2 in
-  if is_obviously_bottom ty then Bottom
-  else Ok (ty, env_extension)
-
-let join' ?bound_name env left_ty right_ty =
-  let joined, env_extension =
-    Join.meet_or_join ?bound_name env left_ty right_ty
-  in
-  if not (TEE.is_empty env_extension) then begin
-    Misc.fatal_errorf "Non-empty environment extension produced from a \
-        [join] operation:@ %a"
-      TEE.print env_extension
+  if not (TE.mem suitable_for bind_to) then begin
+    Misc.fatal_errorf "[bind_to] %a is expected to be bound in the \
+        [suitable_for] environment:@ %a"
+      Name.print bind_to
+      TE.print suitable_for
   end;
-  joined
+  let level, t =
+    make_suitable_for_environment0 t env ~suitable_for (TEL.empty ())
+  in
+  let level = TEL.add_or_replace_equation level bind_to t in
+  level
 
-let join ?bound_name env ~left_env ~left_ty ~right_env ~right_ty =
-  let env = Meet_or_join_env.create_for_join env ~left_env ~right_env in
-  join' ?bound_name env left_ty right_ty
+let meet env t1 t2 =
+  match t1, t2 with
+  | Value ty1, Value ty2 ->
+    T_V.meet env
+      K.value t1 t2 ty1 ty2
+      ~force_to_kind:force_to_kind_value
+      ~to_type:(fun ty -> Value ty)
+  | Naked_immediate ty1, Naked_immediate ty2 ->
+    T_NI.meet env
+      K.naked_immediate t1 t2 ty1 ty2
+      ~force_to_kind:force_to_kind_naked_immediate
+      ~to_type:(fun ty -> Naked_immediate ty)
+  | Naked_float ty1, Naked_float ty2 ->
+    T_Nf.meet env
+      K.naked_float t1 t2 ty1 ty2
+      ~force_to_kind:force_to_kind_naked_float
+      ~to_type:(fun ty -> Naked_float ty)
+  | Naked_int32 ty1, Naked_int32 ty2 ->
+    T_N32.meet env
+      K.naked_int32 t1 t2 ty1 ty2
+      ~force_to_kind:force_to_kind_naked_int32
+      ~to_type:(fun ty -> Naked_int32 ty)
+  | Naked_int64 ty1, Naked_int64 ty2 ->
+    T_N64.meet env
+      K.naked_int64 t1 t2 ty1 ty2
+      ~force_to_kind:force_to_kind_naked_int64
+      ~to_type:(fun ty -> Naked_int64 ty)
+  | Naked_nativeint ty1, Naked_nativeint ty2 ->
+    T_NN.meet env
+      K.naked_nativeint t1 t2 ty1 ty2
+      ~force_to_kind:force_to_kind_naked_nativeint
+      ~to_type:(fun ty -> Naked_nativeint ty)
+  | (Value _ | Naked_immediate _ | Naked_float _ | Naked_int32 _
+    | Naked_int64 _ | Naked_nativeint _), _ ->
+    Misc.fatal_errorf "Kind mismatch upon meet:@ %a@ versus@ %a"
+      print t1
+      print t2
 
-let join' env left_ty right_ty =
-  join' ?bound_name:None env left_ty right_ty
+let join ?bound_name env t1 t2 =
+  match t1, t2 with
+  | Value ty1, Value ty2 ->
+    T_V.join ?bound_name env
+      K.value t1 t2 ty1 ty2
+      ~force_to_kind:force_to_kind_value
+      ~to_type:(fun ty -> Value ty)
+  | Naked_immediate ty1, Naked_immediate ty2 ->
+    T_NI.join ?bound_name env
+      K.naked_immediate t1 t2 ty1 ty2
+      ~force_to_kind:force_to_kind_naked_immediate
+      ~to_type:(fun ty -> Naked_immediate ty)
+  | Naked_float ty1, Naked_float ty2 ->
+    T_Nf.join ?bound_name env
+      K.naked_float t1 t2 ty1 ty2
+      ~force_to_kind:force_to_kind_naked_float
+      ~to_type:(fun ty -> Naked_float ty)
+  | Naked_int32 ty1, Naked_int32 ty2 ->
+    T_N32.join ?bound_name env
+      K.naked_int32 t1 t2 ty1 ty2
+      ~force_to_kind:force_to_kind_naked_int32
+      ~to_type:(fun ty -> Naked_int32 ty)
+  | Naked_int64 ty1, Naked_int64 ty2 ->
+    T_N64.join ?bound_name env
+      K.naked_int64 t1 t2 ty1 ty2
+      ~force_to_kind:force_to_kind_naked_int64
+      ~to_type:(fun ty -> Naked_int64 ty)
+  | Naked_nativeint ty1, Naked_nativeint ty2 ->
+    T_NN.join ?bound_name env
+      K.naked_nativeint t1 t2 ty1 ty2
+      ~force_to_kind:force_to_kind_naked_nativeint
+      ~to_type:(fun ty -> Naked_nativeint ty)
+  | (Value _ | Naked_immediate _ | Naked_float _ | Naked_int32 _
+    | Naked_int64 _ | Naked_nativeint _), _ ->
+    Misc.fatal_errorf "Kind mismatch upon join:@ %a@ versus@ %a"
+      print t1
+      print t2
+
