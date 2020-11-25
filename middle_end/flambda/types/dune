@@ -26,7 +26,6 @@
     env/typing_env_extension.rec.ml
     env/typing_env_level.rec.ml
     env/typing_env.rec.ml
-    structures/lattice_ops.rec.ml
     structures/product.rec.ml
     structures/row_like.rec.ml
     type_descr.rec.mli
@@ -52,7 +51,6 @@
     env/typing_env_extension.rec.mli
     env/typing_env_level.rec.mli
     env/typing_env.rec.mli
-    structures/lattice_ops.rec.mli
     structures/product.rec.mli
     structures/row_like.rec.mli
   )
