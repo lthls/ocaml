@@ -35,8 +35,6 @@ val add_or_replace_equation : t -> Name.t -> Type_grammar.t -> t
 
 val meet : Meet_env.t -> t -> t -> t Or_bottom.t
 
-val n_way_meet : Meet_env.t -> t list -> t
-
 (* Note: [join] takes a [Meet_env.t] argument on purpose: Typing_env_extensions
    are created for meets, and this function is here for case where a meet
    produces a disjunction, in which case the extensions must be joined together.

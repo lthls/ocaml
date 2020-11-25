@@ -33,3 +33,5 @@ val map : 'a t -> f:('a -> 'b) -> 'b t
 val value_map : 'a t -> bottom:'b -> f:('a -> 'b) -> 'b
 
 val all : 'a t list -> 'a list t
+
+val bind : 'a t -> f:('a -> 'b t) -> 'b t

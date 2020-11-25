@@ -50,3 +50,8 @@ let all ts =
   in
   if List.compare_lengths ts contents <> 0 then Bottom
   else Ok contents
+
+let bind t ~f =
+  match t with
+  | Bottom -> Bottom
+  | Ok contents -> f contents

@@ -63,7 +63,7 @@ let meet env
         closure_var_types = closure_var_types2;
       } : _ Or_bottom.t =
   let any_bottom = ref false in
-  let env_extensions = ref [] in
+  let env_extensions = ref (TEE.empty ()) in
   let function_decls =
     Closure_id.Map.merge (fun _closure_id func_decl1 func_decl2 ->
       match func_decl1, func_decl2 with
@@ -75,29 +75,35 @@ let meet env
           any_bottom := true;
           None
         | Ok (func_decl, env_extension) ->
-          env_extensions := env_extension :: !env_extensions;
+          begin match TEE.meet env !env_extensions env_extension with
+          | Bottom ->
+            any_bottom := true;
+          | Ok env_extension ->
+            env_extensions := env_extension
+          end;
           Some func_decl)
       function_decls1 function_decls2
   in
   if !any_bottom then
     Bottom
   else
-    Or_bottom.both
+    Or_bottom.bind
       (PC.meet env closure_types1 closure_types2)
-      (PV.meet env closure_var_types1 closure_var_types2)
-      ~f:(fun (closure_types, env_extension1)
-              (closure_var_types, env_extension2) ->
-           let closures_entry =
-             { function_decls;
-               closure_types;
-               closure_var_types;
-             }
-           in
-           let env_extension =
-             TEE.n_way_meet env
-               (env_extension1 :: env_extension2 :: !env_extensions)
-           in
-           closures_entry, env_extension)
+      ~f:(fun (closure_types, env_extension1) ->
+        Or_bottom.bind
+          (PV.meet env closure_var_types1 closure_var_types2)
+          ~f:(fun (closure_var_types, env_extension2) ->
+            let closures_entry =
+              { function_decls;
+                closure_types;
+                closure_var_types;
+              }
+            in
+            Or_bottom.bind (TEE.meet env !env_extensions env_extension1)
+              ~f:(fun env_extension ->
+                Or_bottom.bind (TEE.meet env env_extension env_extension2)
+                  ~f:(fun env_extension ->
+                    Ok (closures_entry, env_extension)))))
 
 let join env
       { function_decls = function_decls1;

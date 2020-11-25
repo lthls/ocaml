@@ -16,19 +16,8 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-(* module A =
- *   Name_abstraction.Make_map (Bindable_variable_in_types) (Typing_env_level) *)
 module FPEM = Flambda_primitive.Eligible_for_cse.Map
 
-(* The record is here to avoid the double vision problem.  (Otherwise
-   there would already be an equality
-     t = Name_abstraction.Make_list ...
-   meaning that the equality
-     t = Typing_env_extension.t
-   could not be added by the type checker.) *)
-(* type t = {
- *   abst : A.t;
- * } [@@unboxed] *)
 type t = {
   equations : Type_grammar.t Name.Map.t;
 }[@@unboxed]
@@ -114,11 +103,6 @@ let join env t1 t2 =
       t2.equations
   in
   { equations; }
-
-let rec n_way_meet env ts =
-  match ts with
-  | [] -> empty ()
-  | t::ts -> meet0 env t (n_way_meet env ts) []
 
 module With_extra_variables = struct
   type t = {
