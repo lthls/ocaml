@@ -78,6 +78,13 @@ let rec meet0 env (t1 : t) (t2 : t) extra_extensions =
   match extra_extensions with
   | [] -> ext
   | new_ext :: extra_extensions ->
+    (* CR vlaviron: I think that with recursive types we could get into an
+       infinite loop. It doesn't seem to occur at the moment, but it might be
+       a good idea to guard against this, or limit the number of recursive calls
+       to better control the complexity.
+       Since we're doing a meet, dropping the additional extensions is sound,
+       but then we'd probably want to switch to a queue instead of a list so
+       that only the newest/deepest equtions are lost. *)
     meet0 env ext new_ext extra_extensions
 
 let meet env t1 t2 : _ Or_bottom.t =
