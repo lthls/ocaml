@@ -261,8 +261,6 @@ MIDDLE_END_FLAMBDA_TYPES=\
   middle_end/flambda/types/basic/meet_or_join_op.cmo \
   middle_end/flambda/types/basic/or_bottom.cmo \
   middle_end/flambda/types/basic/string_info.cmo \
-  middle_end/flambda/types/structures/lattice_ops_intf.cmo \
-  middle_end/flambda/types/basic/or_bottom_or_absorbing.cmo \
   middle_end/flambda/types/basic/or_unknown_or_bottom.cmo \
   middle_end/flambda/types/structures/code_age_relation.cmo \
   middle_end/flambda/types/structures/type_structure_intf.cmo \
@@ -275,7 +273,6 @@ MIDDLE_END_FLAMBDA_TYPES=\
   middle_end/flambda/types/type_head_intf.cmo \
   middle_end/flambda/types/flambda_type.cmo \
   middle_end/flambda/types/basic/unit.cmo \
-  middle_end/flambda/types/basic/or_absorbing.cmo \
   middle_end/flambda/types/basic/closure_id_set.cmo \
   middle_end/flambda/types/basic/closure_id_or_unknown_and_var_within_closure_set.cmo \
   middle_end/flambda/types/basic/closure_id_and_var_within_closure_set.cmo
