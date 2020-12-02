@@ -48,10 +48,10 @@ jobs:
       run: git apply .github/workflows/ocamltest_makefile.patch
     # Install dependencies
     - name: Install dependencies
-      run: sudo apt-get install parallel texlive-latex-extra texlive-fonts-recommended
+      run: sudo apt-get install parallel
     # Configure the compiler
     - name: configure
-      run: ./configure --enable-flambda
+      run: ./configure --enable-flambda --without-ocamldoc
     # Debug step
     - name: Debug step
       run: echo "J is $J"

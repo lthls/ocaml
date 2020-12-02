@@ -50,7 +50,7 @@ jobs:
         path: 'test'
     # Install dependencies
     - name: Install dependencies
-      run: sudo apt-get install parallel texlive-latex-extra texlive-fonts-recommended
+      run: sudo apt-get install parallel
     # Cache the install directory
     - name: Cache install directory
       uses: actions/cache@v1
@@ -90,7 +90,7 @@ jobs:
       if: steps.cache.outputs.cache-hit != 'true'
       working-directory: base
       run: |
-        ./configure --enable-flambda --prefix=$GITHUB_WORKSPACE/install
+        ./configure --enable-flambda --prefix=$GITHUB_WORKSPACE/install --without-ocamldoc
         make -j $J
         make install
     # Build&install ocamltest
@@ -125,7 +125,7 @@ jobs:
     # Configure the flambda compiler
     - name: Configure the flambda compiler (stage 1)
       working-directory: test
-      run: ./configure --enable-flambda
+      run: ./configure --enable-flambda --without-ocamldoc
     # Build ocamlc, ocamlopt.opt using dune
     - name: Build the flambda compiler (stage 1)
       working-directory: test
@@ -157,7 +157,7 @@ jobs:
     # Configure the flambda compiler
     - name: Configure the flambda compiler (stage 2)
       working-directory: test
-      run: ./configure --enable-flambda
+      run: ./configure --enable-flambda --without-ocamldoc
     # Build the flambda compiler and stdlib
     - name: Build the flambda compiler (stage 2)
       working-directory: test
