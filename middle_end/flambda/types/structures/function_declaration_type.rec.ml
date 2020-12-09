@@ -210,7 +210,7 @@ let meet (env : Meet_env.t) (t1 : t) (t2 : t)
     | Bottom -> Bottom
     end
 
-let join (env : Meet_or_join_env.t) (t1 : t) (t2 : t)
+let join (env : Join_env.t) (t1 : t) (t2 : t)
       : t Or_unknown.t =
   let unknown : t Or_unknown.t = Known Unknown in
   match t1, t2 with
@@ -223,7 +223,7 @@ let join (env : Meet_or_join_env.t) (t1 : t) (t2 : t)
     }), Ok (Non_inlinable {
       code_id = code_id2; is_tupled = is_tupled2;
     }) ->
-    let typing_env = Meet_or_join_env.target_join_env env in
+    let typing_env = Join_env.target_join_env env in
     let target_code_age_rel = TE.code_age_relation typing_env in
     let resolver = TE.code_age_relation_resolver typing_env in
     let check_other_things_and_return code_id : t Or_unknown.t =
@@ -233,10 +233,10 @@ let join (env : Meet_or_join_env.t) (t1 : t) (t2 : t)
           is_tupled = is_tupled1; }))
     in
     let code_age_rel1 =
-      TE.code_age_relation (Meet_or_join_env.left_join_env env)
+      TE.code_age_relation (Join_env.left_join_env env)
     in
     let code_age_rel2 =
-      TE.code_age_relation (Meet_or_join_env.right_join_env env)
+      TE.code_age_relation (Join_env.right_join_env env)
     in
     begin match
       Code_age_relation.join ~target_t:target_code_age_rel ~resolver
@@ -262,7 +262,7 @@ let join (env : Meet_or_join_env.t) (t1 : t) (t2 : t)
       rec_info = _rec_info2;
       is_tupled = is_tupled2;
     }) ->
-    let typing_env = Meet_or_join_env.target_join_env env in
+    let typing_env = Join_env.target_join_env env in
     let target_code_age_rel = TE.code_age_relation typing_env in
     let resolver = TE.code_age_relation_resolver typing_env in
     let check_other_things_and_return code_id : t Or_unknown.t =
@@ -277,10 +277,10 @@ let join (env : Meet_or_join_env.t) (t1 : t) (t2 : t)
     in
     (* CR mshinwell: What about [rec_info]? *)
     let code_age_rel1 =
-      TE.code_age_relation (Meet_or_join_env.left_join_env env)
+      TE.code_age_relation (Join_env.left_join_env env)
     in
     let code_age_rel2 =
-      TE.code_age_relation (Meet_or_join_env.right_join_env env)
+      TE.code_age_relation (Join_env.right_join_env env)
     in
     begin match
       Code_age_relation.join ~target_t:target_code_age_rel ~resolver

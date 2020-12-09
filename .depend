@@ -9144,6 +9144,12 @@ middle_end/flambda/types/env/binding_time.cmx : \
 middle_end/flambda/types/env/binding_time.cmi : \
     middle_end/flambda/naming/name_mode.cmi \
     utils/identifiable.cmi
+middle_end/flambda/types/env/join_env.rec.cmo : \
+    middle_end/flambda/types/env/join_env.rec.cmi
+middle_end/flambda/types/env/join_env.rec.cmx : \
+    middle_end/flambda/types/env/join_env.rec.cmi
+middle_end/flambda/types/env/join_env.rec.cmi : \
+    middle_end/flambda/basic/simple.cmi
 middle_end/flambda/types/env/meet_env.rec.cmo : \
     middle_end/flambda/basic/simple.cmi \
     utils/misc.cmi \
@@ -9153,12 +9159,6 @@ middle_end/flambda/types/env/meet_env.rec.cmx : \
     utils/misc.cmx \
     middle_end/flambda/types/env/meet_env.rec.cmi
 middle_end/flambda/types/env/meet_env.rec.cmi : \
-    middle_end/flambda/basic/simple.cmi
-middle_end/flambda/types/env/meet_or_join_env.rec.cmo : \
-    middle_end/flambda/types/env/meet_or_join_env.rec.cmi
-middle_end/flambda/types/env/meet_or_join_env.rec.cmx : \
-    middle_end/flambda/types/env/meet_or_join_env.rec.cmi
-middle_end/flambda/types/env/meet_or_join_env.rec.cmi : \
     middle_end/flambda/basic/simple.cmi
 middle_end/flambda/types/env/typing_env.rec.cmo : \
     middle_end/flambda/compilenv_deps/variable.cmi \

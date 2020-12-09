@@ -23,7 +23,7 @@ module TEL = Typing_env_level
 
 module Make (Head : Type_head_intf.S
   with type meet_env := Meet_env.t
-  with type join_env := Meet_or_join_env.t
+  with type join_env := Join_env.t
   with type typing_env := Typing_env.t
   with type typing_env_extension := Typing_env_extension.t
   with type type_grammar := Type_grammar.t)
@@ -300,7 +300,7 @@ module Make (Head : Type_head_intf.S
       | Ok (head, env_extension) -> New_head (Ok head, env_extension)
       | Bottom -> New_head (Bottom, TEE.empty ())
 
-  let join_head_or_unknown_or_bottom (env : Meet_or_join_env.t)
+  let join_head_or_unknown_or_bottom (env : Join_env.t)
         (head1 : _ Or_unknown_or_bottom.t)
         (head2 : _ Or_unknown_or_bottom.t)
         : _ Or_unknown_or_bottom.t =
@@ -461,22 +461,22 @@ module Make (Head : Type_head_intf.S
       (*
       Format.eprintf "DESCR: Joining %a and %a\n%!" print t1 print t2;
       Format.eprintf "Left:@ %a@ Right:@ %a\n%!"
-        Code_age_relation.print (Meet_or_join_env.left_join_env join_env
+        Code_age_relation.print (Join_env.left_join_env join_env
           |> TE.code_age_relation)
-        Code_age_relation.print (Meet_or_join_env.right_join_env join_env
+        Code_age_relation.print (Join_env.right_join_env join_env
           |> TE.code_age_relation);
       *)
       (*
-        Typing_env.print (Meet_or_join_env.left_join_env join_env)
-        Typing_env.print (Meet_or_join_env.right_join_env join_env);
+        Typing_env.print (Join_env.left_join_env join_env)
+        Typing_env.print (Join_env.right_join_env join_env);
         *)
       (* CR mshinwell: Rewrite this to avoid the [option] allocations from
          [get_canonical_simples_and_expand_heads] *)
     let canonical_simple1, head1, canonical_simple2, head2 =
       get_canonical_simples_and_expand_heads ~force_to_kind ~to_type kind
-        ~left_env:(Meet_or_join_env.left_join_env join_env)
+        ~left_env:(Join_env.left_join_env join_env)
         ~left_ty:t1
-        ~right_env:(Meet_or_join_env.right_join_env join_env)
+        ~right_env:(Join_env.right_join_env join_env)
         ~right_ty:t2
     in
     let choose_shared_alias ~shared_aliases =
@@ -514,12 +514,12 @@ module Make (Head : Type_head_intf.S
           then Simple.Set.singleton simple1
           else
             Simple.Set.inter
-              (all_aliases_of (Meet_or_join_env.left_join_env join_env)
+              (all_aliases_of (Join_env.left_join_env join_env)
                 canonical_simple1
-                ~in_env:(Meet_or_join_env.target_join_env join_env))
-              (all_aliases_of (Meet_or_join_env.right_join_env join_env)
+                ~in_env:(Join_env.target_join_env join_env))
+              (all_aliases_of (Join_env.right_join_env join_env)
                 canonical_simple2
-                ~in_env:(Meet_or_join_env.target_join_env join_env))
+                ~in_env:(Join_env.target_join_env join_env))
       in
       match bound_name with
       | None -> shared_aliases
@@ -540,14 +540,14 @@ module Make (Head : Type_head_intf.S
     | None ->
       match canonical_simple1, canonical_simple2 with
       | Some simple1, Some simple2
-          when Meet_or_join_env.already_joining join_env simple1 simple2 ->
+          when Join_env.already_joining join_env simple1 simple2 ->
         (* CR vlaviron: Fix this to Unknown when Product can handle it *)
         Known (to_type (unknown ()))
       | Some _, Some _ | Some _, None | None, Some _ | None, None ->
         let join_env =
           match canonical_simple1, canonical_simple2 with
           | Some simple1, Some simple2 ->
-            Meet_or_join_env.now_joining join_env simple1 simple2
+            Join_env.now_joining join_env simple1 simple2
           | Some _, None | None, Some _ | None, None -> join_env
         in
         match join_head_or_unknown_or_bottom join_env head1 head2 with

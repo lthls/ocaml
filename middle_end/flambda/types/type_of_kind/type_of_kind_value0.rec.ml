@@ -229,7 +229,7 @@ let meet_unknown meet_contents ~contents_is_bottom env
       if contents_is_bottom contents then Bottom
       else result
 
-let join_unknown join_contents (env : Meet_or_join_env.t)
+let join_unknown join_contents (env : Join_env.t)
     (or_unknown1 : _ Or_unknown.t) (or_unknown2 : _ Or_unknown.t)
     : _ Or_unknown.t =
   match or_unknown1, or_unknown2 with

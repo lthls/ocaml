@@ -95,7 +95,7 @@ let meet env t1 t2 : _ Or_bottom.t =
 let join env t1 t2 =
   let env = Meet_env.env env in
   let join_env =
-    Meet_or_join_env.create env ~left_env:env ~right_env:env
+    Join_env.create env ~left_env:env ~right_env:env
   in
   let equations =
     Name.Map.merge (fun _name ty1_opt ty2_opt ->

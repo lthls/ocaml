@@ -213,7 +213,7 @@ val meet : Meet_env.t -> t -> t -> (t * Typing_env_extension.t) Or_bottom.t
 (** Least upper bound of two types. *)
 val join
    : ?bound_name:Name.t
-  -> Meet_or_join_env.t
+  -> Join_env.t
   -> t
   -> t
   -> t Or_unknown.t

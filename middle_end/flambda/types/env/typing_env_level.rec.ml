@@ -386,7 +386,7 @@ let join_types ~env_at_fork envs_with_levels ~extra_lifted_consts_in_use_envs =
                  [env_at_use] -- see the comment in [check_join_inputs]
                  below. *)
               let join_env =
-                Meet_or_join_env.create env_at_fork
+                Join_env.create env_at_fork
                   ~left_env:join_env
                   ~right_env:env_at_fork
               in
@@ -402,7 +402,7 @@ let join_types ~env_at_fork envs_with_levels ~extra_lifted_consts_in_use_envs =
               let expected_kind = Some (Type_grammar.kind joined_ty) in
               let right_ty = Typing_env.find env_at_fork name expected_kind in
               let join_env =
-                Meet_or_join_env.create env_at_fork
+                Join_env.create env_at_fork
                   ~left_env:join_env
                   ~right_env:env_at_fork
               in
@@ -414,7 +414,7 @@ let join_types ~env_at_fork envs_with_levels ~extra_lifted_consts_in_use_envs =
                  equation for [name] on the current level. *)
               assert (not is_first_join);
               let join_env =
-                Meet_or_join_env.create env_at_fork
+                Join_env.create env_at_fork
                   ~left_env:join_env
                   ~right_env:env_at_use
               in

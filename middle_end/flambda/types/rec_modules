@@ -20,6 +20,6 @@ env/typing_env_extension.rec.ml
 env/typing_env_level.rec.ml
 env/typing_env.rec.ml
 env/meet_env.rec.ml
-env/meet_or_join_env.rec.ml
+env/join_env.rec.ml
 structures/product.rec.ml
 structures/row_like.rec.ml

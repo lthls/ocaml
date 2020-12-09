@@ -81,7 +81,7 @@ module For_blocks : sig
     with type flambda_type := Type_grammar.t
     with type typing_env := Typing_env.t
     with type meet_env := Meet_env.t
-    with type meet_or_join_env := Meet_or_join_env.t
+    with type join_env := Join_env.t
     with type typing_env_extension := Typing_env_extension.t
 end
 
@@ -113,7 +113,7 @@ module For_closures_entry_by_set_of_closures_contents : sig
     with type t := t
     with type flambda_type := Type_grammar.t
     with type meet_env := Meet_env.t
-    with type meet_or_join_env := Meet_or_join_env.t
+    with type join_env := Join_env.t
     with type typing_env := Typing_env.t
     with type typing_env_extension := Typing_env_extension.t
 end

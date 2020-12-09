@@ -47,7 +47,7 @@ let meet_shape env t ~shape ~result_var ~result_kind : _ Or_bottom.t =
   | Ok (_meet_ty, env_extension) -> Ok env_extension
 
 let join ?bound_name central_env ~left_env ~left_ty ~right_env ~right_ty =
-  let join_env = Meet_or_join_env.create central_env ~left_env ~right_env in
+  let join_env = Join_env.create central_env ~left_env ~right_env in
   match join ?bound_name join_env left_ty right_ty with
   | Unknown -> unknown_like left_ty
   | Known ty -> ty
