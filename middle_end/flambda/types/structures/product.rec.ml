@@ -104,12 +104,12 @@ module Make (Index : Product_intf.Index) = struct
           | Some ty1, Some ty2 ->
             begin match Type_grammar.join env ty1 ty2 with
             | Known ty -> Some ty
-            | Unknown -> (* CR vlaviron: check that it's ok *) None
+            | Unknown -> None
             end)
         components_by_index1
         components_by_index2
     in
-    Or_unknown.Known { components_by_index; kind = kind1; }
+    { components_by_index; kind = kind1; }
 
   let apply_name_permutation ({ components_by_index; kind; } as t) perm =
     let components_by_index' =
@@ -287,11 +287,10 @@ module Int_indexed = struct
           if fields1.(index) == fields2.(index) then fields1.(index)
           else match Type_grammar.join env fields1.(index) fields2.(index) with
             | Unknown ->
-              (* CR vlaviron: Need to do something better here *)
-              Misc.fatal_error "Product.Int_indexed.join: Unexpected Unknown result"
+              Type_grammar.unknown t1.kind
             | Known ty -> ty)
     in
-    Or_unknown.Known { kind = t1.kind; fields }
+    { kind = t1.kind; fields }
 
   let apply_name_permutation t perm =
     let fields = Array.copy t.fields in

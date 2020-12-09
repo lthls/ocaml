@@ -113,15 +113,9 @@ let join env
       { function_decls = function_decls2;
         closure_types = closure_types2;
         closure_var_types = closure_var_types2;
-      } : _ Or_unknown.t =
-  let exception Join_unknown in
-  let unwrap : 'a Or_unknown.t -> 'a = function
-    | Known t -> t
-    | Unknown -> raise Join_unknown
-  in
-  try
-    let function_decls =
-      Closure_id.Map.merge (fun _closure_id func_decl1 func_decl2 ->
+      } =
+  let function_decls =
+    Closure_id.Map.merge (fun _closure_id func_decl1 func_decl2 ->
         match func_decl1, func_decl2 with
         | None, None
         (* CR mshinwell: Are these next two cases right?  Don't we need to
@@ -129,20 +123,19 @@ let join env
         | Some _, None
         | None, Some _ -> None
         | Some func_decl1, Some func_decl2 ->
-          Some (unwrap (FDT.join env func_decl1 func_decl2)))
-        function_decls1 function_decls2
-    in
-    let closure_types =
-      unwrap (PC.join env closure_types1 closure_types2)
-    in
-    let closure_var_types =
-      unwrap (PV.join env closure_var_types1 closure_var_types2)
-    in
-    Known { function_decls;
-            closure_types;
-            closure_var_types;
-          }
-  with Join_unknown -> Unknown
+          Some (FDT.join env func_decl1 func_decl2))
+      function_decls1 function_decls2
+  in
+  let closure_types =
+    PC.join env closure_types1 closure_types2
+  in
+  let closure_var_types =
+    PV.join env closure_var_types1 closure_var_types2
+  in
+  { function_decls;
+    closure_types;
+    closure_var_types;
+  }
 
 let apply_name_permutation
       { function_decls; closure_types; closure_var_types; } perm =

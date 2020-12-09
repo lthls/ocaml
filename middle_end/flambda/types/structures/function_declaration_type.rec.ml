@@ -210,14 +210,12 @@ let meet (env : Meet_env.t) (t1 : t) (t2 : t)
     | Bottom -> Bottom
     end
 
-let join (env : Join_env.t) (t1 : t) (t2 : t)
-      : t Or_unknown.t =
-  let unknown : t Or_unknown.t = Known Unknown in
+let join (env : Join_env.t) (t1 : t) (t2 : t) : t =
   match t1, t2 with
   (* CR mshinwell: Try to factor out "Or_unknown_or_bottom" handling from here
      and elsewhere *)
-  | Bottom, t | t, Bottom -> Known t
-  | Unknown, _ | _, Unknown -> unknown
+  | Bottom, t | t, Bottom -> t
+  | Unknown, _ | _, Unknown -> Unknown
   | Ok (Non_inlinable {
       code_id = code_id1; is_tupled = is_tupled1;
     }), Ok (Non_inlinable {
@@ -226,11 +224,11 @@ let join (env : Join_env.t) (t1 : t) (t2 : t)
     let typing_env = Join_env.target_join_env env in
     let target_code_age_rel = TE.code_age_relation typing_env in
     let resolver = TE.code_age_relation_resolver typing_env in
-    let check_other_things_and_return code_id : t Or_unknown.t =
+    let check_other_things_and_return code_id : t =
       assert (Bool.equal is_tupled1 is_tupled2);
-      Known (Ok (Non_inlinable {
-          code_id;
-          is_tupled = is_tupled1; }))
+      Ok (Non_inlinable {
+        code_id;
+        is_tupled = is_tupled1; })
     in
     let code_age_rel1 =
       TE.code_age_relation (Join_env.left_join_env env)
@@ -243,13 +241,13 @@ let join (env : Join_env.t) (t1 : t) (t2 : t)
         code_age_rel1 code_age_rel2 code_id1 code_id2
     with
     | Known code_id -> check_other_things_and_return code_id
-    | Unknown -> unknown
+    | Unknown -> Unknown
     end
   | Ok (Non_inlinable _), Ok (Inlinable _)
   | Ok (Inlinable _), Ok (Non_inlinable _) ->
     (* CR mshinwell: This should presumably return [Non_inlinable] if
        the arities match. *)
-    unknown
+    Unknown
   | Ok (Inlinable {
       code_id = code_id1;
       dbg = dbg1;
@@ -265,15 +263,15 @@ let join (env : Join_env.t) (t1 : t) (t2 : t)
     let typing_env = Join_env.target_join_env env in
     let target_code_age_rel = TE.code_age_relation typing_env in
     let resolver = TE.code_age_relation_resolver typing_env in
-    let check_other_things_and_return code_id : t Or_unknown.t =
+    let check_other_things_and_return code_id : t =
       assert (Int.equal (Debuginfo.compare dbg1 dbg2) 0);
       assert (Bool.equal is_tupled1 is_tupled2);
-      Known (Ok (Inlinable {
-          code_id;
-          dbg = dbg1;
-          rec_info = _rec_info1;
-          is_tupled = is_tupled1;
-        }))
+      Ok (Inlinable {
+        code_id;
+        dbg = dbg1;
+        rec_info = _rec_info1;
+        is_tupled = is_tupled1;
+      })
     in
     (* CR mshinwell: What about [rec_info]? *)
     let code_age_rel1 =
@@ -287,7 +285,7 @@ let join (env : Join_env.t) (t1 : t) (t2 : t)
         code_age_rel1 code_age_rel2 code_id1 code_id2
     with
     | Known code_id -> check_other_things_and_return code_id
-    | Unknown -> unknown
+    | Unknown -> Unknown
     end
 
 let apply_rec_info (t : t) rec_info : t Or_bottom.t =

@@ -339,8 +339,11 @@ let meet env t1 t2 : _ Or_bottom.t =
 
 let join_variant env
       ~blocks1 ~imms1 ~blocks2 ~imms2 : _ Or_unknown.t =
+  let blocks_join env b1 b2 : _ Or_unknown.t =
+    Known (Blocks.join env b1 b2)
+  in
   let blocks =
-    join_unknown Blocks.join env blocks1 blocks2
+    join_unknown blocks_join env blocks1 blocks2
   in
   let imms =
     join_unknown (T.join ?bound_name:None) env imms1 imms2
@@ -380,10 +383,8 @@ let join env t1 t2 : _ Or_unknown.t =
   | Closures { by_closure_id = by_closure_id1; },
     Closures { by_closure_id = by_closure_id2; } ->
     let module C = Row_like.For_closures_entry_by_set_of_closures_contents in
-    Or_unknown.map
-      (C.join env by_closure_id1 by_closure_id2)
-      ~f:(fun by_closure_id ->
-        Closures { by_closure_id; })
+    let by_closure_id = C.join env by_closure_id1 by_closure_id2 in
+    Known (Closures { by_closure_id; })
   | String strs1, String strs2 ->
     let strs = String_info.Set.union strs1 strs2 in
     Known (String strs)

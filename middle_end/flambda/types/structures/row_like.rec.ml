@@ -211,7 +211,7 @@ struct
       in
       Ok (result, env_extension)
 
-    let join (env : Join_env.t) t1 t2 : _ Or_unknown.t =
+    let join (env : Join_env.t) t1 t2 =
       let ({ known_tags = known1; other_tags = other1; } : t) = t1 in
       let ({ known_tags = known2; other_tags = other2; } : t) = t2 in
       let join_index i1 i2 : index =
@@ -230,13 +230,7 @@ struct
       in
       let join_case env case1 case2 =
         let index = join_index case1.index case2.index in
-        let maps_to =
-          match Maps_to.join env case1.maps_to case2.maps_to with
-          | Known maps_to -> maps_to
-          | Unknown ->
-            (* CR vlaviron: Handle this properly *)
-            Misc.fatal_error "Row_like.join: Unexpected Unknown result"
-        in
+        let maps_to = Maps_to.join env case1.maps_to case2.maps_to in
         { maps_to; index }
       in
       let join_knowns_tags case1 case2 : case option =
@@ -310,7 +304,7 @@ struct
         | Ok other1, Ok other2 ->
           Ok (join_case env other1 other2)
       in
-      Known { known_tags; other_tags }
+      { known_tags; other_tags }
 
     let get_singleton { known_tags; other_tags; } =
       match other_tags with
