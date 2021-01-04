@@ -715,12 +715,13 @@ let prove_block_field_simple env t field_index : Simple.t proof =
     begin match immediates with
     | Unknown -> Unknown
     | Known imms ->
-      if not (is_obviously_bottom imms) then
-        Unknown
-      else
-        begin match blocks with
-        | Unknown -> Unknown
-        | Known blocks ->
+      begin match blocks with
+      | Unknown -> Unknown
+      | Known blocks ->
+        if Row_like.For_blocks.is_bottom blocks then Invalid
+        else if not (is_obviously_bottom imms) then
+          Unknown
+        else
           begin match Row_like.For_blocks.get_field blocks field_index with
           | Unknown -> Unknown
           | Known ty ->

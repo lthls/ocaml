@@ -535,7 +535,7 @@ struct
             in
             let maps_to =
               Product.Int_indexed.create_from_list field_kind field_tys
-            in 
+            in
             let size = Targetint.OCaml.of_int (List.length field_tys) in
             { maps_to;
               index = Known size;
