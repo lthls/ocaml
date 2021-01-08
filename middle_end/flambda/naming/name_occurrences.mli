@@ -41,7 +41,7 @@ val singleton_continuation : Continuation.t -> t
 
 val singleton_continuation_in_trap_action : Continuation.t -> t
 
-val add_continuation : t -> Continuation.t -> t
+val add_continuation : t -> Continuation.t -> has_traps:bool -> t
 
 val add_continuation_in_trap_action : t -> Continuation.t -> t
 
@@ -106,6 +106,8 @@ val no_variables : t -> bool
 val no_continuations : t -> bool
 
 val continuations : t -> Continuation.Set.t
+
+val continuations_with_traps : t -> Continuation.Set.t
 
 val continuations_including_in_trap_actions : t -> Continuation.Set.t
 

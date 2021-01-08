@@ -626,6 +626,7 @@ end)
 type t = {
   names : For_names.t;
   continuations : For_continuations.t;
+  continuations_with_traps : For_continuations.t;
   continuations_in_trap_actions : For_continuations.t;
   closure_vars : For_closure_vars.t;
   code_ids : For_code_ids.t;
@@ -637,13 +638,15 @@ type t = {
 let empty = {
   names = For_names.empty;
   continuations = For_continuations.empty;
+  continuations_with_traps = For_continuations.empty;
   continuations_in_trap_actions = For_continuations.empty;
   closure_vars = For_closure_vars.empty;
   code_ids = For_code_ids.empty;
   newer_version_of_code_ids = For_code_ids.empty;
 }
 
-let print ppf ({ names; continuations; continuations_in_trap_actions;
+let print ppf ({ names; continuations; continuations_with_traps;
+                 continuations_in_trap_actions;
                  closure_vars; code_ids; newer_version_of_code_ids; } as t) =
   if t = empty then
     Format.fprintf ppf "no_occurrences"
@@ -651,6 +654,7 @@ let print ppf ({ names; continuations; continuations_in_trap_actions;
   Format.fprintf ppf "@[<hov 1>\
       @[<hov 1>(names %a)@]@ \
       @[<hov 1>(continuations %a)@]@ \
+      @[<hov 1>(continuations_with_traps %a)@]@ \
       @[<hov 1>(continuations_in_trap_actions %a)@]@ \
       @[<hov 1>(closure_vars %a)@]@ \
       @[<hov 1>(code_ids %a)@] \
@@ -658,6 +662,7 @@ let print ppf ({ names; continuations; continuations_in_trap_actions;
       @]"
     For_names.print names
     For_continuations.print continuations
+    For_continuations.print continuations_with_traps
     For_continuations.print continuations_in_trap_actions
     For_closure_vars.print closure_vars
     For_code_ids.print code_ids
@@ -674,9 +679,17 @@ let singleton_continuation_in_trap_action cont =
       For_continuations.singleton cont Kind.normal;
   }
 
-let add_continuation t cont =
+let add_continuation t cont ~has_traps =
+  let continuations = For_continuations.add t.continuations cont Kind.normal in
+  let continuations_with_traps =
+    if has_traps then
+      For_continuations.add t.continuations_with_traps cont Kind.normal
+    else
+      t.continuations_with_traps
+  in
   { t with
-    continuations = For_continuations.add t.continuations cont Kind.normal;
+    continuations;
+    continuations_with_traps;
   }
 
 let add_continuation_in_trap_action t cont =
@@ -777,7 +790,8 @@ let create_closure_vars clos_vars =
   { empty with closure_vars; }
 
 let apply_name_permutation
-      ({ names; continuations; continuations_in_trap_actions; closure_vars;
+      ({ names; continuations; continuations_with_traps;
+         continuations_in_trap_actions; closure_vars;
          code_ids; newer_version_of_code_ids; } as t)
       perm =
   if Name_permutation.is_empty perm then t
@@ -788,6 +802,10 @@ let apply_name_permutation
     let continuations =
       For_continuations.apply_name_permutation continuations perm
     in
+    let continuations_with_traps =
+      For_continuations.apply_name_permutation continuations_with_traps
+        perm
+    in
     let continuations_in_trap_actions =
       For_continuations.apply_name_permutation continuations_in_trap_actions
         perm
@@ -796,6 +814,7 @@ let apply_name_permutation
        [Name_abstraction]. *)
     { names;
       continuations;
+      continuations_with_traps;
       continuations_in_trap_actions;
       closure_vars;
       code_ids;
@@ -806,6 +825,7 @@ let binary_conjunction ~for_names ~for_continuations
       ~for_closure_vars ~for_code_ids
       { names = names1;
         continuations = continuations1;
+        continuations_with_traps = continuations_with_traps1;
         continuations_in_trap_actions = continuations_in_trap_actions1;
         closure_vars = closure_vars1;
         code_ids = code_ids1;
@@ -813,6 +833,7 @@ let binary_conjunction ~for_names ~for_continuations
       }
       { names = names2;
         continuations = continuations2;
+        continuations_with_traps = continuations_with_traps2;
         continuations_in_trap_actions = continuations_in_trap_actions2;
         closure_vars = closure_vars2;
         code_ids = code_ids2;
@@ -820,6 +841,8 @@ let binary_conjunction ~for_names ~for_continuations
       } =
   for_names names1 names2
     && for_continuations continuations1 continuations2
+    && for_continuations continuations_with_traps1
+         continuations_with_traps2
     && for_continuations continuations_in_trap_actions1
          continuations_in_trap_actions2
     && for_closure_vars closure_vars1 closure_vars2
@@ -830,6 +853,7 @@ let binary_disjunction ~for_names ~for_continuations
       ~for_closure_vars ~for_code_ids
       { names = names1;
         continuations = continuations1;
+        continuations_with_traps = continuations_with_traps1;
         continuations_in_trap_actions = continuations_in_trap_actions1;
         closure_vars = closure_vars1;
         code_ids = code_ids1;
@@ -837,6 +861,7 @@ let binary_disjunction ~for_names ~for_continuations
       }
       { names = names2;
         continuations = continuations2;
+        continuations_with_traps = continuations_with_traps2;
         continuations_in_trap_actions = continuations_in_trap_actions2;
         closure_vars = closure_vars2;
         code_ids = code_ids2;
@@ -844,6 +869,8 @@ let binary_disjunction ~for_names ~for_continuations
       } =
   for_names names1 names2
     || for_continuations continuations1 continuations2
+    || for_continuations continuations_with_traps1
+         continuations_with_traps2
     || for_continuations continuations_in_trap_actions1
          continuations_in_trap_actions2
     || for_closure_vars closure_vars1 closure_vars2
@@ -853,6 +880,7 @@ let binary_disjunction ~for_names ~for_continuations
 let binary_op ~for_names ~for_continuations ~for_closure_vars ~for_code_ids
       { names = names1;
         continuations = continuations1;
+        continuations_with_traps = continuations_with_traps1;
         continuations_in_trap_actions = continuations_in_trap_actions1;
         closure_vars = closure_vars1;
         code_ids = code_ids1;
@@ -860,6 +888,7 @@ let binary_op ~for_names ~for_continuations ~for_closure_vars ~for_code_ids
       }
       { names = names2;
         continuations = continuations2;
+        continuations_with_traps = continuations_with_traps2;
         continuations_in_trap_actions = continuations_in_trap_actions2;
         closure_vars = closure_vars2;
         code_ids = code_ids2;
@@ -867,6 +896,10 @@ let binary_op ~for_names ~for_continuations ~for_closure_vars ~for_code_ids
       } =
   let names = for_names names1 names2 in
   let continuations = for_continuations continuations1 continuations2 in
+  let continuations_with_traps =
+    for_continuations continuations_with_traps1
+      continuations_with_traps2
+  in
   let continuations_in_trap_actions =
     for_continuations continuations_in_trap_actions1
       continuations_in_trap_actions2
@@ -878,6 +911,7 @@ let binary_op ~for_names ~for_continuations ~for_closure_vars ~for_code_ids
   in
   { names;
     continuations;
+    continuations_with_traps;
     continuations_in_trap_actions;
     closure_vars;
     code_ids;
@@ -887,6 +921,7 @@ let binary_op ~for_names ~for_continuations ~for_closure_vars ~for_code_ids
 let diff
       { names = names1;
         continuations = continuations1;
+        continuations_with_traps = continuations_with_traps1;
         continuations_in_trap_actions = continuations_in_trap_actions1;
         closure_vars = closure_vars1;
         code_ids = code_ids1;
@@ -894,6 +929,7 @@ let diff
       }
       { names = names2;
         continuations = continuations2;
+        continuations_with_traps = continuations_with_traps2;
         continuations_in_trap_actions = continuations_in_trap_actions2;
         closure_vars = closure_vars2;
         code_ids = code_ids2;
@@ -901,6 +937,10 @@ let diff
       } =
   let names = For_names.diff names1 names2 in
   let continuations = For_continuations.diff continuations1 continuations2 in
+  let continuations_with_traps =
+    For_continuations.diff continuations_with_traps1
+      continuations_with_traps2
+  in
   let continuations_in_trap_actions =
     For_continuations.diff continuations_in_trap_actions1
       continuations_in_trap_actions2
@@ -914,6 +954,7 @@ let diff
   in
   { names;
     continuations;
+    continuations_with_traps;
     continuations_in_trap_actions;
     closure_vars;
     code_ids;
@@ -941,8 +982,10 @@ let no_variables t =
   For_names.for_all t.names ~f:(fun var -> not (Name.is_var var))
 
 let no_continuations
-      { names = _; continuations; continuations_in_trap_actions;
+      { names = _; continuations; continuations_with_traps = _;
+        continuations_in_trap_actions;
         closure_vars = _; code_ids = _; newer_version_of_code_ids = _; } =
+  (* Note: continuations_with_traps is included in continuations *)
   For_continuations.is_empty continuations
     && For_continuations.is_empty continuations_in_trap_actions
 
@@ -983,6 +1026,7 @@ let rec union_list ts =
 let closure_vars t = For_closure_vars.keys t.closure_vars
 let symbols t = For_names.keys t.names |> Name.set_to_symbol_set
 let continuations t = For_continuations.keys t.continuations
+let continuations_with_traps t = For_continuations.keys t.continuations_with_traps
 let continuations_including_in_trap_actions t =
   Continuation.Set.union (For_continuations.keys t.continuations)
     (For_continuations.keys t.continuations_in_trap_actions)
@@ -1043,11 +1087,15 @@ let remove_continuation t k =
   then t
   else
     let continuations = For_continuations.remove t.continuations k in
+    let continuations_with_traps =
+      For_continuations.remove t.continuations_with_traps k
+    in
     let continuations_in_trap_actions =
       For_continuations.remove t.continuations_in_trap_actions k
     in
     { t with
       continuations;
+      continuations_with_traps;
       continuations_in_trap_actions;
     }
 
@@ -1066,7 +1114,8 @@ let greatest_name_mode_var t var =
   For_names.greatest_name_mode t.names (Name.var var)
 
 let downgrade_occurrences_at_strictly_greater_kind
-      { names; continuations; continuations_in_trap_actions; closure_vars;
+      { names; continuations; continuations_with_traps;
+        continuations_in_trap_actions; closure_vars;
         code_ids; newer_version_of_code_ids; }
       max_kind =
   (* CR mshinwell: Don't reallocate the record if nothing changed *)
@@ -1077,6 +1126,10 @@ let downgrade_occurrences_at_strictly_greater_kind
   let continuations =
     For_continuations.downgrade_occurrences_at_strictly_greater_kind
       continuations max_kind
+  in
+  let continuations_with_traps =
+    For_continuations.downgrade_occurrences_at_strictly_greater_kind
+      continuations_with_traps max_kind
   in
   let continuations_in_trap_actions =
     For_continuations.downgrade_occurrences_at_strictly_greater_kind
@@ -1096,6 +1149,7 @@ let downgrade_occurrences_at_strictly_greater_kind
   in
   { names;
     continuations;
+    continuations_with_traps;
     continuations_in_trap_actions;
     closure_vars;
     code_ids;
@@ -1134,6 +1188,7 @@ let fold_variables t ~init ~f =
       ~symbol:(fun _ -> acc))
 
 let fold_continuations_including_in_trap_actions t ~init ~f =
+  (* Note: continuations_with_traps is included in continuations *)
   let init = For_continuations.fold t.continuations ~init ~f in
   For_continuations.fold t.continuations_in_trap_actions ~init ~f
 
@@ -1145,12 +1200,17 @@ let fold_code_ids t ~init ~f =
   For_code_ids.fold t.code_ids ~init ~f
 
 let import
-      { names; continuations; continuations_in_trap_actions;
+      { names; continuations; continuations_with_traps;
+        continuations_in_trap_actions;
         closure_vars; code_ids; newer_version_of_code_ids; }
       ~import_name ~import_continuation ~import_code_id =
   let names = For_names.import names ~import_name in
   let continuations =
     For_continuations.import continuations ~import_name:import_continuation
+  in
+  let continuations_with_traps =
+    For_continuations.import continuations_with_traps
+      ~import_name:import_continuation
   in
   let continuations_in_trap_actions =
     For_continuations.import continuations_in_trap_actions
@@ -1162,6 +1222,7 @@ let import
   in
   { names;
     continuations;
+    continuations_with_traps;
     continuations_in_trap_actions;
     closure_vars;
     code_ids;
@@ -1169,7 +1230,8 @@ let import
   }
 
 let restrict_to_closure_vars
-      { names = _; continuations = _; continuations_in_trap_actions = _;
+      { names = _; continuations = _; continuations_with_traps = _;
+        continuations_in_trap_actions = _;
         closure_vars; code_ids = _; newer_version_of_code_ids = _; } =
   { empty with
     closure_vars;
