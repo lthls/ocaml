@@ -47,6 +47,8 @@ val add_continuation_in_trap_action : t -> Continuation.t -> t
 
 val count_continuation : t -> Continuation.t -> Num_occurrences.t
 
+val continuation_is_applied_with_traps : t -> Continuation.t -> bool
+
 val count_variable : t -> Variable.t -> Num_occurrences.t
 
 val count_variable_normal_mode : t -> Variable.t -> Num_occurrences.t

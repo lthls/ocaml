@@ -366,6 +366,11 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
                         name_occurrences_body
                         cont
                     in
+                    let is_applied_with_traps =
+                      Name_occurrences.continuation_is_applied_with_traps
+                        name_occurrences_body
+                        cont
+                    in
                     let remove_let_cont_leaving_body =
                       match num_free_occurrences_of_cont_in_body with
                       | Zero -> true
@@ -441,6 +446,7 @@ let simplify_non_recursive_let_cont dacc non_rec ~down_to_up =
                             Let_cont.create_non_recursive' ~cont handler ~body
                               ~num_free_occurrences_of_cont_in_body:
                                 (Known num_free_occurrences_of_cont_in_body)
+                              ~is_applied_with_traps
                           in
                           expr, uacc
                     in

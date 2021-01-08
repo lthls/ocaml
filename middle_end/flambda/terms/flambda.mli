@@ -263,6 +263,9 @@ end and Let_cont_expr : sig
         (** [num_free_occurrences] can be used, for example, to decide whether
             to inline out a linearly-used continuation.  It will always be
             strictly greater than zero. *)
+        is_applied_with_traps : bool;
+        (** [is_applied_with_traps] is used to prevent inlining of continuations
+            that are applied with a trap action *)
       }
     | Recursive of Recursive_let_cont_handlers.t
 
@@ -284,6 +287,7 @@ end and Let_cont_expr : sig
     -> Continuation_handler.t
     -> body:Expr.t
     -> num_free_occurrences_of_cont_in_body:Num_occurrences.t Or_unknown.t
+    -> is_applied_with_traps:bool
     -> Expr.t
 
   (** Create a definition of a set of possibly-recursive continuations. *)

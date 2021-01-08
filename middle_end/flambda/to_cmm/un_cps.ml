@@ -791,17 +791,20 @@ and let_expr_prim body env res v ~num_normal_occurrences_of_bound_vars p dbg =
   in
   expr env res body
 
-and decide_inline_cont h k ~num_free_occurrences =
+and decide_inline_cont h k ~num_free_occurrences ~is_applied_with_traps =
   (not (Continuation_handler.is_exn_handler h))
+  && (not is_applied_with_traps)
   && cont_is_known_to_have_exactly_one_occurrence k num_free_occurrences
 
 and let_cont env res = function
-  | Let_cont.Non_recursive { handler; num_free_occurrences; } ->
+  | Let_cont.Non_recursive { handler; num_free_occurrences;
+                             is_applied_with_traps; } ->
     Non_recursive_let_cont_handler.pattern_match handler ~f:(fun k ~body ->
       let h = Non_recursive_let_cont_handler.handler handler in
-      if decide_inline_cont h k ~num_free_occurrences then begin
+      if decide_inline_cont h k ~num_free_occurrences ~is_applied_with_traps
+      then
         let_cont_inline env res k h body
-      end else
+      else
         let_cont_jump env res k h body
     )
   | Let_cont.Recursive handlers ->

@@ -701,6 +701,9 @@ let add_continuation_in_trap_action t cont =
 let count_continuation t cont =
   For_continuations.count t.continuations cont
 
+let continuation_is_applied_with_traps t cont =
+  For_continuations.mem t.continuations_with_traps cont
+
 let count_variable t var =
   For_names.count t.names (Name.var var)
 

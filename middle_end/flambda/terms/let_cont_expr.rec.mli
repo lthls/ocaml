@@ -43,6 +43,9 @@ type t = private
       num_free_occurrences : Num_occurrences.t Or_unknown.t;
       (** [num_free_occurrences] can be used, for example, to decide whether
           to inline out a linearly-used continuation. *)
+      is_applied_with_traps : bool;
+      (** [is_applied_with_traps] is used to prevent inlining of continuations
+          that are applied with a trap action *)
     }
   | Recursive of Recursive_let_cont_handlers.t
 
@@ -66,6 +69,7 @@ val create_non_recursive'
   -> Continuation_handler.t
   -> body:Expr.t
   -> num_free_occurrences_of_cont_in_body:Num_occurrences.t Or_unknown.t
+  -> is_applied_with_traps:bool
   -> Expr.t
 
 (** Create a definition of a set of possibly-recursive continuations. *)

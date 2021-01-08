@@ -20,6 +20,7 @@ type t =
   | Non_recursive of {
       handler : Non_recursive_let_cont_handler.t;
       num_free_occurrences : Num_occurrences.t Or_unknown.t;
+      is_applied_with_traps : bool;
     }
   | Recursive of Recursive_let_cont_handlers.t
 
@@ -50,7 +51,8 @@ let print_with_cache ~cache ppf t =
   end else begin
     let rec gather_let_conts let_conts let_cont =
       match let_cont with
-      | Non_recursive { handler; num_free_occurrences = _; } ->
+      | Non_recursive { handler; num_free_occurrences = _;
+                        is_applied_with_traps = _; } ->
         Non_recursive_let_cont_handler.pattern_match handler
           ~f:(fun k ~(body : Expr.t) ->
             let let_conts, body =
@@ -90,17 +92,24 @@ let print ppf t =
   print_with_cache ~cache:(Printing_cache.create ()) ppf t
 
 let create_non_recursive' ~cont handler ~body
-      ~num_free_occurrences_of_cont_in_body:num_free_occurrences =
+      ~num_free_occurrences_of_cont_in_body:num_free_occurrences
+      ~is_applied_with_traps =
   let handler = Non_recursive_let_cont_handler.create cont handler ~body in
-  Expr.create_let_cont (Non_recursive { handler; num_free_occurrences; })
+  Expr.create_let_cont
+    (Non_recursive { handler; num_free_occurrences; is_applied_with_traps;})
 
 let create_non_recursive cont handler ~body ~free_names_of_body =
-  let num_free_occurrences_of_cont_in_body =
-    Or_unknown.map free_names_of_body ~f:(fun free_names_of_body ->
-      Name_occurrences.count_continuation free_names_of_body cont)
+  let num_free_occurrences_of_cont_in_body, is_applied_with_traps =
+    match (free_names_of_body : _ Or_unknown.t) with
+    | Unknown -> Or_unknown.Unknown, true
+    | Known free_names_of_body ->
+      Or_unknown.Known
+        (Name_occurrences.count_continuation free_names_of_body cont),
+      Name_occurrences.continuation_is_applied_with_traps
+        free_names_of_body cont
   in
   create_non_recursive' ~cont handler ~body
-    ~num_free_occurrences_of_cont_in_body
+    ~num_free_occurrences_of_cont_in_body ~is_applied_with_traps
 
 let create_recursive handlers ~body =
   if Continuation_handlers.contains_exn_handler handlers then begin
@@ -111,19 +120,22 @@ let create_recursive handlers ~body =
 
 let free_names t =
   match t with
-  | Non_recursive { handler; num_free_occurrences = _; } ->
+  | Non_recursive { handler; num_free_occurrences = _;
+                    is_applied_with_traps = _; } ->
     Non_recursive_let_cont_handler.free_names handler
   | Recursive handlers ->
     Recursive_let_cont_handlers.free_names handlers
 
 let apply_name_permutation t perm =
   match t with
-  | Non_recursive { handler; num_free_occurrences; } ->
+  | Non_recursive { handler; num_free_occurrences;
+                    is_applied_with_traps; } ->
     let handler' =
       Non_recursive_let_cont_handler.apply_name_permutation handler perm
     in
     if handler == handler' then t
-    else Non_recursive { handler = handler'; num_free_occurrences; }
+    else Non_recursive { handler = handler'; num_free_occurrences;
+                         is_applied_with_traps; }
   | Recursive handlers ->
     let handlers' =
       Recursive_let_cont_handlers.apply_name_permutation handlers perm
@@ -133,18 +145,20 @@ let apply_name_permutation t perm =
 
 let all_ids_for_export t =
   match t with
-  | Non_recursive { handler; num_free_occurrences = _; } ->
+  | Non_recursive { handler; num_free_occurrences = _;
+                    is_applied_with_traps = _; } ->
     Non_recursive_let_cont_handler.all_ids_for_export handler
   | Recursive handlers ->
     Recursive_let_cont_handlers.all_ids_for_export handlers
 
 let import import_map t =
   match t with
-  | Non_recursive { handler; num_free_occurrences; } ->
+  | Non_recursive { handler; num_free_occurrences;
+                    is_applied_with_traps; } ->
     let handler =
       Non_recursive_let_cont_handler.import import_map handler
     in
-    Non_recursive { handler; num_free_occurrences; }
+    Non_recursive { handler; num_free_occurrences; is_applied_with_traps; }
   | Recursive handlers ->
     Recursive (Recursive_let_cont_handlers.import import_map handlers)
 
