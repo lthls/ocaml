@@ -426,8 +426,8 @@ struct
 
   let extend_with_projection tag typing_env block_ty index ~index_var
         ~untagged_index_var ~result_kind : _ Or_bottom.t =
-    match T.prove_block_field_simple
-            typing_env block_ty (Target_imm.int index)
+    match T.prove_block_field_simple typing_env ~min_name_mode:Name_mode.normal
+            block_ty (Target_imm.int index)
     with
     | Invalid ->
       Ok (TEE.one_equation (Name.var index_var) (T.bottom result_kind))
@@ -854,23 +854,32 @@ struct
       ~closure_element_var:index_var
 
   let extend_with_projection tag typing_env base_ty index ~index_var
-        ~untagged_index_var ~result_kind =
-    let shape =
-      (* CR mshinwell: Rename, something about "shape" *)
-      make_boxed_value_accommodating tag index ~index_var
-        ~untagged_index_var
-    in
-    let result_var =
-      Var_in_binding_pos.create index_var Name_mode.normal
-    in
-    (*
-    Format.eprintf "Shape:@ %a@ arg_type_at_use:@ %a@ env:@ %a\n%!"
-      T.print shape
-      T.print arg_type_at_use
-      TE.print typing_env_at_use;
-    *)
-    T.meet_shape typing_env base_ty
-      ~shape ~result_var ~result_kind
+        ~untagged_index_var ~result_kind : _ Or_bottom.t =
+    match T.prove_project_var_simple typing_env ~min_name_mode:Name_mode.normal
+            base_ty index
+    with
+    | Invalid ->
+      Ok (TEE.one_equation (Name.var index_var) (T.bottom result_kind))
+    | Proved simple ->
+      Ok (TEE.one_equation (Name.var index_var)
+            (T.alias_type_of result_kind simple))
+    | Unknown ->
+      let shape =
+        (* CR mshinwell: Rename, something about "shape" *)
+        make_boxed_value_accommodating tag index ~index_var
+          ~untagged_index_var
+      in
+      let result_var =
+        Var_in_binding_pos.create index_var Name_mode.normal
+      in
+      (*
+      Format.eprintf "Shape:@ %a@ arg_type_at_use:@ %a@ env:@ %a\n%!"
+        T.print shape
+        T.print arg_type_at_use
+        TE.print typing_env_at_use;
+      *)
+      T.meet_shape typing_env base_ty
+        ~shape ~result_var ~result_kind
 
   let project_field _tag () ~block:_ ~index:_ : project_field_result =
     Default_behaviour No_untagging

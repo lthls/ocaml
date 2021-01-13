@@ -104,6 +104,10 @@ module For_closures_entry_by_set_of_closures_contents : sig
      : t
     -> ((Closure_id.t * Set_of_closures_contents.t) * Closures_entry.t) option
 
+  (** Same as For_blocks.get_field: attempt to find the type associated to
+      the given environment variable without an expensive meet. *)
+  val get_env_var : t -> Var_within_closure.t -> Type_grammar.t Or_unknown.t
+
   val map_function_decl_types
      : t
     -> f:(Function_declaration_type.t -> Function_declaration_type.t Or_bottom.t)

@@ -606,4 +606,13 @@ struct
         other_tags = Bottom;
       }
 
+    let get_env_var t env_var : _ Or_unknown.t =
+      match get_singleton t with
+      | None -> Unknown
+      | Some ((_tag, index), maps_to) ->
+        if not (Var_within_closure.Set.mem env_var
+                  (Set_of_closures_contents.closure_vars index))
+        then Unknown
+        else Known (Var_within_closure.Map.find env_var
+                      (Closures_entry.closure_var_types maps_to))
   end

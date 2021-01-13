@@ -878,7 +878,7 @@ module Binary_int_eq_comp_nativeint =
   Binary_arith_like (Int_ops_for_binary_eq_comp_nativeint)
 
 let simplify_immutable_block_load (access_kind : P.Block_access_kind.t)
-      dacc ~original_term _dbg
+      ~min_name_mode dacc ~original_term _dbg
       ~arg1:_ ~arg1_ty:block_ty ~arg2:_ ~arg2_ty:index_ty ~result_var =
   let result_kind =
     match access_kind with
@@ -922,7 +922,9 @@ let simplify_immutable_block_load (access_kind : P.Block_access_kind.t)
           let max_size = Targetint.OCaml.of_int max_size in
           not (Targetint.OCaml.(<=) size max_size)
     in
-    match T.prove_block_field_simple typing_env block_ty index with
+    match
+      T.prove_block_field_simple typing_env ~min_name_mode block_ty index
+    with
     | Invalid -> invalid ()
     | Proved simple -> exactly simple
     | Unknown when skip_simplification -> unchanged ()
@@ -1050,12 +1052,13 @@ let simplify_phys_equal (op : P.equality_comparison)
 let simplify_binary_primitive dacc (prim : P.binary_primitive)
       ~arg1 ~arg1_ty ~arg2 ~arg2_ty dbg ~result_var =
   let result_var' = Var_in_binding_pos.var result_var in
+  let min_name_mode = Var_in_binding_pos.name_mode result_var in
   let original_prim : P.t = Binary (prim, arg1, arg2) in
   let original_term = Named.create_prim original_prim dbg in
   let simplifier =
     match prim with
     | Block_load (access_kind, Immutable) ->
-      simplify_immutable_block_load access_kind
+      simplify_immutable_block_load access_kind ~min_name_mode
     | Int_arith (kind, op) ->
       begin match kind with
       | Tagged_immediate -> Binary_int_arith_tagged_immediate.simplify op
