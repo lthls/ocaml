@@ -175,8 +175,10 @@ end = struct
                current_compilation_unit)
         names_to_types
     in
+    let aliases = Aliases.clean_for_export t.aliases in
     { t with
       names_to_types;
+      aliases;
     }
 
   let import import_map { names_to_types; aliases; symbol_projections; } =

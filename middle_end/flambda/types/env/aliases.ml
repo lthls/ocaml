@@ -41,6 +41,8 @@ module Aliases_of_canonical_element : sig
   val import : (Simple.t -> Simple.t) -> t -> t
 
   val merge : t -> t -> t
+
+  val move_variables_to_mode_in_types : t -> t
 end = struct
   type t = {
     aliases : Simple.Set.t Name_mode.Map.t;
@@ -149,6 +151,30 @@ end = struct
         t2.aliases
     in
     let all = Simple.Set.union t1.all t2.all in
+    { aliases; all; }
+
+  let move_variables_to_mode_in_types { aliases; all; } =
+    let (no_vars_aliases, all_variables) =
+      Name_mode.Map.fold (fun mode aliases (no_vars_aliases, all_variables) ->
+          let (vars, non_vars) = Simple.Set.partition Simple.is_var aliases in
+          let no_vars_aliases =
+            if Simple.Set.is_empty non_vars then no_vars_aliases
+            else Name_mode.Map.add mode non_vars no_vars_aliases
+          in
+          no_vars_aliases, Simple.Set.union vars all_variables)
+        aliases
+        (Name_mode.Map.empty, Simple.Set.empty)
+    in
+    let aliases =
+      if Name_mode.Map.mem Name_mode.in_types no_vars_aliases
+      then Misc.fatal_errorf "move_variables_to_mode_in_types: \
+             The following non-vars have mode In_types:@ %a"
+             Simple.Set.print
+             (Name_mode.Map.find Name_mode.in_types no_vars_aliases)
+      else
+        if Simple.Set.is_empty all_variables then no_vars_aliases
+        else Name_mode.Map.add Name_mode.in_types all_variables no_vars_aliases
+    in
     { aliases; all; }
 end
 
@@ -595,3 +621,29 @@ let get_canonical_ignoring_name_mode t name =
   match canonical t simple with
   | Is_canonical _ -> simple
   | Alias_of_canonical { canonical_element; _ } -> canonical_element
+
+let clean_for_export
+      { canonical_elements;
+        aliases_of_canonical_elements;
+        binding_times_and_modes; } =
+  let binding_times_and_modes =
+    Simple.Map.mapi (fun simple binding_time_and_mode ->
+        let module BTM = Binding_time.With_name_mode in
+        let new_mode =
+          if Simple.is_var simple then Name_mode.in_types
+          else BTM.name_mode binding_time_and_mode
+        in
+        BTM.create (BTM.binding_time binding_time_and_mode) new_mode)
+      binding_times_and_modes
+  in
+  let aliases_of_canonical_elements =
+    (* Note: the relative order of the aliases and of their canonical element
+       will be unchanged, as it only depends on the binding times.
+    *)
+    Simple.Map.map Aliases_of_canonical_element.move_variables_to_mode_in_types
+      aliases_of_canonical_elements
+  in
+  { canonical_elements;
+    aliases_of_canonical_elements;
+    binding_times_and_modes;
+  }

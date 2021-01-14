@@ -59,3 +59,5 @@ val get_aliases : t -> Simple.t -> Simple.Set.t
 val get_canonical_ignoring_name_mode : t -> Name.t -> Simple.t
 
 val merge : t -> t -> t
+
+val clean_for_export : t -> t
