@@ -92,13 +92,16 @@ let simplify_project_var closure_id closure_element ~min_name_mode dacc
     in
     reachable, env_extension, dacc
   | Unknown ->
-    Simplify_common.simplify_projection
-      dacc ~original_term ~deconstructing:closure_ty
-      ~shape:(T.closure_with_at_least_this_closure_var
-                ~this_closure:closure_id
-                closure_element
-                ~closure_element_var:(Var_in_binding_pos.var result_var))
-      ~result_var ~result_kind:K.value
+    let reachable, env_extension, dacc =
+      Simplify_common.simplify_projection
+        dacc ~original_term ~deconstructing:closure_ty
+        ~shape:(T.closure_with_at_least_this_closure_var
+                  ~this_closure:closure_id
+                  closure_element
+                  ~closure_element_var:(Var_in_binding_pos.var result_var))
+        ~result_var ~result_kind:K.value
+    in
+    reachable, env_extension, DA.add_use_of_closure_var dacc closure_element
 
 let simplify_unbox_number (boxable_number_kind : K.Boxable_number.t)
       dacc ~original_term ~arg ~arg_ty:boxed_number_ty ~result_var =
