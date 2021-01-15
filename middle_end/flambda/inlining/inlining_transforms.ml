@@ -90,6 +90,29 @@ let inline dacc ~callee ~args function_decl
                  The push trap is simply a matter of jumping to the body, while
                  the pop trap needs to replace the body's return continuation
                  with a wrapper that pops then jumps back.
+
+                 As a result, the application [Apply_expr f (args) <k> «k_exn»]
+                 is replaced (before the actual inlining) by:
+                 [let_cont_exn k1 (exn: val) =
+                    Apply_cont k_exn exn extra_args
+                  in
+                  let_cont k_pop (args) = Apply_cont<pop k1> k args in
+                  let_cont k_push () = Apply_expr f (args) <k_pop> «k1» in
+                  Apply_cont<push k1> k_push ()]
+
+                 This feels quite heavy, but is necessary because we can rewrite
+                 neither the definition and other uses of k_exn nor the
+                 uses of the exception continuation in the body of f, so we need
+                 two distinct exception continuations; and of course the new
+                 exception continuation needs to be correctly pushed and popped.
+
+                 The most annoying part of this is that it introduces trywith
+                 blocks that were not part of the initial program, will not be
+                 removed, and might be useless (if the function never raises).
+
+                 Maybe a better solution would be to propagate through dacc
+                 a lazy rewriting, that would add the correct extra args
+                 to all uses of the exception continuation in the body.
               *)
               let wrapper = Continuation.create ~sort:Exn () in
               let body_with_pop =
