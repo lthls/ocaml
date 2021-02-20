@@ -150,6 +150,10 @@ val compare : ('a -> 'a -> int) -> 'a list -> 'a list -> int
     Note: the [cmp] function will be called even if the lists have
     different lengths.
 
+    Note on physical equality: comparing two physically equal lists
+    will return 0 immediately. This doesn't apply to the {!equal}
+    function above.
+
     @since 4.12.0
 *)
 

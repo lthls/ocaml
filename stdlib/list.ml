@@ -563,8 +563,10 @@ let rec equal eq l1 l2 =
   | a1::l1, a2::l2 -> eq a1 a2 && equal eq l1 l2
 
 let rec compare cmp l1 l2 =
-  match l1, l2 with
-  | [], [] -> 0
+  if l1 == l2 then 0
+  else match l1, l2 with
+  | [], [] -> 0 (* actually unreachable because of the physical equality test,
+                   but left for consistency *)
   | [], _::_ -> -1
   | _::_, [] -> 1
   | a1::l1, a2::l2 ->
