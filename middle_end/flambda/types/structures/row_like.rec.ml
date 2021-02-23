@@ -613,6 +613,19 @@ struct
         if not (Var_within_closure.Set.mem env_var
                   (Set_of_closures_contents.closure_vars index))
         then Unknown
-        else Known (Var_within_closure.Map.find env_var
-                      (Closures_entry.closure_var_types maps_to))
+        else
+          let env_var_ty =
+            try Var_within_closure.Map.find env_var
+                  (Closures_entry.closure_var_types maps_to)
+            with Not_found ->
+              Misc.fatal_errorf
+                "Environment variable %a is bound in index \
+                 but not in maps_to@.\
+                 Index:@ %a@.\
+                 Maps_to:@ %a"
+                Var_within_closure.print env_var
+                Set_of_closures_contents.print index
+                Closures_entry.print maps_to
+          in
+          Known env_var_ty
   end
