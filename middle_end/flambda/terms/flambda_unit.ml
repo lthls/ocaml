@@ -91,11 +91,6 @@ let permute_everything t =
       perm
   ) ids.code_ids perm
   in
-  let perm = Variable.Set.fold (fun variable perm ->
-    let guaranteed_fresh = Variable.rename variable in
-    Name_permutation.add_fresh_variable perm variable ~guaranteed_fresh
-  ) ids.variables perm
-  in
   let perm = Continuation.Set.fold (fun k perm ->
     let guaranteed_fresh = Continuation.rename k in
     Name_permutation.add_fresh_continuation perm k ~guaranteed_fresh

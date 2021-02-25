@@ -32,7 +32,7 @@ val empty : unit -> t
 
 val is_empty : t -> bool
 
-(* val defined_vars : t -> Flambda_kind.t Variable.Map.t *)
+val defined_vars : t -> (Flambda_kind.t * Variable.exported) Variable.Map.t
 
 val defined_names : t -> Name.Set.t
 
@@ -50,7 +50,12 @@ val equations : t -> Type_grammar.t Name.Map.t
 
 (* val one_equation : Name.t -> Type_grammar.t -> t *)
 
-val add_definition : t -> Variable.t -> Flambda_kind.t -> Binding_time.t -> t
+val add_definition
+   : t
+  -> (Variable.t * Variable.exported)
+  -> Flambda_kind.t
+  -> Binding_time.t
+  -> t
 
 val add_or_replace_equation : t -> Name.t -> Type_grammar.t -> t
 

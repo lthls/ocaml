@@ -823,9 +823,11 @@ let rec make_suitable_for_environment0_core t env ~depth ~suitable_for level =
             Name.pattern_match to_erase_name
               ~symbol:(fun _ -> acc)
               ~var:(fun to_erase ->
-                let original_type = TE.find env to_erase_name None in
+                let original_type, var_data =
+                  TE.find_with_data env to_erase None
+                in
                 let kind = kind original_type in
-                let fresh_var = Variable.rename to_erase in
+                let fresh_var, data = Variable.rename var_data in
                 let level =
                   let level, ty =
                     match
@@ -838,12 +840,11 @@ let rec make_suitable_for_environment0_core t env ~depth ~suitable_for level =
                       if TE.mem_simple suitable_for canonical_simple then
                         level, alias_type_of kind canonical_simple
                       else
-                        let t = TE.find env (Name.var to_erase) (Some kind) in
-                        let t = expand_head' t env in
+                        let t = expand_head' original_type env in
                         make_suitable_for_environment0_core t env
                           ~depth:(depth + 1) ~suitable_for level
                   in
-                  TEL.add_definition level fresh_var kind ty
+                  TEL.add_definition level (fresh_var, data) kind ty
                 in
                 let perm =
                   Name_permutation.add_variable perm to_erase fresh_var

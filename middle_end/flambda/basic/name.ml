@@ -18,6 +18,10 @@
 
 include Reg_width_things.Name
 
+(* type data_resolver = {
+ *   variable : Variable.t -> Variable.exported;
+ * } *)
+
 let is_var t = pattern_match t ~var:(fun _ -> true) ~symbol:(fun _ -> false)
 
 let is_symbol t = pattern_match t ~var:(fun _ -> false) ~symbol:(fun _ -> true)
@@ -80,15 +84,15 @@ let is_predefined_exception t =
     ~var:(fun _ -> false)
     ~symbol:(fun sym -> Symbol.is_predefined_exception sym)
 
-let compilation_unit t =
-  pattern_match t
-  ~var:(fun var -> Variable.compilation_unit var)
-  ~symbol:(fun sym -> Symbol.compilation_unit sym)
+(* let compilation_unit resolver t =
+ *   pattern_match t
+ *   ~var:(fun var -> Variable.compilation_unit (resolver.variable var))
+ *   ~symbol:(fun sym -> Symbol.compilation_unit sym) *)
 
-let rename t =
-  pattern_match t
-    ~var:(fun v -> var (Variable.rename v))
-    ~symbol:(fun sym -> symbol (Symbol.rename sym))
+(* let rename t =
+ *   pattern_match t
+ *     ~var:(fun v -> var (Variable.rename v))
+ *     ~symbol:(fun sym -> symbol (Symbol.rename sym)) *)
 
 let must_be_var_opt t =
   pattern_match t

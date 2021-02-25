@@ -20,6 +20,10 @@
 
 include module type of struct include Reg_width_things.Name end
 
+(* type data_resolver = {
+ *   variable : Variable.t -> Variable.exported;
+ * } *)
+
 val map_var : t -> f:(Variable.t -> Variable.t) -> t
 
 val map_symbol : t -> f:(Symbol.t -> Symbol.t) -> t
@@ -48,10 +52,10 @@ val is_symbol : t -> bool
 
 val must_be_symbol : t -> Symbol.t
 
-val compilation_unit : t -> Compilation_unit.t
+(* val compilation_unit : data_resolver -> t -> Compilation_unit.t *)
 
 val must_be_var_opt : t -> Variable.t option
 
 val must_be_symbol_opt : t -> Symbol.t option
 
-val rename : t -> t
+(* val rename : t -> t *)

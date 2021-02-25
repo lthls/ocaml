@@ -80,19 +80,21 @@ module Variable : sig
 
   include Identifiable.S with type t := t
 
-  val create : ?user_visible:unit -> string -> t
+  val print_data : Format.formatter -> exported -> unit
 
-  val compilation_unit : t -> Compilation_unit.t
+  val create : ?user_visible:unit -> string -> (t * exported)
 
-  val name : t -> string
+  val compilation_unit : exported -> Compilation_unit.t
 
-  val name_stamp : t -> int
+  val name : exported -> string
 
-  val user_visible : t -> bool
+  val name_stamp : exported -> int
 
-  val export : t -> exported
+  val user_visible : exported -> bool
 
-  val import : exported -> t
+  (* val export : t -> exported *)
+
+  (* val import : exported -> t *)
 
   val map_compilation_unit :
     (Compilation_unit.t -> Compilation_unit.t) -> exported -> exported

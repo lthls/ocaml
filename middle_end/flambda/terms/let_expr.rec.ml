@@ -383,7 +383,7 @@ let invariant env t =
       match t.defining_expr, bindable_let_bound with
       | Set_of_closures _, Set_of_closures { closure_vars; _ } ->
         List.fold_left (fun env closure_var ->
-            let closure_var = VB.var closure_var in
+            let closure_var = VB.raw_var closure_var in
             E.add_variable env closure_var K.value)
           env
           closure_vars
@@ -396,10 +396,10 @@ let invariant env t =
             [Set_of_closures]:@ %a"
           print t
       | Prim (prim, _dbg), Singleton var ->
-        let var = VB.var var in
+        let var = VB.raw_var var in
         E.add_variable env var (Flambda_primitive.result_kind' prim)
       | Simple simple, Singleton var ->
-        let var = VB.var var in
+        let var = VB.raw_var var in
         Simple.pattern_match simple
           ~const:(fun const -> E.add_variable env var (T.kind_for_const const))
           ~name:(fun name -> E.add_variable env var (E.kind_of_name env name))

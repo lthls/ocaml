@@ -18,6 +18,7 @@
 
 type t = {
   param : Variable.t;
+  param_data : Variable.exported;
   kind : Flambda_kind.With_subkind.t;
 }
 
@@ -25,21 +26,21 @@ include Identifiable.Make (struct
   type nonrec t = t
 
   let compare
-        { param = param1; kind = kind1; }
-        { param = param2; kind = kind2; } =
+        { param = param1; kind = kind1; param_data = _; }
+        { param = param2; kind = kind2; param_data = _; } =
     let c = Variable.compare param1 param2 in
     if c <> 0 then c
     else Flambda_kind.With_subkind.compare kind1 kind2
 
   let equal t1 t2 = compare t1 t2 = 0
 
-  let hash { param; kind; } =
+  let hash { param; kind; param_data = _; } =
     Hashtbl.hash (Variable.hash param, Flambda_kind.With_subkind.hash kind)
 
-  let print ppf { param; kind; } =
+  let print ppf { param = _; kind; param_data; } =
     Format.fprintf ppf "@[(@<0>%s%a@<0>%s @<1>\u{2237} %a)@]"
       (Flambda_colours.parameter ())
-      Variable.print param
+      Variable.print_data param_data
       (Flambda_colours.normal ())
       Flambda_kind.With_subkind.print kind
 
@@ -49,39 +50,43 @@ end)
 
 let print_with_cache ~cache:_ ppf t = print ppf t
 
-let create param kind =
+let create (param, param_data) kind =
   { param;
+    param_data;
     kind;
   }
 
 let var t = t.param
+let var_with_data t = t.param, t.param_data
 let name t = Name.var (var t)
 let simple t = Simple.var (var t)
 let kind t = t.kind
 
 let with_kind t kind = { t with kind; }
 
-let rename t = { t with param = Variable.rename t.param; }
+let rename t =
+  let (param, param_data) = Variable.rename t.param_data in
+  { t with
+    param;
+    param_data;
+  }
 
 let equal_kinds t1 t2 =
   Flambda_kind.With_subkind.equal t1.kind t2.kind
 
-let free_names ({ param = _; kind = _; } as t) =
-  Name_occurrences.singleton_variable (var t) Name_mode.normal
+let free_names { param; kind = _; param_data = _; } =
+  Name_occurrences.singleton_variable param Name_mode.normal
 
-let apply_name_permutation ({ param = _; kind; } as t) perm =
-  Name.pattern_match (Name_permutation.apply_name perm (name t))
-    ~var:(fun var -> create var kind)
-    ~symbol:(fun _ ->
-      Misc.fatal_errorf "Illegal name permutation on [Kinded_parameter]: %a"
-        Name_permutation.print perm)
+let apply_name_permutation ({ param; param_data; kind; } as t) perm =
+  let new_param = Name_permutation.apply_variable perm param in
+  if Variable.equal new_param param then t
+  else create (new_param, param_data) kind
 
-let all_ids_for_export { param; kind = _; } =
-  Ids_for_export.add_variable Ids_for_export.empty param
+let all_ids_for_export _ =
+  Ids_for_export.empty
 
-let import import_map { param; kind; } =
-  let param = Ids_for_export.Import_map.variable import_map param in
-  { param; kind; }
+let import _import_map t =
+  t
 
 let add_to_name_permutation t ~guaranteed_fresh perm =
   Name_permutation.add_fresh_variable perm (var t)

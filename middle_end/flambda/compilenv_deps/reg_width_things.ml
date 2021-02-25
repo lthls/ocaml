@@ -322,6 +322,8 @@ module Variable = struct
   type t = Id.t
   type exported = Variable_data.t
 
+  module D = Variable_data
+
   module Table = Table_by_int_id.Make (Variable_data)
   let grand_table_of_variables = ref (Table.create ())
 
@@ -330,10 +332,10 @@ module Variable = struct
 
   let find_data t = Table.find !grand_table_of_variables t
 
-  let compilation_unit t = (find_data t).compilation_unit
-  let name t = (find_data t).name
-  let name_stamp t = (find_data t).name_stamp
-  let user_visible t = (find_data t).user_visible
+  let compilation_unit d = d.D.compilation_unit
+  let name d = d.D.name
+  let name_stamp d = d.D.name_stamp
+  let user_visible d = d.D.user_visible
 
   let previous_name_stamp = ref (-1)
 
@@ -351,23 +353,28 @@ module Variable = struct
         user_visible = Option.is_some user_visible;
       }
     in
-    Table.add !grand_table_of_variables data
+    let id = Table.add !grand_table_of_variables data in
+    id, data
+
+  (* CR mshinwell: colour? *)
+  let print_data ppf d =
+    let cu = compilation_unit d in
+    if Compilation_unit.equal cu (Compilation_unit.get_current_exn ())
+    then Format.fprintf ppf "%s/%d" (name d) (name_stamp d)
+    else
+      Format.fprintf ppf "%a.%s/%d"
+        Compilation_unit.print cu
+        (name d)
+        (name_stamp d)
 
   module T0 = struct
     let compare = Id.compare
     let equal = Id.equal
     let hash = Id.hash
 
-    (* CR mshinwell: colour? *)
+    (* CR vlaviron: this still relies on the table *)
     let print ppf t =
-      let cu = compilation_unit t in
-      if Compilation_unit.equal cu (Compilation_unit.get_current_exn ())
-      then Format.fprintf ppf "%s/%d" (name t) (name_stamp t)
-      else
-        Format.fprintf ppf "%a.%s/%d"
-          Compilation_unit.print cu
-          (name t)
-          (name_stamp t)
+      print_data ppf (find_data t)
 
     let output chan t = print (Format.formatter_of_out_channel chan) t
   end
@@ -382,10 +389,10 @@ module Variable = struct
   module Map = Patricia_tree.Make_map (struct let print = print end) (Set)
   module Tbl = Identifiable.Make_tbl (Numbers.Int) (Map)
 
-  let export t = find_data t
-
-  let import (data : exported) =
-    Table.add !grand_table_of_variables data
+  (* let export t = find_data t
+   * 
+   * let import (data : exported) =
+   *   Table.add !grand_table_of_variables data *)
 
   let map_compilation_unit f (data : exported) : exported =
     let new_compilation_unit = f data.compilation_unit in

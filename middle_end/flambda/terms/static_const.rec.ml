@@ -86,16 +86,14 @@ module Field_of_block = struct
   let all_ids_for_export t =
     match t with
     | Dynamically_computed var ->
-      Ids_for_export.add_variable Ids_for_export.empty var
+      Ids_for_export.empty
     | Symbol sym ->
       Ids_for_export.add_symbol Ids_for_export.empty sym
     | Tagged_immediate _ -> Ids_for_export.empty
 
   let import import_map t =
     match t with
-    | Dynamically_computed var ->
-      let var = Ids_for_export.Import_map.variable import_map var in
-      Dynamically_computed var
+    | Dynamically_computed _ -> t
     | Symbol sym ->
       let sym = Ids_for_export.Import_map.symbol import_map sym in
       Symbol sym
@@ -373,11 +371,11 @@ let all_ids_for_export t =
         Ids_for_export.union ids (Field_of_block.all_ids_for_export field))
       Ids_for_export.empty
       fields
-  | Boxed_float (Var var)
-  | Boxed_int32 (Var var)
-  | Boxed_int64 (Var var)
-  | Boxed_nativeint (Var var) ->
-    Ids_for_export.add_variable Ids_for_export.empty var
+  | Boxed_float (Var _)
+  | Boxed_int32 (Var _)
+  | Boxed_int64 (Var _)
+  | Boxed_nativeint (Var _) ->
+    Ids_for_export.empty
   | Boxed_float (Const _)
   | Boxed_int32 (Const _)
   | Boxed_int64 (Const _)
@@ -387,16 +385,14 @@ let all_ids_for_export t =
   | Immutable_float_block fields ->
     List.fold_left (fun ids (field : _ Or_variable.t) ->
         match field with
-        | Var v ->
-          Ids_for_export.add_variable ids v
+        | Var _ -> ids
         | Const _ -> ids)
       Ids_for_export.empty
       fields
   | Immutable_float_array fields ->
     List.fold_left (fun ids (field : _ Or_variable.t) ->
         match field with
-        | Var v ->
-          Ids_for_export.add_variable ids v
+        | Var _ -> ids
         | Const _ -> ids)
       Ids_for_export.empty
       fields
@@ -409,18 +405,10 @@ let import import_map t =
   | Block (tag, mut, fields) ->
     let fields = List.map (Field_of_block.import import_map) fields in
     Block (tag, mut, fields)
-  | Boxed_float (Var var) ->
-    let var = Ids_for_export.Import_map.variable import_map var in
-    Boxed_float (Var var)
-  | Boxed_int32 (Var var) ->
-    let var = Ids_for_export.Import_map.variable import_map var in
-    Boxed_int32 (Var var)
-  | Boxed_int64 (Var var) ->
-    let var = Ids_for_export.Import_map.variable import_map var in
-    Boxed_int64 (Var var)
-  | Boxed_nativeint (Var var) ->
-    let var = Ids_for_export.Import_map.variable import_map var in
-    Boxed_nativeint (Var var)
+  | Boxed_float (Var _)
+  | Boxed_int32 (Var _)
+  | Boxed_int64 (Var _)
+  | Boxed_nativeint (Var _)
   | Boxed_float (Const _)
   | Boxed_int32 (Const _)
   | Boxed_int64 (Const _)
@@ -432,7 +420,7 @@ let import import_map t =
       List.map (fun (field : _ Or_variable.t) : _ Or_variable.t ->
           match field with
           | Const _ -> field
-          | Var v -> Var (Ids_for_export.Import_map.variable import_map v))
+          | Var _ -> field
         fields
     in
     Immutable_float_block fields
@@ -441,7 +429,7 @@ let import import_map t =
       List.map (fun (field : _ Or_variable.t) : _ Or_variable.t ->
           match field with
           | Const _ -> field
-          | Var v -> Var (Ids_for_export.Import_map.variable import_map v))
+          | Var _ -> field
         fields
     in
     Immutable_float_array fields

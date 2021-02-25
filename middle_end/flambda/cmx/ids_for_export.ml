@@ -17,7 +17,7 @@ module Const = Reg_width_things.Const
 
 type t = {
   symbols : Symbol.Set.t;
-  variables : Variable.Set.t;
+  (* variables : Variable.Set.t; *)
   simples : Simple.Set.t;
   consts : Const.Set.t;
   code_ids : Code_id.Set.t;
@@ -26,7 +26,7 @@ type t = {
 
 let empty = {
   symbols = Symbol.Set.empty;
-  variables = Variable.Set.empty;
+  (* variables = Variable.Set.empty; *)
   simples = Simple.Set.empty;
   consts = Const.Set.empty;
   code_ids = Code_id.Set.empty;
@@ -35,14 +35,14 @@ let empty = {
 
 let create
     ?(symbols = Symbol.Set.empty)
-    ?(variables = Variable.Set.empty)
+    (* ?(variables = Variable.Set.empty) *)
     ?(simples = Simple.Set.empty)
     ?(consts = Const.Set.empty)
     ?(code_ids = Code_id.Set.empty)
     ?(continuations = Continuation.Set.empty)
     () =
   { symbols;
-    variables;
+    (* variables; *)
     simples;
     consts;
     code_ids;
@@ -61,15 +61,15 @@ let singleton_symbol symbol =
 let add_const t const =
   { t with consts = Const.Set.add const t.consts }
 
-let add_variable t var =
-  { t with variables = Variable.Set.add var t.variables }
+(* let add_variable t var =
+ *   { t with variables = Variable.Set.add var t.variables } *)
 
 let add_symbol t sym =
   { t with symbols = Symbol.Set.add sym t.symbols }
 
 let add_name t name =
   Name.pattern_match name
-    ~var:(add_variable t)
+    ~var:(fun _ -> t)
     ~symbol:(add_symbol t)
 
 let add_simple t simple =
@@ -104,9 +104,8 @@ let from_simple simple =
         ())
     ~name:(fun name ->
       Name.pattern_match name
-        ~var:(fun var ->
+        ~var:(fun _var ->
           create ~simples
-            ~variables:(Variable.Set.singleton var)
             ())
         ~symbol:(fun sym ->
           create ~simples
@@ -115,7 +114,7 @@ let from_simple simple =
 
 let union t1 t2 =
   { symbols = Symbol.Set.union t1.symbols t2.symbols;
-    variables = Variable.Set.union t1.variables t2.variables;
+    (* variables = Variable.Set.union t1.variables t2.variables; *)
     simples = Simple.Set.union t1.simples t2.simples;
     consts = Const.Set.union t1.consts t2.consts;
     code_ids = Code_id.Set.union t1.code_ids t2.code_ids;
@@ -130,7 +129,7 @@ let rec union_list ts =
 module Import_map = struct
   type t = {
     symbols : Symbol.t Symbol.Map.t;
-    variables : Variable.t Variable.Map.t;
+    (* variables : Variable.t Variable.Map.t; *)
     simples : Simple.t Simple.Map.t;
     consts : Const.t Const.Map.t;
     code_ids : Code_id.t Code_id.Map.t;
@@ -150,14 +149,14 @@ module Import_map = struct
 
   let create
       ~symbols
-      ~variables
+      (* ~variables *)
       ~simples
       ~consts
       ~code_ids
       ~continuations
       ~used_closure_vars =
     { symbols;
-      variables;
+      (* variables; *)
       simples;
       consts;
       code_ids;
@@ -170,10 +169,10 @@ module Import_map = struct
     | symbol -> symbol
     | exception Not_found -> orig
 
-  let variable t orig =
-    match Variable.Map.find orig t.variables with
-    | variable -> variable
-    | exception Not_found -> orig
+  (* let variable t orig =
+   *   match Variable.Map.find orig t.variables with
+   *   | variable -> variable
+   *   | exception Not_found -> orig *)
 
   let const t orig =
     match Const.Map.find orig t.consts with
@@ -192,7 +191,7 @@ module Import_map = struct
 
   let name t name =
     Name.pattern_match name
-      ~var:(fun var -> Name.var (variable t var))
+      ~var:(fun _ -> name)
       ~symbol:(fun sym -> Name.symbol (symbol t sym))
 
   let simple t simple =

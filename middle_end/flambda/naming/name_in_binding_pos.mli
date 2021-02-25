@@ -21,7 +21,13 @@
 
 type t
 
-val create : Name.t -> Name_mode.t -> t
+val create : (Name.t * Variable.exported option) -> Name_mode.t -> t
+
+val pattern_match
+   : t
+  -> var:(Variable.t * Variable.exported -> 'a)
+  -> symbol:(Symbol.t -> 'a)
+  -> 'a
 
 val name : t -> Name.t
 val name_mode : t -> Name_mode.t

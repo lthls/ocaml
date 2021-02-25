@@ -67,11 +67,11 @@ let print_with_cache ~cache:_ ppf t = print ppf t
 let free_names t =
   match t with
   | Singleton var ->
-    let var = Var_in_binding_pos.var var in
+    let var = Var_in_binding_pos.raw_var var in
     Name_occurrences.singleton_variable var Name_mode.normal
   | Set_of_closures { name_mode = _; closure_vars; } ->
     List.fold_left (fun free_names var ->
-        let var = Var_in_binding_pos.var var in
+        let var = Var_in_binding_pos.raw_var var in
         Name_occurrences.add_variable free_names var
           Name_mode.normal)
       Name_occurrences.empty
@@ -102,35 +102,19 @@ let apply_name_permutation t perm =
 
 let all_ids_for_export t =
   match t with
-  | Singleton var ->
-    Ids_for_export.add_variable Ids_for_export.empty
-      (Var_in_binding_pos.var var)
-  | Set_of_closures { name_mode = _; closure_vars; } ->
-    List.fold_left (fun ids var ->
-        Ids_for_export.add_variable ids (Var_in_binding_pos.var var))
-      Ids_for_export.empty
-      closure_vars
+  | Singleton _ ->
+    Ids_for_export.empty
+  | Set_of_closures _ ->
+    Ids_for_export.empty
   | Symbols { bound_symbols; scoping_rule = _; } ->
     Bound_symbols.all_ids_for_export bound_symbols
 
 let import import_map t =
   match t with
-  | Singleton var ->
-    let raw_var =
-      Ids_for_export.Import_map.variable import_map (Var_in_binding_pos.var var)
-    in
-    Singleton
-      (Var_in_binding_pos.create raw_var (Var_in_binding_pos.name_mode var))
-  | Set_of_closures { name_mode; closure_vars; } ->
-    let closure_vars =
-      List.map (fun var ->
-          Var_in_binding_pos.create
-            (Ids_for_export.Import_map.variable import_map
-               (Var_in_binding_pos.var var))
-            (Var_in_binding_pos.name_mode var))
-        closure_vars
-    in
-    Set_of_closures { name_mode; closure_vars; }
+  | Singleton _ ->
+    t
+  | Set_of_closures _ ->
+    t
   | Symbols { bound_symbols; scoping_rule; } ->
     let bound_symbols = Bound_symbols.import import_map bound_symbols in
     Symbols { bound_symbols; scoping_rule; }
@@ -149,8 +133,8 @@ let add_to_name_permutation t1 ~guaranteed_fresh:t2 perm =
   match t1, t2 with
   | Singleton var1, Singleton var2 ->
     Name_permutation.add_fresh_variable perm
-      (Var_in_binding_pos.var var1)
-      ~guaranteed_fresh:(Var_in_binding_pos.var var2)
+      (Var_in_binding_pos.raw_var var1)
+      ~guaranteed_fresh:(Var_in_binding_pos.raw_var var2)
   | Set_of_closures { name_mode = _; closure_vars = closure_vars1; },
       Set_of_closures { name_mode = _;
         closure_vars = closure_vars2; } ->
@@ -159,8 +143,8 @@ let add_to_name_permutation t1 ~guaranteed_fresh:t2 perm =
       List.fold_left2
         (fun perm var1 var2 ->
           Name_permutation.add_fresh_variable perm
-            (Var_in_binding_pos.var var1)
-            ~guaranteed_fresh:(Var_in_binding_pos.var var2))
+            (Var_in_binding_pos.raw_var var1)
+            ~guaranteed_fresh:(Var_in_binding_pos.raw_var var2))
         perm
         closure_vars1
         closure_vars2
@@ -247,9 +231,9 @@ let all_bound_vars t =
 
 let all_bound_vars' t =
   match t with
-  | Singleton var -> Variable.Set.singleton (Var_in_binding_pos.var var)
+  | Singleton var -> Variable.Set.singleton (Var_in_binding_pos.raw_var var)
   | Set_of_closures { closure_vars; _ } ->
-    Variable.Set.of_list (List.map Var_in_binding_pos.var closure_vars)
+    Variable.Set.of_list (List.map Var_in_binding_pos.raw_var closure_vars)
   | Symbols _ -> Variable.Set.empty
 
 let let_symbol_scoping_rule t =

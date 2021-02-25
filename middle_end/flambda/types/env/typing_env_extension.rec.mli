@@ -43,7 +43,7 @@ val join : Meet_env.t -> t -> t -> t
 
 module With_extra_variables : sig
   type t = private {
-    existential_vars : Flambda_kind.t Variable.Map.t;
+    existential_vars : (Flambda_kind.t * Variable.exported) Variable.Map.t;
     equations : Type_grammar.t Name.Map.t;
   }
 
@@ -53,7 +53,7 @@ module With_extra_variables : sig
 
   val add_definition
      : t
-    -> Variable.t
+    -> (Variable.t * Variable.exported)
     -> Flambda_kind.t
     -> Type_grammar.t
     -> t

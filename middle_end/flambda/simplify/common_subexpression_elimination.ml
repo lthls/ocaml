@@ -229,9 +229,9 @@ let join_one_cse_equation ~cse_at_each_use prim bound_to_map
       EP.Map.add prim bound_to cse, extra_bindings, extra_equations, allowed
     | None | Some (Rhs_kind.Needs_extra_binding { bound_to = _; }) ->
       let prim_result_kind = P.result_kind' (EP.to_primitive prim) in
-      let var = Variable.create "cse_param" in
+      let ((var, _data) as var_with_data) = Variable.create "cse_param" in
       let extra_param =
-        KP.create var (K.With_subkind.create prim_result_kind Anything)
+        KP.create var_with_data (K.With_subkind.create prim_result_kind Anything)
       in
       let bound_to = RI.Map.map Rhs_kind.bound_to bound_to_map in
       let cse = EP.Map.add prim (Simple.var var) cse in

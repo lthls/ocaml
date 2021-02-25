@@ -36,7 +36,7 @@ let create ~return_continuation exn_continuation params ~dbg ~body
       ~free_names_of_body ~my_closure =
   let is_my_closure_used =
     Or_unknown.map free_names_of_body ~f:(fun free_names_of_body ->
-      Name_occurrences.mem_var free_names_of_body my_closure)
+      Name_occurrences.mem_var free_names_of_body (fst my_closure))
   in
   let my_closure =
     Kinded_parameter.create my_closure (K.With_subkind.create K.value Anything)
@@ -52,7 +52,7 @@ let create ~return_continuation exn_continuation params ~dbg ~body
 let extract_my_closure params_and_my_closure =
   match List.rev params_and_my_closure with
   | my_closure::params_rev ->
-    List.rev params_rev, Kinded_parameter.var my_closure
+    List.rev params_rev, Kinded_parameter.var_with_data my_closure
   | [] -> assert false  (* see [create], above. *)
 
 let pattern_match t ~f =

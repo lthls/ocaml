@@ -18,9 +18,11 @@
 
 type t
 
-val create : Variable.t -> Name_mode.t -> t
+val create : (Variable.t * Variable.exported) -> Name_mode.t -> t
 
-val var : t -> Variable.t
+val raw_var : t -> Variable.t
+
+val var : t -> (Variable.t * Variable.exported)
 
 val simple : t -> Simple.t
 
@@ -29,6 +31,8 @@ val name_mode : t -> Name_mode.t
 val rename : t -> t
 
 val with_name_mode : t -> Name_mode.t -> t
+
+val with_raw_var : t -> Variable.t -> t
 
 include Identifiable.S with type t := t
 include Contains_names.S with type t := t

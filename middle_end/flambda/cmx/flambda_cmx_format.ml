@@ -23,7 +23,7 @@ module Const = Reg_width_things.Const
 
 type table_data = {
   symbols : Symbol.exported Symbol.Map.t;
-  variables : Variable.exported Variable.Map.t;
+  (* variables : Variable.exported Variable.Map.t; *)
   simples : Simple.exported Simple.Map.t;
   consts : Const.exported Const.Map.t;
   code_ids : Code_id.exported Code_id.Map.t;
@@ -55,12 +55,12 @@ let create ~final_typing_env ~all_code ~exported_offsets ~used_closure_vars =
       exported_ids.symbols
       Symbol.Map.empty
   in
-  let variables =
-    Variable.Set.fold (fun variable variables ->
-        Variable.Map.add variable (Variable.export variable) variables)
-      exported_ids.variables
-      Variable.Map.empty
-  in
+  (* let variables =
+   *   Variable.Set.fold (fun variable variables ->
+   *       Variable.Map.add variable (Variable.export variable) variables)
+   *     exported_ids.variables
+   *     Variable.Map.empty
+   * in *)
   let simples =
     Simple.Set.fold (fun simple simples ->
         Simple.Map.add simple (Simple.export simple) simples)
@@ -88,7 +88,7 @@ let create ~final_typing_env ~all_code ~exported_offsets ~used_closure_vars =
   in
   let table_data =
     { symbols;
-      variables;
+      (* variables; *)
       simples;
       consts;
       code_ids;
@@ -114,9 +114,9 @@ let import_typing_env_and_code0 t =
   let symbols =
     Symbol.Map.filter_map (filter Symbol.import) t.table_data.symbols
   in
-  let variables =
-    Variable.Map.filter_map (filter Variable.import) t.table_data.variables
-  in
+  (* let variables =
+   *   Variable.Map.filter_map (filter Variable.import) t.table_data.variables
+   * in *)
   let consts =
     Const.Map.filter_map (filter Const.import) t.table_data.consts
   in
@@ -132,7 +132,7 @@ let import_typing_env_and_code0 t =
   let import_map =
     Ids_for_export.Import_map.create
       ~symbols
-      ~variables
+      (* ~variables *)
       ~simples:Simple.Map.empty
       ~consts
       ~code_ids
@@ -148,7 +148,7 @@ let import_typing_env_and_code0 t =
   let import_map =
     Ids_for_export.Import_map.create
       ~symbols
-      ~variables
+      (* ~variables *)
       ~simples
       ~consts
       ~code_ids
@@ -204,10 +204,10 @@ let update_for_pack0 ~pack_units ~pack t =
     Symbol.Map.map (Symbol.map_compilation_unit update_cu)
       t.table_data.symbols
   in
-  let variables =
-    Variable.Map.map (Variable.map_compilation_unit update_cu)
-      t.table_data.variables
-  in
+  (* let variables =
+   *   Variable.Map.map (Variable.map_compilation_unit update_cu)
+   *     t.table_data.variables
+   * in *)
   let simples =
     Simple.Map.map (Simple.map_compilation_unit update_cu)
       t.table_data.simples
@@ -226,7 +226,7 @@ let update_for_pack0 ~pack_units ~pack t =
   in
   let table_data =
     { symbols;
-      variables;
+      (* variables; *)
       simples;
       consts;
       code_ids;

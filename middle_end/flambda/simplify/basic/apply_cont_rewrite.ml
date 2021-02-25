@@ -138,7 +138,7 @@ let rewrite_use t id apply_cont : rewrite_use_result =
         match arg with
         | Already_in_scope simple -> simple :: extra_args_rev, extra_lets
         | New_let_binding (temp, prim) ->
-          let extra_args_rev = Simple.var temp :: extra_args_rev in
+          let extra_args_rev = Simple.var (fst temp) :: extra_args_rev in
           let extra_lets =
             (Var_in_binding_pos.create temp Name_mode.normal,
              Named.create_prim prim Debuginfo.none)

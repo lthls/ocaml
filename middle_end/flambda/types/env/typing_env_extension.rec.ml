@@ -113,7 +113,7 @@ let join env t1 t2 =
 
 module With_extra_variables = struct
   type t = {
-    existential_vars : Flambda_kind.t Variable.Map.t;
+    existential_vars : (Flambda_kind.t * Variable.exported) Variable.Map.t;
     equations : Type_grammar.t Name.Map.t;
   }
 
@@ -123,7 +123,12 @@ module With_extra_variables = struct
        @[<hov 1>(variables@ @[<hov 1>%a@])@]\
        @[<hov 1>(equations@ @[<v 1>%a@])@])@ \
        @]"
-      (Variable.Map.print Flambda_kind.print) existential_vars
+      (Variable.Map.print
+         (fun ppf (kind, data) ->
+            Format.fprintf ppf "%a@ %a"
+              Flambda_kind.print kind
+              Variable.print_data data))
+      existential_vars
       print_equations equations
 
   let empty () =
@@ -131,8 +136,8 @@ module With_extra_variables = struct
       equations = Name.Map.empty;
     }
 
-  let add_definition t var kind ty =
-    let existential_vars = Variable.Map.add var kind t.existential_vars in
+  let add_definition t (var, data) kind ty =
+    let existential_vars = Variable.Map.add var (kind, data) t.existential_vars in
     let equations = Name.Map.add (Name.var var) ty t.equations in
     { existential_vars;
       equations;

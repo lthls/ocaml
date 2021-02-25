@@ -45,8 +45,10 @@ module Env = struct
       | Not_user_visible -> None
       | User_visible -> Some ()
     in
-    let var = Variable.create_with_same_name_as_ident ?user_visible id in
-    add_var t id var, var
+    let var, var_data =
+      Variable.create_with_same_name_as_ident ?user_visible id
+    in
+    add_var t id var, (var, var_data)
 
   let add_vars_like t ids =
     let vars =
@@ -59,7 +61,7 @@ module Env = struct
           Variable.create_with_same_name_as_ident ?user_visible id)
         ids
     in
-    add_vars t (List.map fst ids) vars, vars
+    add_vars t (List.map fst ids) (List.map fst vars), vars
 
   (* CR mshinwell: Rethink the semantics of these re. fatal errors etc *)
 

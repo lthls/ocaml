@@ -32,12 +32,12 @@ module Env : sig
   val add_vars : t -> Ident.t list -> Variable.t list -> t
   val add_var_map : t -> Variable.t Ident.Map.t -> t
 
-  val add_var_like : t -> Ident.t -> Ilambda.user_visible -> t * Variable.t
+  val add_var_like : t -> Ident.t -> Ilambda.user_visible -> t * (Variable.t * Variable.exported)
 
   val add_vars_like
      : t
     -> (Ident.t * Ilambda.user_visible) list
-    -> t * Variable.t list
+    -> t * (Variable.t * Variable.exported) list
 
   val find_name : t -> Ident.t -> Name.t
   val find_name_exn : t -> Ident.t -> Name.t

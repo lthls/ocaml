@@ -17,13 +17,13 @@
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
 type t = {
-  defined_vars : Flambda_kind.t Variable.Map.t;
+  defined_vars : (Flambda_kind.t * Variable.exported) Variable.Map.t;
   binding_times : Variable.Set.t Binding_time.Map.t;
   equations : Type_grammar.t Name.Map.t;
   symbol_projections : Symbol_projection.t Variable.Map.t;
 }
 
-(* let defined_vars t = t.defined_vars *)
+let defined_vars t = t.defined_vars
 
 let defined_names t =
   Name.set_of_var_set (Variable.Map.keys t.defined_vars)
@@ -82,7 +82,7 @@ let print ppf t =
 let fold_on_defined_vars f t init =
   Binding_time.Map.fold (fun _bt vars acc ->
       Variable.Set.fold (fun var acc ->
-          let kind = Variable.Map.find var t.defined_vars in
+          let (kind, _data) = Variable.Map.find var t.defined_vars in
           f var kind acc)
         vars
         acc)
@@ -95,12 +95,12 @@ let apply_name_permutation
       perm =
   let defined_vars_changed = ref false in
   let defined_vars' =
-    Variable.Map.fold (fun var kind defined_vars ->
+    Variable.Map.fold (fun var (kind, data) defined_vars ->
         let var' = Name_permutation.apply_variable perm var in
         if not (var == var') then begin
           defined_vars_changed := true
         end;
-        Variable.Map.add var' kind defined_vars)
+        Variable.Map.add var' (kind, data) defined_vars)
       defined_vars
       Variable.Map.empty
   in
@@ -203,7 +203,7 @@ let add_symbol_projection t var proj =
   in
   { t with symbol_projections; }
 
-let add_definition t var kind binding_time =
+let add_definition t (var, var_data) kind binding_time =
   if !Clflags.flambda_invariant_checks
     && Variable.Map.mem var t.defined_vars
   then begin
@@ -222,7 +222,7 @@ let add_definition t var kind binding_time =
     Binding_time.Map.add binding_time vars t.binding_times
   in
   { t with
-    defined_vars = Variable.Map.add var kind t.defined_vars;
+    defined_vars = Variable.Map.add var (kind, var_data) t.defined_vars;
     binding_times;
   }
 
@@ -309,10 +309,10 @@ let join_types ~env_at_fork envs_with_levels ~extra_lifted_consts_in_use_envs =
             Variable.Set.fold (fun var env ->
                 if Typing_env.mem env (Name.var var) then env
                 else
-                  let kind = Variable.Map.find var level.defined_vars in
+                  let (kind, data) = Variable.Map.find var level.defined_vars in
                   Typing_env.add_definition env
                     (Name_in_binding_pos.var
-                       (Var_in_binding_pos.create var Name_mode.in_types))
+                       (Var_in_binding_pos.create (var, data) Name_mode.in_types))
                     kind)
               vars
               env)
@@ -335,15 +335,15 @@ let join_types ~env_at_fork envs_with_levels ~extra_lifted_consts_in_use_envs =
         (* CR mshinwell for vlaviron: Looks like [Typing_env.mem] needs
            fixing with respect to names from other units with their
            .cmx missing (c.f. testsuite/tests/lib-dynlink-native/). *)
-        let same_unit =
-          Compilation_unit.equal (Name.compilation_unit name)
-            (Compilation_unit.get_current_exn ())
-        in
-        if same_unit && not (Typing_env.mem env_at_fork name) then begin
-          Misc.fatal_errorf "Name %a not defined in [env_at_fork]:@ %a"
-            Name.print name
-            Typing_env.print env_at_fork
-        end;
+        (* let same_unit =
+         *   Compilation_unit.equal (Name.compilation_unit name)
+         *     (Compilation_unit.get_current_exn ())
+         * in
+         * if same_unit && not (Typing_env.mem env_at_fork name) then begin
+         *   Misc.fatal_errorf "Name %a not defined in [env_at_fork]:@ %a"
+         *     Name.print name
+         *     Typing_env.print env_at_fork
+         * end; *)
         let is_lifted_const_symbol =
           match Name.must_be_symbol_opt name with
           | None -> false
@@ -446,14 +446,15 @@ let construct_joined_level envs_with_levels ~env_at_fork ~allowed
             t.defined_vars
         in
         let defined_vars =
-          Variable.Map.union (fun var kind1 kind2 ->
-              if Flambda_kind.equal kind1 kind2 then Some kind1
+          Variable.Map.union (fun var (kind1, data1) (kind2, data2) ->
+              assert (data1 == data2);
+              if Flambda_kind.equal kind1 kind2 then Some (kind1, data1)
               else
                 Misc.fatal_errorf "Cannot join levels that disagree on the kind \
                     of [defined_vars] (%a and %a for %a)"
                   Flambda_kind.print kind1
                   Flambda_kind.print kind2
-                  Variable.print var)
+                  Variable.print_data data1)
             defined_vars
             defined_vars_this_level
         in

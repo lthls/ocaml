@@ -227,7 +227,7 @@ let bind_no_simplification ~bindings ~body ~free_names_of_body =
       in
       let free_names =
         Name_occurrences.union (Named.free_names defining_expr)
-          (Name_occurrences.remove_var free_names (Var_in_binding_pos.var var))
+          (Name_occurrences.remove_var free_names (Var_in_binding_pos.raw_var var))
       in
       expr, free_names)
 
@@ -240,7 +240,7 @@ let bind_parameters_to_args_no_simplification ~params ~args ~body =
   ListLabels.fold_left2 (List.rev params) (List.rev args)
     ~init:body
     ~f:(fun expr param arg ->
-      let var = Var_in_binding_pos.create (KP.var param) Name_mode.normal in
+      let var = Var_in_binding_pos.create (KP.var_with_data param) Name_mode.normal in
       Let_expr.create (Bindable_let_bound.singleton var)
         (Named.create_simple arg)
         ~body:expr

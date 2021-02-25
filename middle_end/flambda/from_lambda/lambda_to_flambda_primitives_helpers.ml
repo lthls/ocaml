@@ -172,7 +172,7 @@ let expression_for_failure ~backend exn_cont ~register_const_string
       in
       raise_exn_for_failure
         ~dbg exn_cont
-        (Simple.var exn_bucket)
+        (Simple.var (fst exn_bucket))
         (Some extra_let_binding)
     end
 
@@ -294,7 +294,7 @@ and bind_rec_primitive ~backend exn_cont ~register_const_string
     let var' = VB.create var Name_mode.normal in
     let cont named =
       Let.create (Bindable_let_bound.singleton var') named
-        ~body:(cont (Simple.var var))
+        ~body:(cont (Simple.var (fst var)))
         ~free_names_of_body:Unknown
       |> Expr.create_let
     in

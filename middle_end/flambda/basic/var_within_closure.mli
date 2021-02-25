@@ -23,9 +23,9 @@
 
 include Identifiable.S
 
-val wrap : Compilation_unit.t -> Variable.t -> t
+val wrap : Compilation_unit.t -> Variable.exported -> t
 
-val unwrap : t -> Variable.t
+val unwrap : t -> Variable.exported
 
 val in_compilation_unit : t -> Compilation_unit.t -> bool
 val get_compilation_unit : t -> Compilation_unit.t

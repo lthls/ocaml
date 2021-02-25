@@ -206,7 +206,7 @@ end = struct
     in
     let variables_defined_at_toplevel =
       if t.at_unit_toplevel then
-        Variable.Set.add (Var_in_binding_pos.var var)
+        Variable.Set.add (Var_in_binding_pos.raw_var var)
           t.variables_defined_at_toplevel
       else
         t.variables_defined_at_toplevel
@@ -241,11 +241,11 @@ end = struct
       let var' = Name_in_binding_pos.var var in
       TE.add_equation
         (TE.add_definition t.typing_env var' (T.kind ty))
-        (Name.var (Var_in_binding_pos.var var)) ty
+        (Name.var (Var_in_binding_pos.raw_var var)) ty
     in
     let variables_defined_at_toplevel =
       if at_unit_toplevel then
-        Variable.Set.add (Var_in_binding_pos.var var)
+        Variable.Set.add (Var_in_binding_pos.raw_var var)
           t.variables_defined_at_toplevel
       else
         t.variables_defined_at_toplevel
@@ -279,7 +279,7 @@ end = struct
   let define_symbol t sym kind =
     let typing_env =
       let sym =
-        Name_in_binding_pos.create (Name.symbol sym)
+        Name_in_binding_pos.create (Name.symbol sym, None)
           Name_mode.normal
       in
       TE.add_definition t.typing_env sym kind
@@ -293,7 +293,7 @@ end = struct
   let add_symbol t sym ty =
     let typing_env =
       let sym = Name.symbol sym in
-      let sym' = Name_in_binding_pos.create sym Name_mode.normal in
+      let sym' = Name_in_binding_pos.create (sym, None) Name_mode.normal in
       TE.add_equation
         (TE.add_definition t.typing_env sym' (T.kind ty))
         sym ty
@@ -355,7 +355,7 @@ end = struct
   let define_parameters t ~params =
     List.fold_left (fun t param ->
         let var =
-          Var_in_binding_pos.create (KP.var param) Name_mode.normal
+          Var_in_binding_pos.create (KP.var_with_data param) Name_mode.normal
         in
         define_variable t var (K.With_subkind.kind (KP.kind param)))
       t
@@ -364,7 +364,7 @@ end = struct
   let define_parameters_as_bottom t ~params =
     List.fold_left (fun t param ->
         let var =
-          Var_in_binding_pos.create (KP.var param) Name_mode.normal
+          Var_in_binding_pos.create (KP.var_with_data param) Name_mode.normal
         in
         let kind = K.With_subkind.kind (KP.kind param) in
         let t = define_variable t var kind in
@@ -384,7 +384,7 @@ end = struct
     in
     List.fold_left2 (fun t param param_type ->
         let var =
-          Var_in_binding_pos.create (KP.var param) Name_mode.normal
+          Var_in_binding_pos.create (KP.var_with_data param) Name_mode.normal
         in
         add_variable0 t var param_type ~at_unit_toplevel)
       t

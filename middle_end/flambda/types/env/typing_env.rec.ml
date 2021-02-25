@@ -654,6 +654,26 @@ let find t name kind =
   in
   ty
 
+let find_with_data t var kind =
+  let ty = find t (Name.var var) kind in
+  let levels =
+    Scope.Map.add (One_level.scope t.current_level) t.current_level
+      t.prev_levels
+  in
+  let data_opt =
+    Scope.Map.fold (fun _ level data_opt ->
+        match data_opt with
+        | Some _ -> data_opt
+        | None ->
+          Variable.Map.find_opt var (Typing_env_level.defined_vars level))
+      levels None
+  in
+  match data_opt with
+  | Some data -> ty, data
+  | None ->
+    Misc.fatal_error "Variable %a not defined in typing env"
+      Variable.print var
+
 let find_or_missing t name =
   match find_with_binding_time_and_mode' t name None with
   | ty, _, _ -> Some ty
@@ -739,12 +759,12 @@ let with_current_level_and_next_binding_time t ~current_level
 
 let cached t = One_level.just_after_level t.current_level
 
-let add_variable_definition t var kind name_mode =
+let add_variable_definition t (var, var_data) kind name_mode =
   (* We can add equations in our own compilation unit on variables and
      symbols defined in another compilation unit. However we can't define other
      compilation units' variables or symbols (except for predefined
      symbols such as exceptions) in our own compilation unit. *)
-  let comp_unit = Variable.compilation_unit var in
+  let comp_unit = Variable.compilation_unit var_data in
   let this_comp_unit = Compilation_unit.get_current_exn () in
   if not (Compilation_unit.equal comp_unit this_comp_unit) then begin
     Misc.fatal_errorf "Cannot define a variable that belongs to a different \
@@ -759,8 +779,8 @@ let add_variable_definition t var kind name_mode =
       print t
   end;
   let level =
-    Typing_env_level.add_definition (One_level.level t.current_level) var kind
-      t.next_binding_time
+    Typing_env_level.add_definition (One_level.level t.current_level)
+      (var, var_data) kind t.next_binding_time
   in
   let just_after_level =
     Cached.add_or_replace_binding (cached t)
@@ -837,8 +857,9 @@ let kind_of_simple t simple =
 
 let add_definition t (name : Name_in_binding_pos.t) kind =
   let name_mode = Name_in_binding_pos.name_mode name in
-  Name.pattern_match (Name_in_binding_pos.name name)
-    ~var:(fun var -> add_variable_definition t var kind name_mode)
+  Name_in_binding_pos.pattern_match name
+    ~var:(fun var_with_data ->
+      add_variable_definition t var_with_data kind name_mode)
     ~symbol:(fun sym ->
       if not (Name_mode.equal name_mode Name_mode.normal) then begin
         Misc.fatal_errorf "Cannot define symbol %a with name mode that \
@@ -1094,7 +1115,8 @@ let add_env_extension_from_level t level : t =
 let add_definitions_of_params t ~params =
   List.fold_left (fun t param ->
       let name =
-        Name_in_binding_pos.create (Kinded_parameter.name param)
+        let (var, data) = Kinded_parameter.var_with_data param in
+        Name_in_binding_pos.create (Name.var var, Some data)
           Name_mode.normal
       in
       add_definition t name

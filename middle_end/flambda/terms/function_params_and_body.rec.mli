@@ -41,7 +41,7 @@ val create
   -> dbg:Debuginfo.t
   -> body:Expr.t
   -> free_names_of_body:Name_occurrences.t Or_unknown.t
-  -> my_closure:Variable.t
+  -> my_closure:(Variable.t * Variable.exported)
   -> t
 
 (** Choose a member of the alpha-equivalence class to enable examination

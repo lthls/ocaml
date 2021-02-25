@@ -24,10 +24,12 @@ type t
 include Bindable.S with type t := t
 
 (** Create a kinded parameter. *)
-val create : Variable.t -> Flambda_kind.With_subkind.t -> t
+val create : (Variable.t * Variable.exported) -> Flambda_kind.With_subkind.t -> t
 
 (** The underlying variable. *)
 val var : t -> Variable.t
+
+val var_with_data : t -> Variable.t * Variable.exported
 
 val name : t -> Name.t
 
@@ -53,7 +55,7 @@ module List : sig
 
   include Contains_names.S with type t := t
 
-  val create : (Variable.t * Flambda_kind.With_subkind.t) list -> t
+  val create : ((Variable.t * Variable.exported) * Flambda_kind.With_subkind.t) list -> t
 
   (** As for [Variable.List.vars]. *)
   val vars : t -> Variable.t list

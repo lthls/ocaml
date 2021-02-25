@@ -42,7 +42,7 @@ let create_singleton_let uacc (bound_var : VB.t) defining_expr
   let bound_var, keep_binding, let_creation_result =
     let greatest_name_mode =
       Name_occurrences.greatest_name_mode_var free_names_of_body
-        (VB.var bound_var)
+        (VB.raw_var bound_var)
     in
     let declared_name_mode = VB.name_mode bound_var in
     begin match
@@ -75,7 +75,7 @@ let create_singleton_let uacc (bound_var : VB.t) defining_expr
       bound_var, true, Nothing_deleted
     end else begin
       let has_uses = Name_mode.Or_absent.is_present greatest_name_mode in
-      let user_visible = Variable.user_visible (VB.var bound_var) in
+      let user_visible = Variable.user_visible (snd (VB.var bound_var)) in
       let will_delete_binding =
         (* CR mshinwell: This should detect whether there is any
            provenance info associated with the variable.  If there isn't, the

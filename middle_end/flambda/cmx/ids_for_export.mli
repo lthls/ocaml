@@ -15,7 +15,7 @@
 
 type t = {
   symbols : Symbol.Set.t;
-  variables : Variable.Set.t;
+  (* variables : Variable.Set.t; *)
   simples : Simple.Set.t;
   consts : Reg_width_things.Const.Set.t;
   code_ids : Code_id.Set.t;
@@ -26,7 +26,7 @@ val empty : t
 
 val create
    : ?symbols: Symbol.Set.t
-  -> ?variables: Variable.Set.t
+  (* -> ?variables: Variable.Set.t *)
   -> ?simples: Simple.Set.t
   -> ?consts: Reg_width_things.Const.Set.t
   -> ?code_ids: Code_id.Set.t
@@ -44,7 +44,7 @@ val from_simple : Simple.t -> t
 
 val add_const : t -> Reg_width_things.Const.t -> t
 
-val add_variable : t -> Variable.t -> t
+(* val add_variable : t -> Variable.t -> t *)
 
 val add_symbol : t -> Symbol.t -> t
 
@@ -65,7 +65,7 @@ module Import_map : sig
 
   val create
      : symbols : Symbol.t Symbol.Map.t
-    -> variables : Variable.t Variable.Map.t
+    (* -> variables : Variable.t Variable.Map.t *)
     -> simples : Simple.t Simple.Map.t
     -> consts : Reg_width_things.Const.t Reg_width_things.Const.Map.t
     -> code_ids : Code_id.t Code_id.Map.t
@@ -74,7 +74,7 @@ module Import_map : sig
     -> t
 
   val const : t -> Reg_width_things.Const.t -> Reg_width_things.Const.t
-  val variable : t -> Variable.t -> Variable.t
+  (* val variable : t -> Variable.t -> Variable.t *)
   val symbol : t -> Symbol.t -> Symbol.t
   val name : t -> Name.t -> Name.t
   val simple : t -> Simple.t -> Simple.t
