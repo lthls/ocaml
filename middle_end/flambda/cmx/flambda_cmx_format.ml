@@ -117,6 +117,9 @@ let import_typing_env_and_code0 t =
   let variables =
     Variable.Map.filter_map (filter Variable.import) t.table_data.variables
   in
+  let simples =
+    Simple.Map.filter_map (filter Simple.import) t.table_data.simples
+  in
   let consts =
     Const.Map.filter_map (filter Const.import) t.table_data.consts
   in
@@ -128,35 +131,6 @@ let import_typing_env_and_code0 t =
       t.table_data.continuations
   in
   let used_closure_vars = t.used_closure_vars in
-  (* Build a simple to simple converter from this *)
-  let renaming =
-    Renaming.create_import_map
-      ~symbols
-      ~variables
-      ~simples:Simple.Map.empty
-      ~consts
-      ~code_ids
-      ~continuations
-      ~used_closure_vars
-  in
-  let import_simple_without_rec_info simple =
-    (* [simple] will never have [Rec_info] since it is the [Simple] component
-       of a [Simple_data.t].  See [Reg_width_things.Simple_data]. *)
-    assert (not (Simple.has_rec_info simple));
-    Simple.pattern_match simple
-      ~const:(fun c ->
-        Simple.const (Renaming.apply_const renaming c))
-      ~name:(fun n ->
-        Simple.name (Renaming.apply_name renaming n))
-  in
-  (* Then convert the [Simple]s (only those that have Rec_info).  Inside such
-     [Simple]s are further [Simple]s, all without [Rec_info]; these will be
-     imported using the renaming constructed above. *)
-  let simples =
-    Simple.Map.filter_map
-      (filter (Simple.import import_simple_without_rec_info))
-      t.table_data.simples
-  in
   let renaming =
     Renaming.create_import_map
       ~symbols

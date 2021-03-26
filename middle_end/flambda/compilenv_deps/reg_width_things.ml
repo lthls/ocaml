@@ -607,20 +607,13 @@ module Simple = struct
 
   let export t = find_data t
 
-  let import map (data : exported) =
-    (* The grand table of [Simple]s only holds those with [Rec_info]. *)
-    let old_simple = data.simple in
-    (* [old_simple] never has [Rec_info].  See [Simple_data], above. *)
-    assert (Id.flags old_simple <> simple_flags);
-    let t = map old_simple in
-    (* The import converter should never affect the flags. *)
-    assert (Id.flags t <> simple_flags);
-    let rec_info = data.rec_info in
-    if Rec_info.is_initial rec_info then t
-    else begin
-      let data : Simple_data.t = { simple = t; rec_info; } in
-      Table.add !grand_table_of_simples data
-    end
+  let import (data : exported) =
+    (* Note: We do not import the underlying name or const.
+       This is done on purpose, to make the import process simpler
+       and well-defined, but means that the real import functions
+       (in Renaming) are responsible for importing the underlying
+       name/const. *)
+    Table.add !grand_table_of_simples data
 
   let map_compilation_unit _f data =
     (* The compilation unit is not associated with the simple directly,
