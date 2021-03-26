@@ -337,7 +337,9 @@ let apply_simple t simple =
   (* Constants are never permuted, only freshened upon import. *)
   Simple.pattern_match simple
     ~name
-    ~const:(fun cst -> Simple.const (apply_const t cst))
+    ~const:(fun cst ->
+      assert (not (Simple.has_rec_info simple));
+      Simple.const (apply_const t cst))
 
 let closure_var_is_used t closure_var =
   match t.import_map with
