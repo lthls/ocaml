@@ -186,7 +186,7 @@ let concat (t1 : t) (t2 : t) =
     symbol_projections;
   }
 
-let join_types ~env_at_fork envs_with_levels =
+let join_types ~params ~env_at_fork envs_with_levels =
   (* Add all the variables defined by the branches as existentials to the
      [env_at_fork].
      Any such variable will be given type [Unknown] on a branch where it
@@ -220,9 +220,26 @@ let join_types ~env_at_fork envs_with_levels =
       env_at_fork
       envs_with_levels
   in
+  (* Special handling for parameters: they're defined in [env_at_fork],
+     but their type (Unknown) is only a placeholder until we compute
+     the actual join.
+     So we start the join with equations binding the parameters to Bottom,
+     to make sure we end up with the right type in the end.
+  *)
+  let initial_types =
+    let bottom_ty param =
+      Type_grammar.bottom
+        (Flambda_kind.With_subkind.kind (Kinded_parameter.kind param))
+    in
+    List.fold_left (fun initial_types param ->
+        Name.Map.add (Kinded_parameter.name param) (bottom_ty param)
+          initial_types)
+      Name.Map.empty
+      params
+  in
   (* Now fold over the levels doing the actual join operation on equations. *)
   ListLabels.fold_left envs_with_levels
-    ~init:(Name.Map.empty, Variable.Set.empty)
+    ~init:(initial_types, Variable.Set.empty)
     ~f:(fun (joined_types, defined_variables) (env_at_use, _, _, t) ->
       let left_env =
         (* CR vlaviron: This is very likely quadratic (number of uses times
@@ -459,7 +476,7 @@ let join ~env_at_fork envs_with_levels ~params
     ~extra_lifted_consts_in_use_envs;
   (* Calculate the joined types of all the names involved. *)
   let joined_types =
-    join_types ~env_at_fork envs_with_levels
+    join_types ~params ~env_at_fork envs_with_levels
   in
   (* Next calculate which equations (describing joined types) to propagate to
      the join point.  (Recall that the environment at the fork point includes
