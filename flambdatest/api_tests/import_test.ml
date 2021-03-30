@@ -31,7 +31,7 @@ let test () =
   let simple1_ok = Simple.with_rec_info simple0 rec_info2 in
   (* Map simple1 to simple1_ok. Normally import preserves the rec info,
      but here we're trying to detect application of the renaming so
-     we whose a rec_info that's noticeably distinct. *)
+     we use a rec_info that's noticeably distinct. *)
   let simples =
     Simple.Map.singleton simple1 simple1_ok
   in
