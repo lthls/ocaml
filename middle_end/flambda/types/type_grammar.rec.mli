@@ -191,13 +191,6 @@ val closure_with_at_least_this_closure_var
 
 val array_of_length : length:t -> t
 
-val make_suitable_for_environment0
-   : t
-  -> Typing_env.t
-  -> suitable_for:Typing_env.t
-  -> Typing_env_extension.With_extra_variables.t
-  -> Typing_env_extension.With_extra_variables.t * t
-
 val make_suitable_for_environment
    : t
   -> Typing_env.t

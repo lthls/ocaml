@@ -24,6 +24,7 @@ val symbols : t
 val imported_variables : t
 
 val earliest_var : t
+val before_earliest_var : t
 val succ : t -> t
 
 val strictly_earlier : t -> than:t -> bool
@@ -37,6 +38,8 @@ module With_name_mode : sig
   val binding_time : t -> binding_time
 
   val name_mode : t -> Name_mode.t
+
+  val scoped_name_mode : t -> min_binding_time:binding_time -> Name_mode.t
 
   val print : Format.formatter -> t -> unit
 

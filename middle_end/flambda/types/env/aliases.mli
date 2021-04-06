@@ -51,6 +51,7 @@ val get_canonical_element_exn
   -> Simple.t
   -> Name_mode.t
   -> min_name_mode:Name_mode.t
+  -> min_binding_time:Binding_time.t
   -> Simple.t
 
 (** [get_aliases] always returns the supplied element in the result set. *)
