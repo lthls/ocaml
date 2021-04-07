@@ -650,9 +650,13 @@ let find_with_binding_time_and_mode' t name kind =
                 print t)
         | ty, _binding_time, _name_mode ->
           check_optional_kind_matches name ty kind;
-          (* Binding times for imported units are meaningless at present.
-             Also see [Alias.defined_earlier]. *)
-          ty, Binding_time.imported_variables, Name_mode.in_types
+          Name.pattern_match name
+            ~symbol:(fun _ ->
+              ty, Binding_time.symbols, Name_mode.normal)
+            ~var:(fun _ ->
+              (* Binding times for imported units are meaningless at present.
+                 Also see [Alias.defined_earlier]. *)
+              ty, Binding_time.imported_variables, Name_mode.in_types)
       end
   | found ->
     let ty, _, _ = found in
