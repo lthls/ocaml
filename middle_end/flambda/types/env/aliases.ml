@@ -192,9 +192,14 @@ let defined_earlier t alias ~than =
     (Binding_time.With_name_mode.binding_time info1)
     ~than:(Binding_time.With_name_mode.binding_time info2)
 
-let name_mode t elt =
+let name_mode_unscoped t elt =
   Binding_time.With_name_mode.name_mode
     (Simple.Map.find elt t.binding_times_and_modes)
+
+let name_mode t elt ~min_binding_time =
+  Binding_time.With_name_mode.scoped_name_mode
+    (Simple.Map.find elt t.binding_times_and_modes)
+    ~min_binding_time
 
 let invariant t =
   if !Clflags.flambda_invariant_checks then begin
@@ -284,7 +289,7 @@ let add_alias_between_canonical_elements t ~canonical_element ~to_be_demoted =
       Aliases_of_canonical_element.add
         (Aliases_of_canonical_element.union aliases_of_to_be_demoted
           aliases_of_canonical_element)
-        to_be_demoted (name_mode t to_be_demoted)
+        to_be_demoted (name_mode_unscoped t to_be_demoted)
     in
     let aliases_of_canonical_elements =
       t.aliases_of_canonical_elements
@@ -493,7 +498,7 @@ Format.eprintf "looking for canonical for %a, candidate canonical %a, min order 
     in
     match
       Name_mode.compare_partial_order
-        (name_mode t canonical_element)
+        (name_mode t canonical_element ~min_binding_time)
         min_name_mode
     with
     | None -> find_earliest ()
