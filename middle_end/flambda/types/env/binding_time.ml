@@ -37,7 +37,6 @@ let consts_and_discriminants = 0
 let symbols = 1
 let imported_variables = 2
 let earliest_var = 3
-let before_earliest_var = 2
 
 let succ (t : t) =
   if t < earliest_var then
@@ -70,8 +69,10 @@ module With_name_mode = struct
     | _ -> assert false
 
   let scoped_name_mode t ~min_binding_time =
-    if strictly_earlier (binding_time t) ~than:earliest_var
-    || strictly_earlier min_binding_time ~than:(binding_time t)
+    (* Strictly before [min_binding_time] means out of scope,
+       at [min_binding_time] or later is in scope. *)
+    if (binding_time t) < earliest_var
+    || min_binding_time <= binding_time t
     then (* Constant, symbol, or variable in the allowed scope *)
       name_mode t
     else (* Variable out of the allowed scope *)

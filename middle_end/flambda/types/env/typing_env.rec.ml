@@ -537,7 +537,7 @@ let create ~resolver ~get_imported_names =
     next_binding_time = Binding_time.earliest_var;
     defined_symbols = Symbol.Set.empty;
     code_age_relation = Code_age_relation.empty;
-    min_binding_time = Binding_time.before_earliest_var;
+    min_binding_time = Binding_time.earliest_var;
   }
 
 let increment_scope t =
@@ -654,8 +654,11 @@ let find_with_binding_time_and_mode' t name kind =
             ~symbol:(fun _ ->
               ty, Binding_time.symbols, Name_mode.normal)
             ~var:(fun _ ->
-              (* Binding times for imported units are meaningless at present.
-                 Also see [Alias.defined_earlier]. *)
+              (* Binding times for imported variables are meaningless outside
+                 their original environment.
+                 Variables from foreign compilation units are always out of
+                 scope, so their mode must be In_types (we cannot rely on the
+                 scoping by binding time). *)
               ty, Binding_time.imported_variables, Name_mode.in_types)
       end
   | found ->
@@ -1405,7 +1408,6 @@ let aliases_of_simple_allowable_in_types t simple =
 let closure_env t =
   { t with
     min_binding_time = t.next_binding_time;
-    next_binding_time = Binding_time.succ t.next_binding_time;
   }
 
 let rec free_names_transitive_of_type_of_name t name ~result =

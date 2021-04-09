@@ -24,7 +24,6 @@ val symbols : t
 val imported_variables : t
 
 val earliest_var : t
-val before_earliest_var : t
 val succ : t -> t
 
 val strictly_earlier : t -> than:t -> bool
