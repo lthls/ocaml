@@ -296,9 +296,9 @@ let join_types ~params ~env_at_fork envs_with_levels =
                    need to get the best type we can for [name] which will be
                    valid on all of the previous paths.  This is either the type
                    of [name] in the original [env_at_fork] (passed to [join],
-                   below), or if [name] was undefined there, [Unknown]
-                   (or [Bottom] for a symbol).  Since the current version of
-                   [env_at_fork] has definitions for all the variables
+                   below), or if [name] was undefined there, [Unknown].
+                   Since the current version of
+                   [base_env] has definitions for all the variables
                    present in the branches, we can actually always just look
                    the type up there, without needing to case split. *)
                 else
@@ -315,38 +315,48 @@ let join_types ~params ~env_at_fork envs_with_levels =
                 join_env left_ty use_ty
             | Some joined_ty, None ->
               (* There is no equation, at all (not even saying "unknown"), on
-                 the current level for [name]. Like in the case above, if [name]
-                 was already defined in the original [env_at_fork] then we need
-                 to get its type from there, otherwise either the variable is
-                 defined (without an equation) in this branch and its type is
-                 [Unknown], or it is not defined in the branch either and we
-                 can consider its type to be [Bottom] in this branch.
-                 The first two cases can be handled by looking up the type in
-                 [env_at_fork], while in the last case we can
-                 return the existing [joined_ty] directly (since the types
-                 accumulated are already suitable for use in the result,
-                 we don't even need to join it with itself). *)
-              let is_undefined_at_use =
+                 the current level for [name].
+                 However, we know we've already seen [name] earlier.
+                 So like in the case above, we have three cases:
+                 - [name] is defined in [env_at_fork]. In that case, the type
+                 for [name] at the current use is the one from [env_at_fork],
+                 and we need to join with it.
+                 - [name] is not defined in [env_at_fork], but is defined in
+                 [env_at_use]. In this case (which we can check by looking at
+                 [t.defined_vars]), the type for [name] at the current use is
+                 [Unknown], and we don't have any guarantee that [joined_ty]
+                 is already [Unknown], so we need to do a join. However,
+                 since the join of anything with [Unknown] is [Unknown], we
+                 can return it directly.
+                 - [name] is defined neither in [env_at_fork] nor in
+                 [env_at_use]. In this case, the type for [name] is considered
+                 [Bottom] in this branch, so we can return [joined_ty] directly.
+              *)
+              let is_defined_at_fork =
+                Typing_env.mem env_at_fork name
+              in
+              let is_defined_at_use =
                 match Name.must_be_var_opt name with
                 | None -> false
                 | Some var ->
-                    let is_defined_at_use =
-                      Variable.Map.mem var t.defined_vars
-                      || Typing_env.mem env_at_fork name
-                    in
-                    not is_defined_at_use
+                  Variable.Map.mem var t.defined_vars
               in
-              if is_undefined_at_use then Or_unknown.Known joined_ty
-              else
-                let expected_kind = Some (Type_grammar.kind joined_ty) in
-                let right_ty = Typing_env.find env_at_fork name expected_kind in
+              if is_defined_at_fork then
+                let use_ty =
+                  let expected_kind = Some (Type_grammar.kind joined_ty) in
+                  Typing_env.find env_at_fork name expected_kind
+                in
                 let join_env =
                   Join_env.create base_env
-                    ~left_env:base_env
-                    ~right_env:env_at_fork
+                    ~left_env
+                    ~right_env:env_at_fork (* env_at_use would be correct too *)
                 in
                 Type_grammar.join ~bound_name:name
-                  join_env joined_ty right_ty
+                  join_env joined_ty use_ty
+              else if is_defined_at_use then
+                Or_unknown.Unknown
+              else
+                Or_unknown.Known joined_ty
             | Some joined_ty, Some use_ty ->
               (* This is the straightforward case, where we have already
                  started computing a joined type for [name], and there is an
