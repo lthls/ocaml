@@ -275,11 +275,11 @@ MIDDLE_END_FLAMBDA_TYPES=\
   middle_end/flambda/types/basic/unit.cmo \
   middle_end/flambda/types/basic/closure_id_set.cmo \
   middle_end/flambda/types/basic/closure_id_or_unknown_and_var_within_closure_set.cmo \
-  middle_end/flambda/types/basic/closure_id_and_var_within_closure_set.cmo \
-  middle_end/flambda/types/inlining/inlining_arguments.cmo \
-  middle_end/flambda/types/inlining/inlining_state.cmo
+  middle_end/flambda/types/basic/closure_id_and_var_within_closure_set.cmo
 
 MIDDLE_END_FLAMBDA_TERMS=\
+  middle_end/flambda/inlining/inlining_arguments.cmo \
+  middle_end/flambda/inlining/inlining_state.cmo \
   middle_end/flambda/terms/apply_cont_expr.cmo \
   middle_end/flambda/terms/call_kind.cmo \
   middle_end/flambda/terms/apply_expr.cmo \
