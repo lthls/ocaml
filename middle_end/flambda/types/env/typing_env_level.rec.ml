@@ -226,7 +226,7 @@ let join_types ~params ~env_at_fork envs_with_levels =
      So we start the join with equations binding the parameters to Bottom,
      to make sure we end up with the right type in the end.
   *)
-  let initial_types =
+  let initial_joined_types =
     let bottom_ty param =
       Type_grammar.bottom
         (Flambda_kind.With_subkind.kind (Kinded_parameter.kind param))
@@ -239,7 +239,7 @@ let join_types ~params ~env_at_fork envs_with_levels =
   in
   (* Now fold over the levels doing the actual join operation on equations. *)
   ListLabels.fold_left envs_with_levels
-    ~init:(initial_types, Variable.Set.empty)
+    ~init:(initial_joined_types, Variable.Set.empty)
     ~f:(fun (joined_types, defined_variables) (env_at_use, _, _, t) ->
       let left_env =
         (* CR vlaviron: This is very likely quadratic (number of uses times
