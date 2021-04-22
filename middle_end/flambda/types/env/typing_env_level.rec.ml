@@ -270,10 +270,7 @@ let join_types ~params ~env_at_fork envs_with_levels =
            While it is possible that its type could be refined by all of the
            branches, it is unlikely. *)
         match Name.must_be_var_opt name with
-        | None ->
-          (* Symbol: assume the best equations are either already
-             in [env_at_fork] or in the lifted constants *)
-          None
+        | None -> (* Symbol *) None
         | Some var ->
           let joined_ty =
             match joined_ty, use_ty with
