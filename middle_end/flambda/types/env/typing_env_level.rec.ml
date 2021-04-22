@@ -269,8 +269,12 @@ let join_types ~params ~env_at_fork envs_with_levels =
            defined before the fork and already has an equation in base_env.
            While it is possible that its type could be refined by all of the
            branches, it is unlikely. *)
-        if Name.is_symbol name then None
-        else
+        match Name.must_be_var_opt name with
+        | None ->
+          (* Symbol: assume the best equations are either already
+             in [env_at_fork] or in the lifted constants *)
+          None
+        | Some var ->
           let joined_ty =
             match joined_ty, use_ty with
             | None, Some use_ty ->
@@ -282,14 +286,11 @@ let join_types ~params ~env_at_fork envs_with_levels =
                    environment, so we use [Bottom] to avoid losing precision...
                 *)
                 let is_first_definition =
-                  match Name.must_be_var_opt name with
-                  | None -> false
-                  | Some var ->
-                    let is_previously_defined =
-                      Variable.Set.mem var defined_variables
-                      || Typing_env.mem env_at_fork name
-                    in
-                    not is_previously_defined
+                  let is_previously_defined =
+                    Variable.Set.mem var defined_variables
+                    || Typing_env.mem env_at_fork name
+                  in
+                  not is_previously_defined
                 in
                 if is_first_definition then Type_grammar.bottom_like use_ty
                 (* ...but if this is not the case, then we
@@ -336,10 +337,7 @@ let join_types ~params ~env_at_fork envs_with_levels =
                 Typing_env.mem env_at_fork name
               in
               let is_defined_at_use =
-                match Name.must_be_var_opt name with
-                | None -> false
-                | Some var ->
-                  Variable.Map.mem var t.defined_vars
+                Variable.Map.mem var t.defined_vars
               in
               if is_defined_at_fork then
                 let use_ty =
