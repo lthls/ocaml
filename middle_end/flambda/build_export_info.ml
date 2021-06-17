@@ -271,7 +271,8 @@ and descr_of_named (env : Env.t) (named : Flambda.named)
   | Expr expr -> approx_of_expr env expr
   | Symbol sym -> Value_symbol sym
   | Read_mutable _ -> Value_unknown
-  | Read_symbol_field (sym, i) ->
+  | Read_symbol_field (sym, field) ->
+    let i = field.index in
     begin match Env.get_symbol_descr env sym with
     | Some (Value_block (_, fields)) when Array.length fields > i -> fields.(i)
     | _ -> Value_unknown
@@ -286,7 +287,8 @@ and descr_of_named (env : Env.t) (named : Flambda.named)
       Value_block (Tag.create_exn tag, Array.of_list approxs)
     in
     Value_id (Env.new_descr env descr)
-  | Prim (Pfield i, [arg], _) ->
+  | Prim (Pfield (field, _sem), [arg], _) ->
+    let i = field.index in
     begin match Env.get_descr env (Env.find_approx env arg) with
     | Some (Value_block (_, fields)) when Array.length fields > i -> fields.(i)
     | _ -> Value_unknown

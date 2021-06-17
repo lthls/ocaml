@@ -35,7 +35,8 @@ let phys_equal (approxs:A.t list) =
     *)
     match a1.symbol, a2.symbol with
     | Some (s1, None), Some (s2, None) -> Symbol.equal s1 s2
-    | Some (s1, Some f1), Some (s2, Some f2) -> Symbol.equal s1 s2 && f1 = f2
+    | Some (s1, Some f1), Some (s2, Some f2) -> Symbol.equal s1 s2 && 
+        f1.index = f2.index (*TODO: check? should be phys equal even if we annotated differently*)
     | _ -> false
 
 let is_known_to_be_some_kind_of_int (arg:A.descr) =

@@ -41,7 +41,7 @@ type unknown_because_of =
 type t = {
   descr : descr;
   var : Variable.t option;
-  symbol : (Symbol.t * int option) option;
+  symbol : (Symbol.t * Lambda.field_info option) option;
 }
 
 and descr =
@@ -221,7 +221,7 @@ and print ppf { descr; var; symbol; } =
   let print ppf = function
     | None -> Symbol.print_opt ppf None
     | Some (sym, None) -> Symbol.print ppf sym
-    | Some (sym, Some field) ->
+    | Some (sym, Some { Lambda.index = field; _ } ) ->
         Format.fprintf ppf "%a.(%i)" Symbol.print sym field
   in
   Format.fprintf ppf "{ descr=%a var=%a symbol=%a }"
@@ -706,7 +706,7 @@ and meet ~really_import_approx a1 a2 =
             if Symbol.equal v1 v2
             then match field1, field2 with
               | None, None -> a1.symbol
-              | Some f1, Some f2 when f1 = f2 ->
+              | Some f1, Some f2 when Flambda_utils.same_field_info f1 f2 ->
                   a1.symbol
               | _ -> None
             else None

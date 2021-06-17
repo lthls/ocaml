@@ -26,7 +26,7 @@ let convert (prim : Lambda.primitive) : Clambda_primitives.primitive =
   match prim with
   | Pmakeblock (tag, mutability, shape) ->
       Pmakeblock (tag, mutability, shape)
-  | Pfield ({ index = field; _ }, _) -> Pfield field
+  | Pfield (field_info, field_read_semantics) -> Pfield (field_info, field_read_semantics)
   | Pfield_computed _sem -> Pfield_computed
   | Psetfield ({ index = field; _ }, imm_or_pointer, init_or_assign) ->
       Psetfield (field, imm_or_pointer, init_or_assign)

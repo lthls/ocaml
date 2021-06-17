@@ -4232,6 +4232,7 @@ middle_end/flambda/export_info_for_pack.cmi : \
 middle_end/flambda/extract_projections.cmo : \
     middle_end/variable.cmi \
     middle_end/flambda/base_types/var_within_closure.cmi \
+    middle_end/flambda/base_types/tag.cmi \
     middle_end/flambda/simple_value_approx.cmi \
     middle_end/flambda/projection.cmi \
     utils/int_replace_polymorphic_compare.cmi \
@@ -4244,6 +4245,7 @@ middle_end/flambda/extract_projections.cmo : \
 middle_end/flambda/extract_projections.cmx : \
     middle_end/variable.cmx \
     middle_end/flambda/base_types/var_within_closure.cmx \
+    middle_end/flambda/base_types/tag.cmx \
     middle_end/flambda/simple_value_approx.cmx \
     middle_end/flambda/projection.cmx \
     utils/int_replace_polymorphic_compare.cmx \
@@ -4513,6 +4515,7 @@ middle_end/flambda/flambda_to_clambda.cmo : \
     middle_end/flambda/closure_offsets.cmi \
     middle_end/flambda/base_types/closure_id.cmi \
     utils/clflags.cmi \
+    middle_end/clambda_primitives.cmi \
     middle_end/clambda.cmi \
     middle_end/backend_var.cmi \
     middle_end/flambda/allocated_const.cmi \
@@ -4543,6 +4546,7 @@ middle_end/flambda/flambda_to_clambda.cmx : \
     middle_end/flambda/closure_offsets.cmx \
     middle_end/flambda/base_types/closure_id.cmx \
     utils/clflags.cmx \
+    middle_end/clambda_primitives.cmx \
     middle_end/clambda.cmx \
     middle_end/backend_var.cmx \
     middle_end/flambda/allocated_const.cmx \
@@ -4612,6 +4616,7 @@ middle_end/flambda/flambda_utils.cmi : \
     middle_end/flambda/base_types/set_of_closures_id.cmi \
     middle_end/flambda/projection.cmi \
     middle_end/flambda/parameter.cmi \
+    lambda/lambda.cmi \
     middle_end/internal_variable_names.cmi \
     middle_end/flambda/flambda.cmi \
     middle_end/flambda/base_types/closure_id.cmi
@@ -4692,10 +4697,12 @@ middle_end/flambda/import_approx.cmi : \
     middle_end/flambda/simple_value_approx.cmi
 middle_end/flambda/inconstant_idents.cmo : \
     middle_end/variable.cmi \
+    middle_end/flambda/base_types/tag.cmi \
     middle_end/symbol.cmi \
     middle_end/flambda/base_types/set_of_closures_id.cmi \
     middle_end/flambda/parameter.cmi \
     utils/numbers.cmi \
+    lambda/lambda.cmi \
     utils/int_replace_polymorphic_compare.cmi \
     utils/identifiable.cmi \
     middle_end/flambda/flambda_utils.cmi \
@@ -4707,10 +4714,12 @@ middle_end/flambda/inconstant_idents.cmo : \
     middle_end/flambda/inconstant_idents.cmi
 middle_end/flambda/inconstant_idents.cmx : \
     middle_end/variable.cmx \
+    middle_end/flambda/base_types/tag.cmx \
     middle_end/symbol.cmx \
     middle_end/flambda/base_types/set_of_closures_id.cmx \
     middle_end/flambda/parameter.cmx \
     utils/numbers.cmx \
+    lambda/lambda.cmx \
     utils/int_replace_polymorphic_compare.cmx \
     utils/identifiable.cmx \
     middle_end/flambda/flambda_utils.cmx \
@@ -5148,6 +5157,7 @@ middle_end/flambda/lift_let_to_initialize_symbol.cmo : \
     middle_end/variable.cmi \
     middle_end/flambda/base_types/tag.cmi \
     middle_end/symbol.cmi \
+    lambda/lambda.cmi \
     middle_end/internal_variable_names.cmi \
     utils/int_replace_polymorphic_compare.cmi \
     middle_end/flambda/flambda_utils.cmi \
@@ -5159,6 +5169,7 @@ middle_end/flambda/lift_let_to_initialize_symbol.cmx : \
     middle_end/variable.cmx \
     middle_end/flambda/base_types/tag.cmx \
     middle_end/symbol.cmx \
+    lambda/lambda.cmx \
     middle_end/internal_variable_names.cmx \
     utils/int_replace_polymorphic_compare.cmx \
     middle_end/flambda/flambda_utils.cmx \
@@ -5195,6 +5206,7 @@ middle_end/flambda/pass_wrapper.cmi :
 middle_end/flambda/projection.cmo : \
     middle_end/variable.cmi \
     middle_end/flambda/base_types/var_within_closure.cmi \
+    lambda/lambda.cmi \
     utils/int_replace_polymorphic_compare.cmi \
     utils/identifiable.cmi \
     middle_end/flambda/base_types/closure_id.cmi \
@@ -5202,6 +5214,7 @@ middle_end/flambda/projection.cmo : \
 middle_end/flambda/projection.cmx : \
     middle_end/variable.cmx \
     middle_end/flambda/base_types/var_within_closure.cmx \
+    lambda/lambda.cmx \
     utils/int_replace_polymorphic_compare.cmx \
     utils/identifiable.cmx \
     middle_end/flambda/base_types/closure_id.cmx \
@@ -5209,6 +5222,7 @@ middle_end/flambda/projection.cmx : \
 middle_end/flambda/projection.cmi : \
     middle_end/variable.cmi \
     middle_end/flambda/base_types/var_within_closure.cmi \
+    lambda/lambda.cmi \
     utils/identifiable.cmi \
     middle_end/flambda/base_types/closure_id.cmi
 middle_end/flambda/ref_to_variables.cmo : \

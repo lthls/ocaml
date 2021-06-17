@@ -230,7 +230,13 @@ let to_clambda_const env (const : Flambda.constant_defining_value_block_field)
   | Symbol symbol -> to_clambda_symbol' env symbol
   | Const (Int i) -> Uconst_int i
   | Const (Char c) -> Uconst_int (Char.code c)
-
+  
+let closure_field pos =
+  (* TODO check tag*)
+  let tag = if pos = 0 then Obj.closure_tag else Obj.infix_tag in
+  (* Unknown size as it's not obvious which to put for infix cases *)
+  Clambda_primitives.Pfield ({ index = pos; block_info = { tag; size = Unknown } }, Reads_vary)
+    
 let rec to_clambda t env (flam : Flambda.t) : Clambda.ulambda =
   match flam with
   | Var var -> subst_var env var
@@ -372,7 +378,7 @@ and to_clambda_named t env var (named : Flambda.named) : Clambda.ulambda =
         Flambda.print_named named
     end
   | Read_symbol_field (symbol, field) ->
-    Uprim (Pfield field, [to_clambda_symbol env symbol], Debuginfo.none)
+    Uprim (Pfield (field, Reads_agree), [to_clambda_symbol env symbol], Debuginfo.none)
   | Set_of_closures set_of_closures ->
     to_clambda_set_of_closures t env set_of_closures
   | Project_closure { set_of_closures; closure_id } ->
@@ -397,12 +403,12 @@ and to_clambda_named t env var (named : Flambda.named) : Clambda.ulambda =
     let fun_offset = get_fun_offset t closure_id in
     let var_offset = get_fv_offset t var in
     let pos = var_offset - fun_offset in
-    Uprim (Pfield pos,
+    Uprim (closure_field pos,
       [check_field t (check_closure t ulam (Expr (Var closure)))
          pos (Some named)],
       Debuginfo.none)
-  | Prim (Pfield index, [block], dbg) ->
-    Uprim (Pfield index, [check_field t (subst_var env block) index None], dbg)
+  | Prim (Pfield (field, sem), [block], dbg) ->
+    Uprim (Pfield (field, sem), [check_field t (subst_var env block) field.index None], dbg)
   | Prim (Psetfield (index, maybe_ptr, init), [block; new_value], dbg) ->
     Uprim (Psetfield (index, maybe_ptr, init), [
         check_field t (subst_var env block) index None;
@@ -515,7 +521,7 @@ and to_clambda_set_of_closures t env
         in
         let pos = var_offset - fun_offset in
         Env.add_subst env id
-          (Uprim (Pfield pos, [Clambda.Uvar env_var], Debuginfo.none))
+          (Uprim (closure_field pos, [Clambda.Uvar env_var], Debuginfo.none))
       in
       let env = Variable.Map.fold add_env_free_variable free_vars env in
       (* Add the Clambda expressions for all functions defined in the current

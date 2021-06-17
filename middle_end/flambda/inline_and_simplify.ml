@@ -900,13 +900,13 @@ and simplify_named env r (tree : Flambda.named) : Flambda.named * R.t =
       Freshening.apply_mutable_variable (E.freshening env) mut_var
     in
     Read_mutable mut_var, ret r (A.value_unknown Other)
-  | Read_symbol_field (symbol, field_index) ->
+  | Read_symbol_field (symbol, field) ->
     let approx = E.find_or_load_symbol env symbol in
-    begin match A.get_field approx ~field_index with
+    begin match A.get_field approx ~field_index:field.index with
     (* CR-someday mshinwell: Think about [Unreachable] vs. [Value_bottom]. *)
     | Unreachable -> (Flambda.Expr Proved_unreachable), r
     | Ok approx ->
-      let approx = A.augment_with_symbol_field approx symbol field_index in
+      let approx = A.augment_with_symbol_field approx symbol field in
       simplify_named_using_approx_and_env env r tree approx
     end
   | Set_of_closures set_of_closures -> begin
@@ -1004,15 +1004,15 @@ and simplify_named env r (tree : Flambda.named) : Flambda.named * R.t =
       let tree = Flambda.Prim (prim, args, dbg) in
       begin match prim, args, args_approxs with
       (* CR-someday mshinwell: Optimise [Pfield_computed]. *)
-      | Pfield field_index, [arg], [arg_approx] ->
-        let projection : Projection.t = Field (field_index, arg) in
+      | Pfield (field, sem), [arg], [arg_approx] ->
+        let projection : Projection.t = Field (field, sem, arg) in
         begin match E.find_projection env ~projection with
         | Some var ->
           simplify_free_variable_named env var ~f:(fun _env var var_approx ->
             let r = R.map_benefit r (B.remove_projection projection) in
             Expr (Var var), ret r var_approx)
         | None ->
-          begin match A.get_field arg_approx ~field_index with
+          begin match A.get_field arg_approx ~field_index:field.index with
           | Unreachable -> (Flambda.Expr Proved_unreachable, r)
           | Ok approx ->
             let tree, approx =
@@ -1021,9 +1021,9 @@ and simplify_named env r (tree : Flambda.named) : Flambda.named * R.t =
                  the expression to [Read_symbol_field]. *)
               | Some (symbol, None) ->
                 let approx =
-                  A.augment_with_symbol_field approx symbol field_index
+                  A.augment_with_symbol_field approx symbol field
                 in
-                Flambda.Read_symbol_field (symbol, field_index), approx
+                Flambda.Read_symbol_field (symbol, field), approx
               | None | Some (_, Some _ ) ->
                 (* This [Pfield] is either not projecting from a symbol at all,
                    or it is the projection of a projection from a symbol. *)

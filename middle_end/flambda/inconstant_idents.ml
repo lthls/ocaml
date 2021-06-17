@@ -56,8 +56,9 @@ open! Int_replace_polymorphic_compare
 
 module Int = Numbers.Int
 module Symbol_field = struct
-  type t = Symbol.t * Int.t
+  type t = Symbol.t * Lambda.field_info
   include Identifiable.Make (Identifiable.Pair (Symbol) (Int))
+  let key ((sym, info) : t) = (sym, info.index)
 end
 
 type dep =
@@ -130,8 +131,9 @@ module Inconstants (P:Param) (Backend:Backend_intf.S) = struct
       | exception Not_found ->
         Symbol.Tbl.add symbols s Not_constant
       end
-    | Symbol_field s -> begin
-      match Symbol_field.Tbl.find symbol_fields s with
+    | Symbol_field s -> 
+      let s = Symbol_field.key s in
+      begin match Symbol_field.Tbl.find symbol_fields s with
       | Not_constant -> ()
       | Implication deps ->
         Symbol_field.Tbl.replace symbol_fields s Not_constant;
@@ -194,8 +196,9 @@ module Inconstants (P:Param) (Backend:Backend_intf.S) = struct
       | exception Not_found ->
         Symbol.Tbl.add symbols symbol (Implication curr);
       end
-    | Symbol_field ((symbol, _) as field) -> begin
-      match Symbol_field.Tbl.find symbol_fields field with
+    | Symbol_field ((symbol, _) as field) -> 
+      let field = Symbol_field.key field in
+      begin match Symbol_field.Tbl.find symbol_fields field with
       | Not_constant ->
         mark_deps curr;
         complete_marking ();
@@ -454,10 +457,14 @@ module Inconstants (P:Param) (Backend:Backend_intf.S) = struct
     let rec loop (program : Flambda.program_body) =
       match program with
       | End _ -> ()
-      | Initialize_symbol (symbol,_tag,fields,program) ->
+      | Initialize_symbol (symbol,tag,fields,program) ->
+        let block_info : Lambda.block_info = 
+          { tag = Tag.to_int tag; size = Known (List.length fields); } 
+        in
         List.iteri (fun i field ->
+            let field_info : Lambda.field_info = { index = i; block_info; } in
             mark_loop ~toplevel:true
-              [Symbol symbol; Symbol_field (symbol,i)] field)
+              [Symbol symbol; Symbol_field (symbol,field_info)] field)
           fields;
         loop program
       | Effect (expr, program) ->

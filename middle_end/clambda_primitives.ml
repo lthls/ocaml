@@ -21,6 +21,10 @@ type initialization_or_assignment = Lambda.initialization_or_assignment
 
 type is_safe = Lambda.is_safe
 
+type field_read_semantics = Lambda.field_read_semantics
+
+type field_info = Lambda.field_info
+
 type boxed =
   | Boxed
   | Unboxed
@@ -34,7 +38,7 @@ type primitive =
   | Pread_symbol of string
   (* Operations on heap blocks *)
   | Pmakeblock of int * mutable_flag * block_shape
-  | Pfield of int
+  | Pfield of field_info * field_read_semantics
   | Pfield_computed
   | Psetfield of int * immediate_or_pointer * initialization_or_assignment
   | Psetfield_computed of immediate_or_pointer * initialization_or_assignment

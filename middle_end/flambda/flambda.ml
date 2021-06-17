@@ -79,7 +79,7 @@ and named =
   | Const of const
   | Allocated_const of Allocated_const.t
   | Read_mutable of Mutable_variable.t
-  | Read_symbol_field of Symbol.t * int
+  | Read_symbol_field of Symbol.t * Lambda.field_info
   | Set_of_closures of set_of_closures
   | Project_closure of project_closure
   | Move_within_set_of_closures of move_within_set_of_closures
@@ -344,7 +344,7 @@ and print_named ppf (named : named) =
   | Allocated_const (cst) -> fprintf ppf "Aconst(%a)" Allocated_const.print cst
   | Read_mutable mut_var ->
     fprintf ppf "Read_mut(%a)" Mutable_variable.print mut_var
-  | Read_symbol_field (symbol, field) ->
+  | Read_symbol_field (symbol, { index = field; _ }) ->
     fprintf ppf "%a.(%d)" Symbol.print symbol field
   | Project_closure (project_closure) ->
     print_project_closure ppf project_closure

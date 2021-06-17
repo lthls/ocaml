@@ -65,11 +65,15 @@ val compare_move_within_set_of_closures
   -> move_within_set_of_closures
   -> int
 
+type field_read_semantics = Lambda.field_read_semantics
+
+type field_info = Lambda.field_info
+
 type t =
   | Project_var of project_var
   | Project_closure of project_closure
   | Move_within_set_of_closures of move_within_set_of_closures
-  | Field of int * Variable.t
+  | Field of field_info * field_read_semantics * Variable.t
 
 include Identifiable.S with type t := t
 

@@ -117,7 +117,7 @@ type unknown_because_of =
 type t = private {
   descr : descr;
   var : Variable.t option;
-  symbol : (Symbol.t * int option) option;
+  symbol : (Symbol.t * Lambda.field_info option) option;
 }
 
 and descr = private
@@ -297,7 +297,7 @@ val augment_with_variable : t -> Variable.t -> t
 val augment_with_symbol : t -> Symbol.t -> t
 
 (** Like [augment_with_symbol], but for symbol field information. *)
-val augment_with_symbol_field : t -> Symbol.t -> int -> t
+val augment_with_symbol_field : t -> Symbol.t -> Lambda.field_info -> t
 
 (** Replace the description within an approximation. *)
 val replace_description : t -> descr -> t

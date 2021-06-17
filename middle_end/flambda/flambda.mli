@@ -115,7 +115,7 @@ and named =
   | Const of const
   | Allocated_const of Allocated_const.t
   | Read_mutable of Mutable_variable.t
-  | Read_symbol_field of Symbol.t * int
+  | Read_symbol_field of Symbol.t * Lambda.field_info
   (** During the lifting of [let] bindings to [program] constructions after
       closure conversion, we generate symbols and their corresponding
       definitions (which may or may not be constant), together with field

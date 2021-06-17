@@ -91,7 +91,14 @@ let tupled_function_call_stub original_params unboxed_version ~closure_bound_var
   let _, body =
     List.fold_left (fun (pos, body) param ->
         let lam : Flambda.named =
-          Prim (Pfield pos, [tuple_param_var], Debuginfo.none)
+          (*TODO - should be good already but check size, mutability*)
+          let block_info : Lambda.block_info =
+            { tag = 0; size = Known (List.length original_params) }
+          in
+          let field : Clambda_primitives.primitive = 
+            Pfield ({ index = pos; block_info; }, Reads_agree)
+          in
+          Prim (field, [tuple_param_var], Debuginfo.none)
         in
         pos + 1, Flambda.create_let param lam body)
       (0, call) params
@@ -704,12 +711,13 @@ let lambda_to_flambda ~backend ~module_ident ~size lam
       let sym_v = Variable.create Names.block_symbol in
       let result_v = Variable.create Names.block_symbol_get in
       let value_v = Variable.create Names.block_symbol_get_field in
+      let mod_field i = Convert_primitives.convert (Lambda.mod_field i) in
       Flambda.create_let
         sym_v (Symbol block_symbol)
          (Flambda.create_let result_v
-            (Prim (Pfield 0, [sym_v], Debuginfo.none))
+            (Prim (mod_field 0, [sym_v], Debuginfo.none))
             (Flambda.create_let value_v
-              (Prim (Pfield pos, [result_v], Debuginfo.none))
+              (Prim (mod_field pos, [result_v], Debuginfo.none))
               (Var value_v))))
   in
   let module_initializer : Flambda.program_body =

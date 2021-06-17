@@ -33,8 +33,8 @@ type constant_defining_value =
   | Project_closure of Flambda.project_closure
   | Move_within_set_of_closures of Flambda.move_within_set_of_closures
   | Project_var of Flambda.project_var
-  | Field of Variable.t * int
-  | Symbol_field of Symbol.t * int
+  | Field of Variable.t * Lambda.field_info
+  | Symbol_field of Symbol.t * Lambda.field_info
   | Const of Flambda.const
   | Symbol of Symbol.t
   | Variable of Variable.t
@@ -63,8 +63,8 @@ let print_constant_defining_value ppf = function
   | Move_within_set_of_closures move ->
     Flambda.print_move_within_set_of_closures ppf move
   | Project_var project -> Flambda.print_project_var ppf project
-  | Field (var, field) -> Format.fprintf ppf "%a.(%d)" Variable.print var field
-  | Symbol_field (sym, field) ->
+  | Field (var, { index = field; _ }) -> Format.fprintf ppf "%a.(%d)" Variable.print var field
+  | Symbol_field (sym, { index = field; _ }) ->
     Format.fprintf ppf "%a.(%d)" Symbol.print sym field
   | Const const -> Flambda.print_const ppf const
   | Symbol symbol -> Symbol.print ppf symbol
@@ -111,11 +111,11 @@ and fetch_variable
 and fetch_variable_field
     (definitions: definitions)
     (var: Variable.t)
-    (field: int)
+    (field: Lambda.field_info)
     ~the_dead_constant : allocation_point =
   match Variable.Tbl.find definitions.variable var with
   | Block (_, fields) ->
-    begin match List.nth fields field with
+    begin match List.nth fields field.index with
     | exception Not_found -> Symbol the_dead_constant
     | v -> fetch_variable definitions v ~the_dead_constant
     end
@@ -131,11 +131,11 @@ and fetch_variable_field
 and fetch_symbol_field
     (definitions: definitions)
     (sym: Symbol.t)
-    (field: int)
+    (field: Lambda.field_info)
     ~the_dead_constant : allocation_point =
   match Symbol.Tbl.find definitions.symbol sym with
   | Block (_, fields) ->
-    begin match List.nth fields field with
+    begin match List.nth fields field.index with
     | exception Not_found -> Symbol the_dead_constant
     | Symbol s -> Symbol s
     | Const _ -> Symbol sym
@@ -143,7 +143,7 @@ and fetch_symbol_field
   | exception Not_found ->
     begin match Symbol.Tbl.find definitions.initialize_symbol sym with
       | fields ->
-        begin match List.nth fields field with
+        begin match List.nth fields field.index with
         | None ->
           Misc.fatal_errorf "Constant field access to an inconstant %a"
             Symbol.print sym

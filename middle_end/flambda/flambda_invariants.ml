@@ -239,9 +239,9 @@ let variable_and_symbol_invariants (program : Flambda.program) =
     | Allocated_const const -> ignore_allocated_const const
     | Read_mutable mut_var ->
       check_mutable_variable_is_bound env mut_var
-    | Read_symbol_field (symbol, index) ->
+    | Read_symbol_field (symbol, field) ->
       check_symbol_is_bound env symbol;
-      assert (index >= 0)  (* CR-someday mshinwell: add proper error *)
+      assert (field.index >= 0)  (* CR-someday mshinwell: add proper error *)
     | Set_of_closures set_of_closures ->
       loop_set_of_closures env set_of_closures
     | Project_closure { set_of_closures; closure_id; } ->

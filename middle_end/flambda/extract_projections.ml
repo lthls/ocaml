@@ -66,11 +66,12 @@ let known_valid_projections ~env ~projections ~which_variables =
           Closure_id.equal value_closure.closure_id move.start_from
         | Wrong -> false
         end
-      | Field (field_index, _) ->
+      | Field (field, _sem, _) ->
         match A.check_approx_for_block approx with
         | Wrong -> false
-        | Ok (_tag, fields) ->
-          field_index >= 0 && field_index < Array.length fields)
+        | Ok (tag, fields) ->
+          assert (field.block_info.tag = Tag.to_int tag); (*TODO: should make sense?*)
+          field.index >= 0 && field.index < Array.length fields)
     projections
 
 let rec analyse_expr ~which_variables expr =
@@ -124,10 +125,10 @@ let rec analyse_expr ~which_variables expr =
         when Variable.Map.mem move.closure which_variables ->
       projections :=
         Projection.Set.add (Move_within_set_of_closures move) !projections
-    | Prim (Pfield field_index, [var], _dbg)
+    | Prim (Pfield (field_info,sem), [var], _dbg)
         when Variable.Map.mem var which_variables ->
       projections :=
-        Projection.Set.add (Field (field_index, var)) !projections
+        Projection.Set.add (Field (field_info, sem, var)) !projections
     | Set_of_closures set_of_closures ->
       let aliasing_free_vars =
         Variable.Map.filter (fun _ (spec_to : Flambda.specialised_to) ->

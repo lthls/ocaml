@@ -432,8 +432,8 @@ let freshen_projection (projection : Projection.t) ~freshening
       start_from = Project_var.apply_closure_id closure_freshening start_from;
       move_to = Project_var.apply_closure_id closure_freshening move_to;
     }
-  | Field (field_index, var) ->
-    Field (field_index, apply_variable freshening var)
+  | Field (field_index, read_semantics, var) ->
+    Field (field_index, read_semantics, apply_variable freshening var)
 
 let freshen_projection_relation relation ~freshening ~closure_freshening =
   Variable.Map.map (fun (spec_to : Flambda.specialised_to) ->

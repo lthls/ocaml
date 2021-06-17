@@ -36,6 +36,10 @@ type project_var = {
   var : Var_within_closure.t;
 }
 
+type field_read_semantics = Lambda.field_read_semantics
+
+type field_info = Lambda.field_info
+
 let compare_project_var
       ({ closure = closure1; closure_id = closure_id1; var = var1; }
         : project_var)
@@ -71,6 +75,28 @@ let compare_project_closure
   if c <> 0 then c
   else
     Closure_id.compare closure_id1 closure_id2
+    
+let same_field_info (* TODO : duplicate code with flambda_utils, find a good file to put it so dependencies work out (lambda/lambda.ml would work) *)
+  ({ index = i1; block_info = { tag = t1; size = sz1 } } : Lambda.field_info)
+  ({ index = i2; block_info = { tag = t2; size = sz2 } } : Lambda.field_info)
+=
+  i1 = i2 && t1 = t2 && begin
+    match sz1,sz2 with
+    | Unknown, Unknown -> true
+    | Known a, Known b -> a=b
+    | _ -> false
+  end    
+
+let compare_project_field 
+  (( f1 : field_info), (rem1 : field_read_semantics), var1)
+  (( f2 : field_info), (rem2 : field_read_semantics), var2) =
+    let c = same_field_info f1 f2 in
+    if not c then 1
+    else 
+      match rem1,rem2 with
+      | Reads_agree,Reads_agree | Reads_vary, Reads_vary ->
+          Variable.compare var1 var2
+      | _ -> 1
 
 let print_project_closure ppf (project_closure : project_closure) =
   Format.fprintf ppf "@[<2>(project_closure@ %a@ from@ %a)@]"
@@ -90,12 +116,17 @@ let print_project_var ppf (project_var : project_var) =
     Var_within_closure.print project_var.var
     Closure_id.print project_var.closure_id
     Variable.print project_var.closure
+    
+let field_read_semantics ppf (sem : field_read_semantics) =
+  match sem with
+  | Reads_agree -> ()
+  | Reads_vary -> Format.fprintf ppf "_mut"
 
 type t =
   | Project_var of project_var
   | Project_closure of project_closure
   | Move_within_set_of_closures of move_within_set_of_closures
-  | Field of int * Variable.t
+  | Field of field_info * field_read_semantics * Variable.t
 
 include Identifiable.Make (struct
   type nonrec t = t
@@ -108,10 +139,9 @@ include Identifiable.Make (struct
       compare_project_closure project_closure1 project_closure2
     | Move_within_set_of_closures move1, Move_within_set_of_closures move2 ->
       compare_move_within_set_of_closures move1 move2
-    | Field (index1, var1), Field (index2, var2) ->
-      let c = compare index1 index2 in
-      if c <> 0 then c
-      else Variable.compare var1 var2
+    | Field (info1, rem1, var1), Field (info2, rem2, var2) -> 
+      compare_project_field (info1, rem1, var1) (info2, rem2, var2)
+      
     | Project_var _, _ -> -1
     | _, Project_var _ -> 1
     | Project_closure _, _ -> -1
@@ -131,8 +161,8 @@ include Identifiable.Make (struct
     | Project_var (project_var) -> print_project_var ppf project_var
     | Move_within_set_of_closures (move_within_set_of_closures) ->
       print_move_within_set_of_closures ppf move_within_set_of_closures
-    | Field (field_index, var) ->
-      Format.fprintf ppf "Field %d of %a" field_index Variable.print var
+    | Field ({ index = index;block_info = _ }, rem, var) ->
+      Format.fprintf ppf "Field%a %d of %a" field_read_semantics rem index Variable.print var
 
   let output _ _ = failwith "Projection.output: not yet implemented"
 end)
@@ -142,7 +172,7 @@ let projecting_from t =
   | Project_var { closure; _ } -> closure
   | Project_closure { set_of_closures; _ } -> set_of_closures
   | Move_within_set_of_closures { closure; _ } -> closure
-  | Field (_, var) -> var
+  | Field (_, _, var) -> var
 
 let map_projecting_from t ~f : t =
   match t with
@@ -167,4 +197,4 @@ let map_projecting_from t ~f : t =
       }
     in
     Move_within_set_of_closures move
-  | Field (field_index, var) -> Field (field_index, f var)
+  | Field (field_index, read_semantics, var) -> Field (field_index, read_semantics, f var)

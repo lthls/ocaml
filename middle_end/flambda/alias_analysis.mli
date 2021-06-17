@@ -32,8 +32,8 @@ type constant_defining_value =
   | Project_closure of Flambda.project_closure
   | Move_within_set_of_closures of Flambda.move_within_set_of_closures
   | Project_var of Flambda.project_var
-  | Field of Variable.t * int
-  | Symbol_field of Symbol.t * int
+  | Field of Variable.t * Lambda.field_info
+  | Symbol_field of Symbol.t * Lambda.field_info
   | Const of Flambda.const
   | Symbol of Symbol.t
   | Variable of Variable.t

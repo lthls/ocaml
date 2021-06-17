@@ -50,12 +50,16 @@ let rec split_list n l =
     | a::l -> let (l1, l2) = split_list (n-1) l in (a::l1, l2)
   end
 
-let rec build_closure_env env_param pos = function
+let closure_field pos tag = 
+    (* Unknown size as it's not obvious which to put for infix cases *)
+    P.Pfield ({ index = pos; block_info = { tag; size = Unknown } }, Reads_vary)
+
+let rec build_closure_env env_param pos tag = function
     [] -> V.Map.empty
   | id :: rem ->
       V.Map.add id
-        (Uprim(P.Pfield pos, [Uvar env_param], Debuginfo.none))
-          (build_closure_env env_param (pos+1) rem)
+        (Uprim(closure_field pos tag, [Uvar env_param], Debuginfo.none))
+          (build_closure_env env_param (pos+1) tag rem)
 
 (* Auxiliary for accessing globals.  We change the name of the global
    to the name of the corresponding asm symbol.  This is done here
@@ -478,10 +482,10 @@ let simplif_prim_pure ~backend fpc p (args, approxs) dbg =
         (Uprim(p, args, dbg), Value_tuple (Array.of_list approxs))
       end
   (* Field access *)
-  | Pfield n, _, [ Value_const(Uconst_ref(_, Some (Uconst_block(_, l)))) ]
+  | Pfield ({index = n; block_info = _}, _), _, [ Value_const(Uconst_ref(_, Some (Uconst_block(_, l)))) ]
     when n < List.length l ->
       make_const (List.nth l n)
-  | Pfield n, [ Uprim(P.Pmakeblock _, ul, _) ], [approx]
+  |Pfield ({index = n; block_info = _}, _), [ Uprim(P.Pmakeblock _, ul, _) ], [approx]
     when n < List.length ul ->
       (List.nth ul n, field_approx n approx)
   (* Strings *)
@@ -819,7 +823,8 @@ let check_constant_result ulam approx =
           let glb =
             Uprim(P.Pread_symbol id, [], Debuginfo.none)
           in
-          Uprim(P.Pfield i, [glb], Debuginfo.none), approx
+          let field = Convert_primitives.convert (Lambda.mod_field i) in
+          Uprim(field, [glb], Debuginfo.none), approx
       end
   | _ -> (ulam, approx)
 
@@ -1072,10 +1077,11 @@ let rec close ({ backend; fenv; cenv ; mutable_vars } as env) lam =
       let dbg = Debuginfo.from_location loc in
       check_constant_result (getglobal dbg id)
                             (Compilenv.global_approx id)
-  | Lprim(Pfield ({ index = n; _ }, _), [lam], loc) ->
+  | Lprim(Pfield ({ index = n; block_info = binf }, sem), [lam], loc) ->
       let (ulam, approx) = close env lam in
       let dbg = Debuginfo.from_location loc in
-      check_constant_result (Uprim(P.Pfield n, [ulam], dbg))
+      let field = P.Pfield ({ index = n; block_info = binf }, sem) in
+      check_constant_result (Uprim(field, [ulam], dbg))
                             (field_approx n approx)
   | Lprim(Psetfield({ index = n; _ }, is_ptr, init),
           [Lprim(Pgetglobal id, [], _); lam], loc) ->
@@ -1274,7 +1280,8 @@ and close_functions { backend; fenv; cenv; mutable_vars } fun_defs =
   let clos_fundef (id, params, return, body, fundesc, dbg) env_pos =
     let env_param = V.create_local "env" in
     let cenv_fv =
-      build_closure_env env_param (fv_pos - env_pos) fv in
+      let tag = if env_pos = 0 then Obj.closure_tag else Obj.infix_tag in
+      build_closure_env env_param (fv_pos - env_pos) tag fv in
     let cenv_body =
       List.fold_right2
         (fun (id, _params, _return, _body, _fundesc, _dbg) pos env ->

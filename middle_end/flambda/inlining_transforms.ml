@@ -572,10 +572,10 @@ let update_projections ~state projections =
                  let proj = { proj with closure } in
                  Some (Projection.Move_within_set_of_closures proj)
            end
-         | Some (Field (index, var)) -> begin
+         | Some (Field (field_info, sem, var)) -> begin
              match Variable.Map.find_opt var old_to_new with
              | None -> None
-             | Some var -> Some (Projection.Field(index, var))
+             | Some var -> Some (Projection.Field(field_info, sem, var))
            end
       in
       { spec_to with projection })

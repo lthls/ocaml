@@ -86,6 +86,17 @@ let equal_direction_flag
   | Downto, Downto -> true
   | (Upto | Downto), _ -> false
 
+let same_field_info 
+  ({ index = i1; block_info = { tag = t1; size = sz1 } } : Lambda.field_info)
+  ({ index = i2; block_info = { tag = t2; size = sz2 } } : Lambda.field_info)
+=
+  i1 = i2 && t1 = t2 && begin
+    match sz1,sz2 with
+    | Unknown, Unknown -> true
+    | Known a, Known b -> a=b
+    | _ -> false
+  end
+
 let rec same (l1 : Flambda.t) (l2 : Flambda.t) =
   l1 == l2 || (* it is ok for the string case: if they are physically the same,
                  it is the same original branch *)
@@ -175,8 +186,8 @@ and same_named (named1 : Flambda.named) (named2 : Flambda.named) =
   | Allocated_const _, _ | _, Allocated_const _ -> false
   | Read_mutable mv1, Read_mutable mv2 -> Mutable_variable.equal mv1 mv2
   | Read_mutable _, _ | _, Read_mutable _ -> false
-  | Read_symbol_field (s1, i1), Read_symbol_field (s2, i2) ->
-    Symbol.equal s1 s2 && i1 = i2
+  | Read_symbol_field (s1, f1), Read_symbol_field (s2, f2) ->
+    Symbol.equal s1 s2 && same_field_info f1 f2
   | Read_symbol_field _, _ | _, Read_symbol_field _ -> false
   | Set_of_closures s1, Set_of_closures s2 -> same_set_of_closures s1 s2
   | Set_of_closures _, _ | _, Set_of_closures _ -> false
@@ -530,11 +541,11 @@ let all_sets_of_closures_map program =
   !r
 
 let substitute_read_symbol_field_for_variables
-    (substitution : (Symbol.t * int list) Variable.Map.t)
+    (substitution : (Symbol.t * Lambda.field_info list) Variable.Map.t)
     (expr : Flambda.t) =
   let bind var fresh_var (expr:Flambda.t) : Flambda.t =
     let symbol, path = Variable.Map.find var substitution in
-    let rec make_named (path:int list) : Flambda.named =
+    let rec make_named (path:Lambda.field_info list) : Flambda.named =
       match path with
       | [] -> Symbol symbol
       | [i] -> Read_symbol_field (symbol, i)
@@ -546,7 +557,7 @@ let substitute_read_symbol_field_for_variables
           Expr (
             Flambda.create_let block (make_named t)
               (Flambda.create_let field
-                 (Prim (Pfield h, [block], Debuginfo.none))
+                 (Prim (Pfield (h, Reads_agree), [block], Debuginfo.none))
                  (Var field)))
     in
     Flambda.create_let fresh_var (make_named path) expr
@@ -904,8 +915,8 @@ let projection_to_named (projection : Projection.t) : Flambda.named =
   | Project_var project_var -> Project_var project_var
   | Project_closure project_closure -> Project_closure project_closure
   | Move_within_set_of_closures move -> Move_within_set_of_closures move
-  | Field (field_index, var) ->
-    Prim (Pfield field_index, [var], Debuginfo.none)
+  | Field (field_info, field_read_semantics, var) ->
+    Prim (Pfield (field_info, field_read_semantics), [var], Debuginfo.none)
 
 type specialised_to_same_as =
   | Not_specialised

@@ -152,7 +152,7 @@ val all_sets_of_closures_map
    take a [named] instead of a symbol and be called with
    [Read_symbol_field (symbol, 0)]. *)
 val substitute_read_symbol_field_for_variables
-   : (Symbol.t * int list) Variable.Map.t
+   : (Symbol.t * Lambda.field_info list) Variable.Map.t
   -> Flambda.t
   -> Flambda.t
 
@@ -218,3 +218,5 @@ val parameters_specialised_to_the_same_variable
    : function_decls:Flambda.function_declarations
   -> specialised_args:Flambda.specialised_to Variable.Map.t
   -> specialised_to_same_as list Variable.Map.t
+
+val same_field_info : Lambda.field_info -> Lambda.field_info -> bool

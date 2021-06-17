@@ -144,7 +144,7 @@ let rec accumulate ~substitution ~copied_lets ~extracted_lets
   }
 
 let rebuild_expr
-      ~(extracted_definitions : (Symbol.t * int list) Variable.Map.t)
+      ~(extracted_definitions : (Symbol.t * Lambda.field_info list) Variable.Map.t)
       ~(copied_definitions : Flambda.named Variable.Map.t)
       ~(substitute : bool)
       (expr : Flambda.t) =
@@ -198,11 +198,15 @@ let rebuild (used_variables:Variable.Set.t) (accumulated:accumulated) =
         | Block (var, _tag, _fields) ->
           Variable.Map.add var (symbol, []) map
         | Expr (var, _expr) ->
-          Variable.Map.add var (symbol, [0]) map
+          let ref_info : Lambda.field_info = {index = 0; block_info = { tag = 0; size = Known 1}} in
+          Variable.Map.add var (symbol, [ref_info]) map
         | Exprs (vars, _expr) ->
+          let block_info : Lambda.block_info = { tag = 0; size = Known (List.length vars) } in
           let map, _ =
             List.fold_left (fun (map, field) var ->
-                Variable.Map.add var (symbol, [field; 0]) map,
+                let field_info : Lambda.field_info = {index = field; block_info} in
+                let ref_info : Lambda.field_info = {index = 0; block_info = { tag = 0; size = Known 1}} in
+                Variable.Map.add var (symbol, [field_info; ref_info]) map,
                 field + 1)
               (map, 0) vars
           in

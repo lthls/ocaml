@@ -50,6 +50,13 @@ let access_safety safety =
   match safety with
   | Safe -> ""
   | Unsafe -> "unsafe_"
+  
+
+let field_read_semantics ppf sem =
+  let open Lambda in
+  match sem with
+  | Reads_agree -> ()
+  | Reads_vary -> fprintf ppf "_mut"
 
 let primitive ppf (prim:Clambda_primitives.primitive) =
   let open Lambda in
@@ -61,7 +68,8 @@ let primitive ppf (prim:Clambda_primitives.primitive) =
       fprintf ppf "makeblock %i%a" tag Printlambda.block_shape shape
   | Pmakeblock(tag, Mutable, shape) ->
       fprintf ppf "makemutable %i%a" tag Printlambda.block_shape shape
-  | Pfield n -> fprintf ppf "field %i" n
+  | Pfield ({index = i; block_info = _;}, sem) -> 
+      fprintf ppf "field%a %i" field_read_semantics sem i
   | Pfield_computed -> fprintf ppf "field_computed"
   | Psetfield(n, ptr, init) ->
       let instr =
