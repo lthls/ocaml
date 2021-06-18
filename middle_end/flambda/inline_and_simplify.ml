@@ -620,7 +620,9 @@ and simplify_set_of_closures original_env r
         ~f:(fun body_env ->
           assert (E.inside_set_of_closures_declaration
             function_decls.set_of_closures_origin body_env);
-          simplify body_env r function_decl.body)
+          (*simplify body_env r function_decl.body)*)
+          try simplify body_env r function_decl.body
+          with e -> Format.printf "In function %a" Closure_origin.print function_decl.closure_origin; raise e)
     in
     let function_decl =
       Flambda.create_function_declaration ~params:function_decl.params
@@ -1044,10 +1046,7 @@ and simplify_named env r (tree : Flambda.named) : Flambda.named * R.t =
                 let approx' = E.really_import_approx env approx in
                 tree, approx'
             in
-            let approx =
-              if E.is_constructed_block env arg then
-                A.augment_with_projection approx projection
-              else approx
+            let approx = A.augment_with_projection approx projection
             in
             simplify_named_using_approx_and_env env r tree approx
           end

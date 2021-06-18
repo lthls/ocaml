@@ -20,6 +20,13 @@ open! Int_replace_polymorphic_compare
 module Env = struct
   type scope = Current | Outer
 
+  type partial_switch_block_key = {
+    tag : int;
+    size : int;
+    mutable_indexes : Numbers.Int.Set.t;
+    (* When out of mutable indexes, can be converted to an immutable switch_block_key *)
+  }
+
   type t = {
     backend : (module Backend_intf.S);
     round : int;
@@ -46,6 +53,8 @@ module Env = struct
     inlined_debuginfo : Debuginfo.t;
     constructed_blocks : Flambda.switch_block_key Variable.Map.t;
     (* immutable blocks that we shouldn't need to allocate again *)
+    partial_blocks : partial_switch_block_key Variable.Map.t;
+    (* blocks that are not proven yet to be immutable because we didn't see all their Pfield *)
   }
 
   let create ~never_inline ~backend ~round ~ppf_dump =
@@ -71,6 +80,7 @@ module Env = struct
         Inlining_stats.Closure_stack.create ();
       inlined_debuginfo = Debuginfo.none;
       constructed_blocks = Variable.Map.empty;
+      partial_blocks = Variable.Map.empty;
     }
 
   let backend t = t.backend
@@ -160,11 +170,58 @@ module Env = struct
       Backend.import_symbol symbol
     | approx -> approx
 
+  let update_partial_block t (block : partial_switch_block_key) tag size index var = 
+    if (block.tag <> tag || block.size <> size) then
+      Misc.fatal_errorf "Tag or size mismatch when adding variable %a: expected tag %d, got %d; expected size %d, got %d" Variable.print var
+      block.tag tag block.size size;
+    let block = 
+      { block with mutable_indexes = 
+          Numbers.Int.Set.remove index block.mutable_indexes;
+      } 
+    in 
+    if Numbers.Int.Set.is_empty block.mutable_indexes then
+      let block : Flambda.switch_block_key = 
+           { size = block.size; tag = block.tag; mutability = Immutable; }
+      in
+      { t with 
+        partial_blocks = Variable.Map.remove var t.partial_blocks;
+        constructed_blocks = Variable.Map.add var block t.constructed_blocks;
+      }
+    else { t with 
+           partial_blocks = Variable.Map.add var block t.partial_blocks;
+         }
+
+  let add_partial_block t tag size index var =
+    let block : partial_switch_block_key = 
+      { tag; size; mutable_indexes = Numbers.Int.zero_to_n (size - 1)} 
+    in
+    let t = { t with partial_blocks =
+                Variable.Map.add var block t.partial_blocks;
+    } in
+    update_partial_block t block tag size index var  
+
   let add_projection t ~projection ~bound_to =
-    { t with
-      projections =
-        Projection.Map.add projection bound_to t.projections;
-    }
+    let t =
+      { t with
+        projections =
+          Projection.Map.add projection bound_to t.projections;
+      } 
+    in
+    match (projection : Projection.t) with
+    | Field (field, sem, var) ->
+      if Variable.Map.mem var t.constructed_blocks then t
+      else  
+        let block_info = field.block_info in
+        begin match sem, block_info.size with
+        | Reads_agree, Known size ->
+            begin match Variable.Map.find_opt var t.partial_blocks with
+            | Some block -> update_partial_block t block block_info.tag size field.index var
+            | None -> add_partial_block t block_info.tag size field.index var
+            end
+        | _ -> t (* We could also return the old t to avoid saving some mutable Pfield projections *)
+        (* TODO : replace partial_blocks by a record, and mark the block as mutable if we reach this*)
+        end
+    | _ -> t(* TODO replace by all possible cases *)
 
   let find_projection t ~projection =
     match Projection.Map.find projection t.projections with

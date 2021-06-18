@@ -161,8 +161,10 @@ let primitive ppf = function
       fprintf ppf "makeblock %i%a" tag block_shape shape
   | Pmakeblock(tag, Mutable, shape) ->
       fprintf ppf "makemutable %i%a" tag block_shape shape
-  | Pfield ({index = n; block_info = _;}, sem) ->
-      fprintf ppf "field%a %i" field_read_semantics sem n
+  | Pfield ({index = n; block_info = {tag; size = Known s} ;}, sem) ->
+      fprintf ppf "field%a[%d,s%d] %i" field_read_semantics sem tag s n
+  | Pfield ({index = n; block_info = {tag; _} ;}, sem) ->
+      fprintf ppf "field%a[%d] %i" field_read_semantics sem tag n
   | Pfield_computed sem ->
       fprintf ppf "field_computed%a" field_read_semantics sem
   | Psetfield({index = n; block_info = _;}, ptr, init) ->
