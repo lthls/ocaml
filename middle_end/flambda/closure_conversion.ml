@@ -91,7 +91,6 @@ let tupled_function_call_stub original_params unboxed_version ~closure_bound_var
   let _, body =
     List.fold_left (fun (pos, body) param ->
         let lam : Flambda.named =
-          (*TODO - should be good already but check size, mutability*)
           let block_info : Lambda.block_info =
             { tag = 0; size = Known (List.length original_params) }
           in
