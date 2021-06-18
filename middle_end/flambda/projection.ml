@@ -141,7 +141,6 @@ include Identifiable.Make (struct
       compare_move_within_set_of_closures move1 move2
     | Field (info1, rem1, var1), Field (info2, rem2, var2) -> 
       compare_project_field (info1, rem1, var1) (info2, rem2, var2)
-      
     | Project_var _, _ -> -1
     | _, Project_var _ -> 1
     | Project_closure _, _ -> -1

@@ -427,10 +427,12 @@ module Env = struct
       block_key.Flambda.size = size && block_key.Flambda.tag = tag
     in
     let rec fields_match i args constructed_var =
+      let block_info : Lambda.block_info = { tag; size = Known size; } in
       match args with
       | [] -> true
       | var :: args ->
-          let projection = Projection.Field (i, constructed_var) in
+          let field_info : Lambda.field_info = { index = i; block_info; } in
+          let projection = Projection.Field (field_info, Reads_agree, constructed_var) in
           match find_projection t ~projection with
           | Some v ->
               Variable.equal v var && fields_match (i + 1) args constructed_var
@@ -447,7 +449,6 @@ module Env = struct
     | None -> None
     | Some (var, _) -> Some var
 
->>>>>>> ab2ccb3f4... Optimise reconstruction of existing blocks in switches [flambda]
 end
 
 let initial_inlining_threshold ~round : Inlining_cost.Threshold.t =
