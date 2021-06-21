@@ -208,17 +208,19 @@ module Env = struct
     update_partial_block t block tag size index var  
 
   let add_projection t ~projection ~bound_to =
-    let t =
       { t with
         projections =
           Projection.Map.add projection bound_to t.projections;
       } 
-    in
+      
+      (*
+    in 
     match (projection : Projection.t) with
-    | Field (field, sem, var) ->
+    | Field (field, sem, var) -> t
+    | _ -> default_t
       if Variable.Map.mem var t.constructed_blocks then t
-      else  
-        let block_info = field.block_info in
+      else
+       let block_info = field.block_info in
         begin match sem, block_info.size with
         | Reads_agree, Known size ->
             let projection_info = { index = field.index; block_var = var } in
@@ -232,7 +234,25 @@ module Env = struct
         | _ -> t (* We could also return the old t to avoid saving some mutable Pfield projections *)
         (* TODO : replace partial_blocks by a record, and mark the block as mutable if we reach this*)
         end
-    | _ -> t(* TODO replace by all possible cases *)
+    | _ -> t(* TODO replace by all possible cases *)*)
+ 
+  let add_field_projection t ~projection ~bound_to = 
+    match (projection : Projection.t) with
+    | Field (field, sem, var) -> 
+      let block_info = field.block_info in
+        begin match sem, block_info.size with
+        | Reads_agree, Known size ->
+            let projection_info = { index = field.index; block_var = var } in
+            let t = { t with immutable_projections =
+              Variable.Map.add bound_to projection_info t.immutable_projections;
+            } in
+            begin match Variable.Map.find_opt var t.partial_blocks with
+            | Some block -> update_partial_block t block block_info.tag size field.index var
+            | None -> add_partial_block t block_info.tag size field.index var
+            end
+         | _ -> t
+        end
+    | _ -> t
 
   let find_projection t ~projection =
     match Projection.Map.find projection t.projections with

@@ -100,6 +100,13 @@ module Env : sig
     -> projection:Projection.t
     -> bound_to:Variable.t
     -> t
+    
+  (** Adds a field projection to immutable_projections *)
+  val add_field_projection
+     : t
+    -> projection:Projection.t
+    -> bound_to:Variable.t
+    -> t
 
   (** Determine if the environment knows about a variable that is bound
       to the given [projection]. *)
