@@ -538,10 +538,7 @@ module Env = struct
         | None -> None
         end
     in
-    let out = check_block 0 args ~acc_var:None in
-    match out with
-    | Some block -> Format.eprintf "Simplified to block %a[%d], args=%a@." Variable.print block tag (Format.pp_print_list Variable.print) args; out
-    | None -> out
+    check_block 0 args ~acc_var:None
 end
 
 let initial_inlining_threshold ~round : Inlining_cost.Threshold.t =
