@@ -891,6 +891,7 @@ let fold_lets_option
     ~(filter_defining_expr:('b -> Variable.t -> named -> Variable.Set.t ->
                             'b * Variable.t * named option)) =
   let finish ~last_body ~acc ~rev_lets =
+ (*   Format.eprintf "fold_lets_option.finish@."; *)
     let module W = With_free_variables in
     let acc, t =
       List.fold_left (fun (acc, t) (var, defining_expr) ->
@@ -911,6 +912,7 @@ let fold_lets_option
     W.contents t, acc
   in
   let rec loop (t : t) ~acc ~rev_lets =
+  (*  Format.eprintf "fold_lets_option.loop@."; *)
     match t with
     | Let { var; defining_expr; body; _ } ->
       let acc, var, defining_expr =

@@ -607,6 +607,7 @@ and simplify_set_of_closures original_env r
   let simplify_function fun_var (function_decl : Flambda.function_declaration)
         (funs, used_params, r)
         : Flambda.function_declaration Variable.Map.t * Variable.Set.t * R.t =
+    Format.eprintf "simplify_function %a@." Closure_origin.print function_decl.closure_origin;
     let closure_env =
       Inline_and_simplify_aux.prepare_to_simplify_closure ~function_decl
         ~free_vars ~specialised_args ~parameter_approximations
@@ -1046,7 +1047,11 @@ and simplify_named env r (tree : Flambda.named) : Flambda.named * R.t =
                 let approx' = E.really_import_approx env approx in
                 tree, approx'
             in
-            let approx = A.augment_with_projection approx projection
+            let approx = (* TODO - once perf fixed, check if we can augment all approxs*)
+              begin match field.block_info.size, sem with
+              | Known _, Reads_agree -> A.augment_with_projection approx projection
+              | _ -> approx
+              end
             in
             simplify_named_using_approx_and_env env r tree approx
           end
@@ -1123,6 +1128,7 @@ and simplify env r (tree : Flambda.t) : Flambda.t * R.t =
     simplify_apply env r ~apply
   | Let _ ->
     let for_defining_expr (env, r) var defining_expr =
+    (*  Format.eprintf "%a@." Variable.print var; *)
       let defining_expr, r = simplify_named env r defining_expr in
       let var, sb = Freshening.add_variable (E.freshening env) var in
       let env = E.set_freshening env sb in
