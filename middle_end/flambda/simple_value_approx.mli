@@ -503,3 +503,5 @@ val make_closure_map
   -> function_declarations Closure_id.Map.t
 
 val clear_function_bodies : function_declarations -> function_declarations
+
+val identity_function_approx : t

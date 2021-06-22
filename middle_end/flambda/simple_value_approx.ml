@@ -1029,3 +1029,47 @@ let make_closure_map input =
   in
   Set_of_closures_id.Map.iter add_set_of_closures input;
   !map
+
+let identity_function_approx =
+  let fun_var = Variable.create Internal_variable_names.closure in
+  let closure_id = Closure_id.wrap fun_var in
+  let closure_origin = Closure_origin.create closure_id in
+  let set_of_closures =
+    let param =
+      Variable.create_with_same_name_as_ident
+        (Ident.create_local "param")
+    in
+    let params = [Parameter.wrap param] in
+    let body : Flambda.t = Var param in
+    let function_declaration =
+      Flambda.create_function_declaration
+        ~params
+        ~body
+        ~stub:false
+        ~dbg:Debuginfo.none
+        ~inline:Always_inline
+        ~specialise:Default_specialise
+        ~is_a_functor:false
+        ~closure_origin
+    in
+    let function_declarations =
+      Flambda.create_function_declarations
+        ~is_classic_mode:false
+        ~funs:(Variable.Map.singleton fun_var function_declaration)
+    in
+    let function_decls =
+      function_declarations_approx
+        ~keep_body:(fun _ _ -> true)
+        function_declarations
+    in
+    create_value_set_of_closures
+      ~function_decls
+      ~bound_vars:Var_within_closure.Map.empty
+      ~free_vars:Variable.Map.empty
+      ~invariant_params:(lazy Variable.Map.empty)
+      ~recursive:(lazy Variable.Set.empty)
+      ~specialised_args:Variable.Map.empty
+      ~freshening:Freshening.Project_var.empty
+      ~direct_call_surrogates:Closure_id.Map.empty
+  in
+  value_closure set_of_closures closure_id
