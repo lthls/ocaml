@@ -1030,7 +1030,7 @@ let make_closure_map input =
   Set_of_closures_id.Map.iter add_set_of_closures input;
   !map
 
-let identity_function_approx =
+let identity_function_approx () =
   let fun_var = Variable.create Internal_variable_names.closure in
   let closure_id = Closure_id.wrap fun_var in
   let closure_origin = Closure_origin.create closure_id in

@@ -504,4 +504,4 @@ val make_closure_map
 
 val clear_function_bodies : function_declarations -> function_declarations
 
-val identity_function_approx : t
+val identity_function_approx : unit -> t
