@@ -956,7 +956,7 @@ let meet env t1 t2 =
       ~to_type:(fun ty -> Naked_nativeint ty)
   | Rec_info ty1, Rec_info ty2 ->
     T_RI.meet env
-      K.rec_info t1 t2 ty1 ty2
+      K.rec_info ty1 ty2
       ~force_to_kind:force_to_kind_rec_info
       ~to_type:(fun ty -> Rec_info ty)
   | (Value _ | Naked_immediate _ | Naked_float _ | Naked_int32 _

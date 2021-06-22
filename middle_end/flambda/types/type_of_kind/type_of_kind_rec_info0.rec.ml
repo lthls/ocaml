@@ -34,12 +34,12 @@ let apply_coercion t coercion : _ Or_bottom.t =
 
 let eviscerate _ : _ Or_unknown.t = Unknown
 
-let meet _env t1 t2 : _ Or_bottom.t =
+let meet _env t1 t2 : _ Meet_result.t =
   (* CR lmaurer: This could be doing things like discovering two depth
      variables are equal *)
   if Rec_info_expr.equal t1 t2 then
-    Ok (t1, Typing_env_extension.empty ())
-  else Bottom
+    Ok (Both_inputs, Typing_env_extension.empty ())
+  else Bottom (* CR vlaviron: this looks obviously wrong *)
 
 let join _env t1 t2 : _ Or_unknown.t =
   if Rec_info_expr.equal t1 t2 then Known t1 else Unknown
