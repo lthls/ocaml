@@ -1705,7 +1705,7 @@ let get_expr_args_constr ~scopes head (arg, _mut) rem =
     | Cstr_extension (_, true) -> rem
     | Cstr_extension (_, false) -> 
         let block_info = {
-            tag = Obj.object_tag;
+            tag = 0;
             size = Known (cstr.cstr_arity + 1);
           }
         in
@@ -2795,8 +2795,13 @@ let combine_constructor loc arg pat_env cstr partial ctx def
                       (Lprim (Pintcomp Ceq, [ Lvar tag; ext ], loc), act, rem))
                   nonconsts default
               in
+              (* We're matching on an extensible type that might correspond
+                 to the given constructor. So the size is Unknown, as not all
+                 constructors have the same size. *)
+              let block_info = { tag = 0; size = Unknown; } in
+              let field_info = { index = 0; block_info; } in
               Llet (Alias, Pgenval, tag,
-                    Lprim (nonconstant_variant_field 0, [ arg ], loc),
+                    Lprim (Pfield (field_info, Reads_agree), [ arg ], loc),
                     tests)
         in
         List.fold_right
