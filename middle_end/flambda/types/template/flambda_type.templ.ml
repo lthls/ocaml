@@ -301,26 +301,16 @@ let prove_is_int env t : bool proof =
   match expand_head t env with
   | Const (Tagged_immediate _) -> Proved true
   | Const _ -> wrong_kind ()
-  | Value (Ok (Variant blocks_imms)) ->
-    begin match blocks_imms.blocks, blocks_imms.immediates with
-    | Unknown, Unknown -> Unknown
-    | Unknown, Known imms ->
-      if is_bottom env imms
-      then Proved false
-      else Unknown
-    | Known blocks, Unknown ->
-      if Row_like.For_blocks.is_bottom blocks
-      then Proved true
-      else Unknown
-    | Known blocks, Known imms ->
-      (* CR mshinwell: Should we tighten things up by causing fatal errors
-         in cases such as [blocks] and [imms] both being bottom? *)
-      if Row_like.For_blocks.is_bottom blocks then
-        if is_bottom env imms then Invalid
-        else Proved true
-      else
-        if is_bottom env imms then Proved false
-        else Unknown
+  | Value (Ok (Variant variant)) ->
+    begin match variant with
+    (* CR vlaviron: We fail to return Invalid if the underlying variant is
+       bottom. However, in practice this should never happen: bottom variants
+       can only be created by either an explicit call to Variant.create with
+       bottom values, or if for some reason a meet returns a bottom type
+       instead of the Bottom constructor. *)
+    | Immediates _ -> Proved true
+    | Blocks _ -> Proved false
+    | Either _ -> Unknown
     end
   | Value (Ok (Boxed_float _ | Boxed_int32 _ | Boxed_int64 _
       | Boxed_nativeint _ | Closures _ | String _ | Array _)) -> Proved false
@@ -340,29 +330,19 @@ let prove_tags_must_be_a_block env t : Tag.Set.t proof =
   match expand_head t env with
   | Const (Tagged_immediate _) -> Unknown
   | Const _ -> wrong_kind ()
-  | Value (Ok (Variant blocks_imms)) ->
-    begin match blocks_imms.immediates with
-    | Unknown -> Unknown
-    | Known imms ->
-      if not (is_bottom env imms) then
-        (* CR vlaviron: This case could be completely ignored if we're
-           only interested in the set of tags this type can have.
-           It is there because this function used to return Invalid
-           when it couldn't definitively prove that this type represents
-           a block, but this caused a number of problems so this was
-           switched to Unknown (which, unlike Invalid, is always sound).
-           There remain a question of whether we actually want two
-           different variants of this function, one for simplification
-           of the get_tag primitive which may reasonably expect to error
-           if its argument cannot be proved to be a block, and one for
-           simplification of CSE parameters containing a get_tag equation,
-           which can occur at places where the type is not known to be a block.
-        *)
-        Unknown
-      else
-        match blocks_imms.blocks with
-        | Unknown -> Unknown
-        | Known blocks ->
+  | Value (Ok (Variant variant)) ->
+    begin match variant with
+    | Immediates _ -> Invalid
+    | Blocks { blocks; is_unique = _; }
+    | Either { immediates = _;
+               immediates_extension = _;
+               blocks;
+               blocks_extension = _;
+               is_unique = _;
+             } ->
+      begin match blocks with
+      | Unknown -> Unknown
+      | Known blocks ->
           (* CR mshinwell: maybe [all_tags] should return the [Invalid]
              case directly? *)
           match Row_like.For_blocks.all_tags blocks with
@@ -370,6 +350,7 @@ let prove_tags_must_be_a_block env t : Tag.Set.t proof =
           | Known tags ->
             if Tag.Set.is_empty tags then Invalid
             else Proved tags
+      end
     end
   | Value (Ok (Boxed_float _ | Boxed_int32 _ | Boxed_int64 _
       | Boxed_nativeint _)) -> Proved (Tag.Set.singleton Tag.custom_tag)
@@ -441,15 +422,13 @@ let prove_equals_tagged_immediates env t : Targetint_31_63.Set.t proof =
   | Const (Tagged_immediate imm) -> Proved (Targetint_31_63.Set.singleton imm)
   | Const (Naked_immediate _ | Naked_float _ | Naked_int32 _ | Naked_int64 _
     | Naked_nativeint _) -> wrong_kind ()
-  | Value (Ok (Variant blocks_imms)) ->
-    begin match blocks_imms.blocks, blocks_imms.immediates with
-    | Unknown, Unknown | Unknown, Known _ | Known _, Unknown -> Unknown
-    | Known blocks, Known imms ->
-      (* CR mshinwell: Check this.  Again it depends on the context; is
-         this a context where variants are ok? *)
-      if not (Row_like.For_blocks.is_bottom blocks)
-      then Unknown
-      else prove_naked_immediates env imms
+  | Value (Ok (Variant variant)) ->
+    begin match variant with
+    | Blocks _ -> Invalid
+    | Either _ -> Unknown
+    | Immediates { immediates = Unknown; } -> Unknown
+    | Immediates { immediates = Known immediates; } ->
+      prove_naked_immediates env immediates
     end
   | Value (Ok _) -> Invalid
   | Value Unknown -> Unknown
@@ -478,22 +457,16 @@ let prove_tags_and_sizes env t : Targetint_31_63.Imm.t Tag.Map.t proof =
   match expand_head t env with
   | Const (Tagged_immediate _) -> Unknown
   | Const _ -> wrong_kind ()
-  | Value (Ok (Variant blocks_imms)) ->
-    begin match blocks_imms.immediates with
-    (* CR mshinwell: Care.  Should this return [Unknown] or [Invalid] if
-       there is the possibility of the type representing a tagged
-       immediate? *)
-    | Unknown -> Unknown
-    | Known immediates ->
-      if is_bottom env immediates then
-        match blocks_imms.blocks with
-        | Unknown -> Unknown
-        | Known blocks ->
-          match Row_like.For_blocks.all_tags_and_sizes blocks with
-          | Unknown -> Unknown
-          | Known tags_and_sizes -> Proved tags_and_sizes
-      else
-        Unknown
+  | Value (Ok (Variant variant)) ->
+    begin match variant with
+    | Immediates _ -> Invalid
+    | Either _ -> Unknown
+    | Blocks { blocks = Unknown; is_unique = _; } -> Unknown
+    | Blocks { blocks = Known blocks; is_unique = _; } ->
+      begin match Row_like.For_blocks.all_tags_and_sizes blocks with
+      | Unknown -> Unknown
+      | Known tags_and_sizes -> Proved tags_and_sizes
+      end
     end
   | Value (Ok _) -> Invalid
   | Value Unknown -> Unknown
@@ -533,43 +506,66 @@ let prove_variant_like env t : variant_like_proof proof_allowing_kind_mismatch =
       non_const_ctors_with_sizes = Tag.Scannable.Map.empty;
     }
   | Const _ -> Wrong_kind
-  | Value (Ok (Variant blocks_imms)) ->
-    begin match blocks_imms.blocks with
-    | Unknown -> Unknown
-    | Known blocks ->
-      match Row_like.For_blocks.all_tags_and_sizes blocks with
-      | Unknown -> Unknown
-      | Known non_const_ctors_with_sizes ->
-        let non_const_ctors_with_sizes =
-          Tag.Map.fold
-            (fun tag size (result : _ Or_unknown.t) : _ Or_unknown.t ->
-               match result with
-               | Unknown -> Unknown
-               | Known result ->
-                 match Tag.Scannable.of_tag tag with
-                 | None -> Unknown
-                 | Some tag ->
-                   Known (Tag.Scannable.Map.add tag size result))
-            non_const_ctors_with_sizes
-            (Or_unknown.Known Tag.Scannable.Map.empty)
-        in
-        match non_const_ctors_with_sizes with
+  | Value (Ok (Variant variant)) ->
+    let const_ctors : _ Or_unknown.t =
+      match variant with
+      | Immediates { immediates; }
+      | Either {
+          immediates;
+          immediates_extension = _;
+          blocks = _;
+          blocks_extension = _;
+          is_unique = _;
+        } ->
+        begin match immediates with
         | Unknown -> Unknown
-        | Known non_const_ctors_with_sizes ->
-          let const_ctors : _ Or_unknown.t =
-            match blocks_imms.immediates with
-            | Unknown -> Unknown
-            | Known imms ->
-              begin match prove_naked_immediates env imms with
-              | Unknown -> Unknown
-              | Invalid -> Known Targetint_31_63.Set.empty
-              | Proved const_ctors -> Known const_ctors
-              end
-          in
-          Proved {
-            const_ctors;
-            non_const_ctors_with_sizes;
-          }
+        | Known imms ->
+          begin match prove_naked_immediates env imms with
+          | Unknown -> Unknown
+          | Invalid -> Known Targetint_31_63.Set.empty
+          | Proved const_ctors -> Known const_ctors
+          end
+        end
+      | Blocks _ -> Known Targetint_31_63.Set.empty
+    in
+    let non_const_ctors_with_sizes : _ Or_unknown.t =
+      match variant with
+      | Immediates _ -> Known Tag.Scannable.Map.empty
+      | Blocks { blocks; is_unique = _; }
+      | Either {
+          immediates = _;
+          immediates_extension = _;
+          blocks;
+          blocks_extension = _;
+          is_unique = _;
+        } ->
+        begin match blocks with
+        | Unknown -> Unknown
+        | Known blocks ->
+          begin match Row_like.For_blocks.all_tags_and_sizes blocks with
+          | Unknown -> Unknown
+          | Known non_const_ctors_with_sizes ->
+            Tag.Map.fold
+              (fun tag size (result : _ Or_unknown.t) : _ Or_unknown.t ->
+                 match result with
+                 | Unknown -> Unknown
+                 | Known result ->
+                   match Tag.Scannable.of_tag tag with
+                   | None -> Unknown
+                   | Some tag ->
+                     Known (Tag.Scannable.Map.add tag size result))
+              non_const_ctors_with_sizes
+              (Or_unknown.Known Tag.Scannable.Map.empty)
+          end
+        end
+    in
+    begin match non_const_ctors_with_sizes with
+    | Unknown -> Unknown
+    | Known non_const_ctors_with_sizes ->
+      Proved {
+        const_ctors;
+        non_const_ctors_with_sizes;
+      }
     end
   | Value (Ok _) -> Invalid
   | Value Unknown -> Unknown
@@ -587,24 +583,13 @@ let prove_is_a_boxed_number env t
   | Const (Tagged_immediate _) -> Proved Untagged_immediate
   | Const _ -> Wrong_kind
   | Value Unknown -> Unknown
-  | Value (Ok (Variant { blocks; immediates; is_unique = _; })) ->
-    begin match blocks, immediates with
-    | Unknown, Unknown -> Unknown
-    | Unknown, Known imms ->
-      if is_bottom env imms
-      then Invalid
-      else Unknown
-    | Known blocks, Unknown ->
-      if Row_like.For_blocks.is_bottom blocks
-      then Proved Untagged_immediate
-      else Unknown
-    | Known blocks, Known imms ->
-      if is_bottom env imms then
-        Invalid
-      else if Row_like.For_blocks.is_bottom blocks then
-        Proved Untagged_immediate
-      else
-        Unknown
+  | Value (Ok (Variant variant)) ->
+    begin match variant with
+    | Immediates _ -> Proved Untagged_immediate
+    (* CR vlaviron: The previous code returned Invalid for blocks.
+       I'm not sure it's correct, and Invalid is probably handled the
+       same way as Unknown by callers, so I'm returning Unknown. *)
+    | Blocks _ | Either _ -> Unknown
     end
   | Value (Ok (Boxed_float _)) -> Proved Naked_float
   | Value (Ok (Boxed_int32 _)) -> Proved Naked_int32
@@ -766,39 +751,43 @@ let prove_is_tagging_of_simple
   match expand_head t env with
   | Const (Tagged_immediate imm) ->
     Proved (Simple.const (Reg_width_const.naked_immediate imm))
-  | Value (Ok (Variant { immediates; blocks; is_unique = _; })) ->
-    begin match blocks with
-    | Unknown -> Unknown
-    | Known blocks ->
-      match prove_function with
-      | Prove_is_always_tagging_of_simple
-        when not (Row_like.For_blocks.is_bottom blocks) ->
-        Unknown
-      | Prove_is_always_tagging_of_simple
-        (* when (Row_like.For_blocks.is_bottom blocks) *)
-      | Prove_could_be_tagging_of_simple ->
-        match immediates with
-        | Unknown -> Unknown
-        | Known t ->
-          let from_alias =
-            match
-              Typing_env.get_canonical_simple_exn
-                env ~min_name_mode (get_alias_exn t)
-            with
-            | simple -> Some simple
-            | exception Not_found -> None
-          in
-          match from_alias with
-          | Some simple -> Proved simple
-          | None ->
-            match prove_naked_immediates env t with
-            | Unknown -> Unknown
-            | Invalid -> Invalid
-            | Proved imms ->
-              match Targetint_31_63.Set.get_singleton imms with
-              | Some imm ->
-                Proved (Simple.const (Reg_width_const.naked_immediate imm))
-              | None -> Unknown
+  | Value (Ok (Variant variant)) ->
+    begin match variant, prove_function with
+    | Immediates { immediates; }, _
+    | Either {
+        immediates;
+        immediates_extension = _;
+        blocks = _;
+        blocks_extension = _;
+        is_unique = _;
+      }, Prove_could_be_tagging_of_simple ->
+      begin match immediates with
+      | Unknown -> Unknown
+      | Known t ->
+        let from_alias =
+          match
+            Typing_env.get_canonical_simple_exn
+              env ~min_name_mode (get_alias_exn t)
+          with
+          | simple -> Some simple
+          | exception Not_found -> None
+        in
+        begin match from_alias with
+        | Some simple -> Proved simple
+        | None ->
+          begin match prove_naked_immediates env t with
+          | Unknown -> Unknown
+          | Invalid -> Invalid
+          | Proved imms ->
+            begin match Targetint_31_63.Set.get_singleton imms with
+            | Some imm ->
+              Proved (Simple.const (Reg_width_const.naked_immediate imm))
+            | None -> Unknown
+            end
+          end
+        end
+      end
+    | Blocks _, _ | Either _, Prove_is_always_tagging_of_simple -> Unknown
     end
   | Value Unknown -> Unknown
   | Value _ -> Invalid
@@ -873,33 +862,30 @@ let[@inline] prove_block_field_simple_aux env ~min_name_mode t get_field : Simpl
   | Const _ ->
     if K.equal (kind t) K.value then Invalid
     else wrong_kind ()
-  | Value (Ok (Variant { immediates; blocks; is_unique = _; })) ->
-    begin match immediates with
-    | Unknown -> Unknown
-    | Known imms ->
+  | Value (Ok (Variant variant)) ->
+    begin match variant with
+    | Immediates _ -> Invalid
+    | Either _ -> Unknown
+    | Blocks { blocks; is_unique = _; } ->
       begin match blocks with
       | Unknown -> Unknown
       | Known blocks ->
-        if Row_like.For_blocks.is_bottom blocks then Invalid
-        else if not (is_obviously_bottom imms) then
-          Unknown
-        else
-          begin match (get_field blocks : _ Or_unknown_or_bottom.t) with
-          | Bottom -> Invalid
-          | Unknown -> Unknown
-          | Ok ty ->
-            begin match get_alias_exn ty with
-            | simple ->
-              begin match
-                Typing_env.get_canonical_simple_exn env ~min_name_mode simple
-              with
-              | simple -> Proved simple
-              | exception Not_found -> Unknown
-              end
+        begin match (get_field blocks : _ Or_unknown_or_bottom.t) with
+        | Bottom -> Invalid
+        | Unknown -> Unknown
+        | Ok ty ->
+          begin match get_alias_exn ty with
+          | simple ->
+            begin match
+              Typing_env.get_canonical_simple_exn env ~min_name_mode simple
+            with
+            | simple -> Proved simple
             | exception Not_found -> Unknown
             end
+          | exception Not_found -> Unknown
           end
         end
+      end
     end
   | Value (Ok _) -> Invalid
   | Value Unknown -> Unknown
@@ -1020,13 +1006,13 @@ let reify ?allowed_if_free_vars_defined_in ?additional_free_var_criterion
     in
     match expand_head t env with
     | Const const -> Simple (Simple.const_from_descr const)
-    | Value (Ok (Variant blocks_imms)) ->
-      if blocks_imms.is_unique && not allow_unique then try_canonical_simple ()
-      else
-      begin match blocks_imms.blocks, blocks_imms.immediates with
-      | Known blocks, Known imms ->
-        if is_bottom env imms then
-          begin match Row_like.For_blocks.get_singleton blocks with
+    | Value (Ok (Variant variant)) ->
+      begin match variant with
+      | Either _ | Blocks { blocks = Unknown; is_unique = _; }
+      | Immediates { immediates = Unknown; } -> try_canonical_simple ()
+      | Blocks { blocks = Known blocks; is_unique; } ->
+        if is_unique && not allow_unique then try_canonical_simple ()
+        else begin match Row_like.For_blocks.get_singleton blocks with
           | None -> try_canonical_simple ()
           | Some ((tag, size), field_types) ->
             assert (Targetint_31_63.Imm.equal size
@@ -1066,26 +1052,24 @@ let reify ?allowed_if_free_vars_defined_in ?additional_free_var_criterion
                    vars_or_symbols_or_tagged_immediates = 0 then
                 Lift (Immutable_block {
                   tag;
-                  is_unique = blocks_imms.is_unique;
+                  is_unique;
                   fields = vars_or_symbols_or_tagged_immediates;
                 })
               else
                 try_canonical_simple ()
             end
+        end
+      | Immediates { immediates = Known immediates; } ->
+        begin match prove_naked_immediates env immediates with
+        | Proved imms ->
+          begin match Targetint_31_63.Set.get_singleton imms with
+          | None -> try_canonical_simple ()
+          | Some imm ->
+            Simple (Simple.const (Reg_width_const.tagged_immediate imm))
           end
-        else if Row_like.For_blocks.is_bottom blocks then
-          match prove_naked_immediates env imms with
-          | Proved imms ->
-            begin match Targetint_31_63.Set.get_singleton imms with
-            | None -> try_canonical_simple ()
-            | Some imm ->
-              Simple (Simple.const (Reg_width_const.tagged_immediate imm))
-            end
-          | Unknown -> try_canonical_simple ()
-          | Invalid -> Invalid
-        else
-          try_canonical_simple ()
-      | _, _ -> try_canonical_simple ()
+        | Unknown -> try_canonical_simple ()
+        | Invalid -> Invalid
+        end
       end
     | Value (Ok (Closures closures)) ->
       (* CR mshinwell: Here and above, move to separate function. *)

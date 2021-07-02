@@ -37,17 +37,9 @@ type t =
 
 let print_with_cache ~cache ppf t =
   match t with
-  | Variant { blocks; immediates; is_unique } ->
-    (* CR mshinwell: Improve so that we elide blocks and/or immediates when
-       they're empty. *)
-    Format.fprintf ppf
-      "@[<hov 1>(Variant%s@ \
-        @[<hov 1>(blocks@ %a)@]@ \
-        @[<hov 1>(tagged_imms@ %a)@]\
-        )@]"
-      (if is_unique then " unique" else "")
-      (Or_unknown.print (Blocks.print_with_cache ~cache)) blocks
-      (Or_unknown.print (T.print_with_cache ~cache)) immediates
+  | Variant variant ->
+    Format.fprintf ppf "@[<hov 1>(Variant@ %a)@]"
+      (Variant.print_with_cache ~cache) variant
   | Boxed_float naked_ty ->
     Format.fprintf ppf "@[<hov 1>(Boxed_float@ %a)@]"
       (T.print_with_cache ~cache) naked_ty
@@ -72,30 +64,12 @@ let print_with_cache ~cache ppf t =
 
 let print ppf t = print_with_cache ~cache:(Printing_cache.create ()) ppf t
 
-let apply_renaming_variant blocks immediates perm =
-  let immediates' =
-    Or_unknown.map immediates ~f:(fun immediates ->
-      T.apply_renaming immediates perm)
-  in
-  let blocks' =
-    Or_unknown.map blocks ~f:(fun blocks ->
-      Blocks.apply_renaming blocks perm)
-  in
-  if immediates == immediates' && blocks == blocks' then
-    None
-  else
-    Some (blocks', immediates')
-
 let apply_renaming t perm =
   match t with
-  | Variant { blocks; immediates; is_unique; } ->
-    begin match
-      apply_renaming_variant blocks immediates perm
-    with
-    | None -> t
-    | Some (blocks, immediates) ->
-      Variant (Variant.create ~is_unique ~blocks ~immediates)
-    end
+  | Variant variant ->
+    let variant' = Variant.apply_renaming variant perm in
+    if variant == variant' then t
+    else Variant variant'
   | Boxed_float ty ->
     let ty' = T.apply_renaming ty perm in
     if ty == ty' then t
@@ -127,10 +101,7 @@ let apply_renaming t perm =
 
 let free_names t =
   match t with
-  | Variant { blocks; immediates; is_unique = _; } ->
-    Name_occurrences.union
-      (Or_unknown.free_names Blocks.free_names blocks)
-      (Or_unknown.free_names T.free_names immediates)
+  | Variant variant -> Variant.free_names variant
   | Boxed_float ty -> T.free_names ty
   | Boxed_int32 ty -> T.free_names ty
   | Boxed_int64 ty -> T.free_names ty
@@ -142,10 +113,7 @@ let free_names t =
 
 let all_ids_for_export t =
   match t with
-  | Variant { blocks; immediates; is_unique = _; } ->
-    Ids_for_export.union
-      (Or_unknown.all_ids_for_export Blocks.all_ids_for_export blocks)
-      (Or_unknown.all_ids_for_export T.all_ids_for_export immediates)
+  | Variant variant -> Variant.all_ids_for_export variant
   | Boxed_float ty -> T.all_ids_for_export ty
   | Boxed_int32 ty -> T.all_ids_for_export ty
   | Boxed_int64 ty -> T.all_ids_for_export ty
@@ -199,98 +167,12 @@ let eviscerate t : _ Or_unknown.t =
   | String _
   | Array _ -> Unknown
 
-let meet_unknown meet_contents ~contents_is_bottom env
-    (or_unknown1 : _ Or_unknown.t) (or_unknown2 : _ Or_unknown.t)
-    : ((_ Or_unknown.t) * TEE.t) Or_bottom.t =
-  match or_unknown1, or_unknown2 with
-  | Unknown, Unknown -> Ok (Unknown, TEE.empty ())
-  (* CR mshinwell: Think about the next two cases more *)
-  | Known contents, _ when contents_is_bottom contents -> Bottom
-  | _, Known contents when contents_is_bottom contents -> Bottom
-  | _, Unknown -> Ok (or_unknown1, TEE.empty ())
-  | Unknown, _ -> Ok (or_unknown2, TEE.empty ())
-  | Known contents1, Known contents2 ->
-    let result =
-      Or_bottom.map (meet_contents env contents1 contents2)
-        ~f:(fun (contents, env_extension) ->
-          Or_unknown.Known contents, env_extension)
-    in
-    match result with
-    | Bottom | Ok (Unknown, _) -> result
-    | Ok (Known contents, _env_extension) ->
-      (* XXX Why isn't [meet_contents] returning bottom? *)
-      if contents_is_bottom contents then Bottom
-      else result
-
-let join_unknown join_contents (env : Join_env.t)
-    (or_unknown1 : _ Or_unknown.t) (or_unknown2 : _ Or_unknown.t)
-    : _ Or_unknown.t =
-  match or_unknown1, or_unknown2 with
-  | _, Unknown
-  | Unknown, _ -> Unknown
-  | Known contents1, Known contents2 ->
-    join_contents env contents1 contents2
-
-let meet_variant env
-      ~blocks1 ~imms1 ~blocks2 ~imms2 : _ Or_bottom.t =
-  let blocks =
-    meet_unknown Blocks.meet ~contents_is_bottom:Blocks.is_bottom
-      env blocks1 blocks2
-  in
-  let blocks : _ Or_bottom.t =
-    (* XXX Clean this up *)
-    match blocks with
-    | Bottom | Ok (Or_unknown.Unknown, _) -> blocks
-    | Ok (Or_unknown.Known blocks', _) ->
-      if Blocks.is_bottom blocks' then Bottom else blocks
-  in
-  let imms =
-    meet_unknown T.meet ~contents_is_bottom:T.is_obviously_bottom
-      env imms1 imms2
-  in
-  let imms : _ Or_bottom.t =
-    match imms with
-    | Bottom | Ok (Or_unknown.Unknown, _) -> imms
-    | Ok (Or_unknown.Known imms', _) ->
-      if T.is_obviously_bottom imms' then Bottom else imms
-  in
-  match blocks, imms with
-  | Bottom, Bottom -> Bottom
-  | Ok (blocks, env_extension), Bottom ->
-    let immediates : _ Or_unknown.t = Known (T.bottom K.naked_immediate) in
-    Ok (blocks, immediates, env_extension)
-  | Bottom, Ok (immediates, env_extension) ->
-    let blocks : _ Or_unknown.t = Known (Blocks.create_bottom ()) in
-    Ok (blocks, immediates, env_extension)
-  | Ok (blocks, env_extension1), Ok (immediates, env_extension2) ->
-    begin match (blocks : _ Or_unknown.t) with
-    | Unknown -> ()
-    | Known blocks -> assert (not (Blocks.is_bottom blocks));
-    end;
-    begin match (immediates : _ Or_unknown.t) with
-    | Unknown -> ()
-    | Known imms -> assert (not (T.is_obviously_bottom imms));
-    end;
-    let env_extension =
-      let env = Meet_env.env env in
-      let join_env =
-        Join_env.create env ~left_env:env ~right_env:env
-      in
-      TEE.join join_env env_extension1 env_extension2
-    in
-    Ok (blocks, immediates, env_extension)
-
 let meet env t1 t2 : _ Or_bottom.t =
   match t1, t2 with
-  | Variant { blocks = blocks1; immediates = imms1; is_unique = is_unique1; },
-    Variant { blocks = blocks2; immediates = imms2; is_unique = is_unique2; } ->
+  | Variant variant1, Variant variant2 ->
     Or_bottom.map
-      (meet_variant env ~blocks1 ~imms1 ~blocks2 ~imms2)
-      ~f:(fun (blocks, immediates, env_extension) ->
-        (* Uniqueness tracks whether duplication/lifting is allowed.
-           It must always be propagated, both for meet and join. *)
-        let is_unique = is_unique1 || is_unique2 in
-        Variant (Variant.create ~is_unique ~blocks ~immediates), env_extension)
+      (Variant.meet env variant1 variant2)
+      ~f:(fun (variant, env_extension) -> Variant variant, env_extension)
   | Boxed_float n1, Boxed_float n2 ->
     Or_bottom.map
       (T.meet env n1 n2)
@@ -334,33 +216,10 @@ let meet env t1 t2 : _ Or_bottom.t =
        incompatible. This could break very hard for users of Obj. *)
     Bottom
 
-let join_variant env
-      ~blocks1 ~imms1 ~blocks2 ~imms2 : _ Or_unknown.t =
-  let blocks_join env b1 b2 : _ Or_unknown.t =
-    Known (Blocks.join env b1 b2)
-  in
-  let blocks =
-    join_unknown blocks_join env blocks1 blocks2
-  in
-  let imms =
-    join_unknown (T.join ?bound_name:None) env imms1 imms2
-  in
-  match blocks, imms with
-  | Unknown, Unknown -> Unknown
-  | Known _, Unknown | Unknown, Known _ | Known _, Known _ ->
-    Known (blocks, imms)
-
 let join env t1 t2 : _ Or_unknown.t =
   match t1, t2 with
-  | Variant { blocks = blocks1; immediates = imms1; is_unique = is_unique1; },
-    Variant { blocks = blocks2; immediates = imms2; is_unique = is_unique2; } ->
-    Or_unknown.map
-      (join_variant env ~blocks1 ~imms1 ~blocks2 ~imms2)
-      ~f:(fun (blocks, immediates) ->
-        (* Uniqueness tracks whether duplication/lifting is allowed.
-           It must always be propagated, both for meet and join. *)
-        let is_unique = is_unique1 || is_unique2 in
-        Variant (Variant.create ~is_unique ~blocks ~immediates))
+  | Variant variant1, Variant variant2 ->
+    Known (Variant (Variant.join env variant1 variant2))
   | Boxed_float n1, Boxed_float n2 ->
     Or_unknown.map
       (T.join env n1 n2)
