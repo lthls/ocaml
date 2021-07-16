@@ -1,0 +1,42 @@
+# Coq compilation test
+# ====================
+# Build the compiler with makefiles and run the testsuite
+name: coq
+
+# Configure when to run the workflows. Currently only on pushes to the
+# the `flambda2.0-stable` branch.
+on:
+  push:
+    branches:
+      - flambda2.0-stable
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+
+    # Build Matrix
+    # --------------
+    strategy:
+      matrix:
+        # Operating system to run tests on. TODO: add macos-latest and windows-latest
+        # os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest]
+
+    # Build/test steps
+    # ----------------
+    steps:
+    # check out the repo (shallow clone, currently)
+    - name: Install stock ocamlc
+      run: sudo apt-get install ocaml
+    - name: Check out the repo
+      uses: actions/checkout@master
+      with:
+        path: ocaml
+    - name: Configure the compiler
+      run: ./configure --enable-flambda --disable-ocamldoc
+      working-directory: ocaml
+    - name: Create working directory for Coq compilation
+      run: mkdir coq
+    - name: Compile ocamlc, Coq dependencies, and finally Coq
+      run: ocaml/middle_end/flambda/scripts/compile_coq.sh -c $GITHUB_WORKSPACE/ocaml $GITHUB_WORKSPACE/coq
