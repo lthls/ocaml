@@ -179,8 +179,6 @@ let classify_expression : Typedtree.expression -> sd =
 
     | Texp_for _
     | Texp_constant _
-    | Texp_new _
-    | Texp_instvar _
     | Texp_tuple _
     | Texp_array _
     | Texp_variant _
@@ -188,13 +186,15 @@ let classify_expression : Typedtree.expression -> sd =
     | Texp_while _
     | Texp_setinstvar _
     | Texp_pack _
-    | Texp_object _
     | Texp_function _
     | Texp_lazy _
     | Texp_unreachable
     | Texp_extension_constructor _ ->
         Static
 
+    | Texp_new _
+    | Texp_instvar _
+    | Texp_object _
     | Texp_match _
     | Texp_ifthenelse _
     | Texp_send _
