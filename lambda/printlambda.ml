@@ -587,6 +587,8 @@ let rec lam ppf = function
               match (clas : Lambda.rec_check_classification) with
               | Static -> ""
               | Dynamic -> "[Dyn]"
+              | Constant -> "[Cst]"
+              | Class -> "[Class]"
             in
             fprintf ppf "@[<2>%a%s@ %a@]" Ident.print id clas_annot lam l)
           id_arg_list in

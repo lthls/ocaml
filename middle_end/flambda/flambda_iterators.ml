@@ -79,6 +79,18 @@ let map_rec_binding_sharing f ((v, clas, named) as binding) =
   if named == new_named then
     binding
   else
+    let clas =
+      (* We could be replacing an expression with arbitrary classification
+         by a constant, in which case we need to change the classification.
+         Mode conditions for the [Constant] classification are not stricter
+         than any other classification, so we do not need to re-check the
+         modes. *)
+      match (new_named : Flambda.named) with
+      | Symbol _ | Const _ | Allocated_const _-> Lambda.Constant
+      | Read_mutable _ | Read_symbol_field _ | Set_of_closures _
+      | Project_closure _ | Move_within_set_of_closures _ | Project_var _
+      | Prim _ | Expr _ -> clas
+    in
     (v, clas, new_named)
 
 let map_subexpressions f f_named (tree:Flambda.t) : Flambda.t =
@@ -312,7 +324,23 @@ let map_general ~toplevel f f_named tree =
           let done_something = ref false in
           let defs =
             List.map (fun (id, clas, lam) ->
-                id, clas, aux_named_done_something id lam done_something)
+                let new_named =
+                  aux_named_done_something id lam done_something
+                in
+                (* See comment in [map_rec_binding_sharing] *)
+                let new_clas =
+                  match (new_named : Flambda.named) with
+                  | Symbol _ | Const _ | Allocated_const _->
+                    begin match (clas : Lambda.rec_check_classification) with
+                    | Constant -> ()
+                    | Static | Dynamic | Class -> done_something := true
+                    end;
+                    Lambda.Constant
+                  | Read_mutable _ | Read_symbol_field _ | Set_of_closures _
+                  | Project_closure _ | Move_within_set_of_closures _
+                  | Project_var _ | Prim _ | Expr _ -> clas
+                in
+                id, new_clas, new_named)
               defs
           in
           let body = aux_done_something body done_something in

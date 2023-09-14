@@ -225,8 +225,15 @@ and samebinding (v1, clas1, n1) (v2, clas2, n2) =
   let equal_clas c1 c2 =
     match (c1 : Lambda.rec_check_classification),
           (c2 : Lambda.rec_check_classification) with
-    | Dynamic, Dynamic | Static, Static -> true
-    | Dynamic, Static | Static, Dynamic -> false
+    | Dynamic, Dynamic
+    | Static, Static
+    | Constant, Constant
+    | Class, Class ->
+        true
+    | Dynamic, (Static | Constant | Class)
+    | Static, (Dynamic | Constant | Class)
+    | Constant, (Dynamic | Static | Class)
+    | Class, (Dynamic | Static | Constant) -> false
   in
   Variable.equal v1 v2 && equal_clas clas1 clas2 && same_named n1 n2
 

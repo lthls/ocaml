@@ -266,7 +266,7 @@ type function_kind = Curried | Tupled
 
 type let_kind = Strict | Alias | StrictOpt
 
-type rec_check_classification = Static | Dynamic
+type rec_check_classification = Static | Dynamic | Constant | Class
 
 type meth_kind = Self | Public | Cached
 

@@ -258,7 +258,7 @@ type let_kind = Strict | Alias | StrictOpt
       we can discard e if x does not appear in e'
  *)
 
-type rec_check_classification = Static | Dynamic
+type rec_check_classification = Static | Dynamic | Constant | Class
 
 type meth_kind = Self | Public | Cached
 
