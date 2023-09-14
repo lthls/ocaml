@@ -261,6 +261,8 @@ let rec lam ppf (flam : t) =
                match (clas : Lambda.rec_check_classification) with
                | Static -> ""
                | Dynamic -> "[Dyn]"
+               | Constant -> "[Cst]"
+               | Class -> "[Class]"
              in
              fprintf ppf "@[<2>%a%s@ %a@]"
                Variable.print id clas_annot print_named l)

@@ -312,8 +312,17 @@ let rec size_of_lambda env = function
 
 let size_of_rec_binding clas expr =
   match (clas : Lambda.rec_check_classification) with
-  | Dynamic -> RHS_nonrec
-  | Static -> size_of_lambda Ident.empty expr
+  | Dynamic | Constant -> RHS_nonrec
+  | Class ->
+       (* Actual size is always 4, but [transl_class] only generates
+          explicit allocations when the classes are actually recursive.
+          Computing the size means that we don't go through pre-allocation
+          when the classes are not recursive. *)
+      size_of_lambda Ident.empty expr
+  | Static ->
+      let result = size_of_lambda Ident.empty expr in
+      assert (result <> RHS_nonrec);
+      result
 
 (**** Merging consecutive events ****)
 

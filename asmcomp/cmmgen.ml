@@ -224,8 +224,17 @@ let rec expr_size env = function
 
 let expr_size_of_binding (clas : Lambda.rec_check_classification) expr =
   match clas with
-  | Dynamic -> RHS_nonrec
-  | Static -> expr_size V.empty expr
+  | Dynamic | Constant -> RHS_nonrec
+  | Class ->
+       (* Actual size is always 4, but [transl_class] only generates
+          explicit allocations when the classes are actually recursive.
+          Computing the size means that we don't go through pre-allocation
+          when the classes are not recursive. *)
+      expr_size V.empty expr
+  | Static ->
+      let result = expr_size V.empty expr in
+      assert (result <> RHS_nonrec);
+      result
 
 (* Translate structured constants to Cmm data items *)
 
