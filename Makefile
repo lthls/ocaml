@@ -171,10 +171,12 @@ lambda_SOURCES = $(addprefix lambda/, \
   matching.mli matching.ml \
   value_rec_compiler.mli value_rec_compiler.ml \
   translobj.mli translobj.ml \
+  translobj_simple.mli translobj_simple.ml \
   translattribute.mli translattribute.ml \
   translprim.mli translprim.ml \
   translcore.mli translcore.ml \
   translclass.mli translclass.ml \
+  translclass_simple.mli translclass_simple.ml \
   translmod.mli translmod.ml \
   tmc.mli tmc.ml \
   simplif.mli simplif.ml \

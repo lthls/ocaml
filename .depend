@@ -4064,6 +4064,46 @@ lambda/translclass.cmi : \
     utils/format_doc.cmi \
     lambda/debuginfo.cmi \
     parsing/asttypes.cmi
+lambda/translclass_simple.cmo : \
+    typing/value_rec_types.cmi \
+    typing/types.cmi \
+    typing/typeopt.cmi \
+    typing/typedtree.cmi \
+    lambda/translobj_simple.cmi \
+    lambda/translcore.cmi \
+    utils/misc.cmi \
+    lambda/matching.cmi \
+    parsing/location.cmi \
+    lambda/lambda.cmi \
+    typing/ident.cmi \
+    lambda/debuginfo.cmi \
+    typing/btype.cmi \
+    parsing/asttypes.cmi \
+    lambda/translclass_simple.cmi
+lambda/translclass_simple.cmx : \
+    typing/value_rec_types.cmi \
+    typing/types.cmx \
+    typing/typeopt.cmx \
+    typing/typedtree.cmx \
+    lambda/translobj_simple.cmx \
+    lambda/translcore.cmx \
+    utils/misc.cmx \
+    lambda/matching.cmx \
+    parsing/location.cmx \
+    lambda/lambda.cmx \
+    typing/ident.cmx \
+    lambda/debuginfo.cmx \
+    typing/btype.cmx \
+    parsing/asttypes.cmi \
+    lambda/translclass_simple.cmi
+lambda/translclass_simple.cmi : \
+    typing/value_rec_types.cmi \
+    typing/typedtree.cmi \
+    parsing/location.cmi \
+    lambda/lambda.cmi \
+    typing/ident.cmi \
+    lambda/debuginfo.cmi \
+    parsing/asttypes.cmi
 lambda/translcore.cmo : \
     lambda/value_rec_compiler.cmi \
     typing/types.cmi \
@@ -4071,6 +4111,7 @@ lambda/translcore.cmo : \
     typing/typedtree.cmi \
     typing/typecore.cmi \
     lambda/translprim.cmi \
+    lambda/translobj_simple.cmi \
     lambda/translobj.cmi \
     lambda/translattribute.cmi \
     typing/printtyp.cmi \
@@ -4097,6 +4138,7 @@ lambda/translcore.cmx : \
     typing/typedtree.cmx \
     typing/typecore.cmx \
     lambda/translprim.cmx \
+    lambda/translobj_simple.cmx \
     lambda/translobj.cmx \
     lambda/translattribute.cmx \
     typing/printtyp.cmx \
@@ -4127,12 +4169,15 @@ lambda/translcore.cmi : \
     lambda/debuginfo.cmi \
     parsing/asttypes.cmi
 lambda/translmod.cmo : \
+    typing/value_rec_types.cmi \
     lambda/value_rec_compiler.cmi \
     typing/types.cmi \
     typing/typedtree.cmi \
     lambda/translprim.cmi \
+    lambda/translobj_simple.cmi \
     lambda/translobj.cmi \
     lambda/translcore.cmi \
+    lambda/translclass_simple.cmi \
     lambda/translclass.cmi \
     lambda/translattribute.cmi \
     typing/primitive.cmi \
@@ -4151,12 +4196,15 @@ lambda/translmod.cmo : \
     parsing/asttypes.cmi \
     lambda/translmod.cmi
 lambda/translmod.cmx : \
+    typing/value_rec_types.cmi \
     lambda/value_rec_compiler.cmx \
     typing/types.cmx \
     typing/typedtree.cmx \
     lambda/translprim.cmx \
+    lambda/translobj_simple.cmx \
     lambda/translobj.cmx \
     lambda/translcore.cmx \
+    lambda/translclass_simple.cmx \
     lambda/translclass.cmx \
     lambda/translattribute.cmx \
     typing/primitive.cmx \
@@ -4203,6 +4251,20 @@ lambda/translobj.cmx : \
     parsing/asttypes.cmx \
     lambda/translobj.cmi
 lambda/translobj.cmi : \
+    lambda/lambda.cmi \
+    typing/ident.cmi \
+    typing/env.cmi
+lambda/translobj_simple.cmo : \
+    lambda/lambda.cmi \
+    typing/ident.cmi \
+    typing/btype.cmi \
+    lambda/translobj_simple.cmi
+lambda/translobj_simple.cmx : \
+    lambda/lambda.cmx \
+    typing/ident.cmx \
+    typing/btype.cmx \
+    lambda/translobj_simple.cmi
+lambda/translobj_simple.cmi : \
     lambda/lambda.cmi \
     typing/ident.cmi \
     typing/env.cmi

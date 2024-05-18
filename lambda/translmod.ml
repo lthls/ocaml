@@ -22,10 +22,46 @@ open Path
 open Types
 open Typedtree
 open Lambda
-open Translobj
 open Translcore
-open Translclass
 open Debuginfo.Scoped_location
+
+let simple_objects = Translobj.simple_version
+
+module type Translobj_sig = sig
+  val reset_labels: unit -> unit
+  val transl_label_init: (unit -> lambda * 'a) -> lambda * 'a
+  val transl_store_label_init:
+    Ident.t -> int -> ('a -> lambda) -> 'a -> int * lambda
+  val oo_wrap: Env.t -> bool -> ('a -> lambda) -> 'a -> lambda
+end
+
+module Translobj =
+  (val
+    if simple_objects
+    then (module Translobj_simple : Translobj_sig)
+    else (module Translobj : Translobj_sig)
+  )
+
+module type Translclass_sig = sig
+  val transl_class :
+    scopes:scopes -> Ident.t list -> Ident.t ->
+    string list -> class_expr -> Asttypes.virtual_flag ->
+    lambda * Value_rec_types.recursive_binding_kind
+
+  type error = Tags of string * string
+
+  exception Error of Location.t * error
+end
+
+module Translclass =
+  (val
+    if simple_objects
+    then (module Translclass_simple : Translclass_sig)
+    else (module Translclass : Translclass_sig)
+  )
+
+open Translobj
+open Translclass
 
 type unsafe_component =
   | Unsafe_module_binding

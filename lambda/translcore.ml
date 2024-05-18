@@ -25,6 +25,19 @@ open Typeopt
 open Lambda
 open Debuginfo.Scoped_location
 
+module type Translobj_sig = sig
+  val oo_prim: string -> lambda
+  val meth: lambda -> string -> lambda * lambda list
+  val oo_wrap: Env.t -> bool -> ('a -> lambda) -> 'a -> lambda
+end
+
+module Translobj =
+  (val
+    if Translobj.simple_version
+    then (module Translobj_simple : Translobj_sig)
+    else (module Translobj : Translobj_sig)
+  )
+
 type error =
     Free_super_var
   | Unreachable_reached

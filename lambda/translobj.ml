@@ -202,3 +202,8 @@ let reset () =
   top_env := Env.empty;
   classes := [];
   method_ids := Ident.Set.empty
+
+let simple_version =
+  match Sys.getenv "SIMPLE_OBJECTS" with
+  | "" | "false" | "0" | exception Not_found -> false
+  | _ -> true
