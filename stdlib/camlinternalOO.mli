@@ -26,45 +26,45 @@ type meth
 type t
 type obj
 type closure
-val public_method_label : string -> tag
-val new_method : table -> label
-val new_variable : table -> string -> int
-val new_methods_variables :
+(* 00 *) val public_method_label : string -> tag
+(* 01 *) val new_method : table -> label
+(* 02 *) val new_variable : table -> string -> int
+(* 03 *) val new_methods_variables :
     table -> string array -> string array -> label array
-val get_variable : table -> string -> int
-val get_variables : table -> string array -> int array
-val get_method_label : table -> string -> label
-val get_method_labels : table -> string array -> label array
-val get_method : table -> label -> meth
-val set_method : table -> label -> meth -> unit
-val set_methods : table -> label array -> unit
-val narrow : table -> string array -> string array -> string array -> unit
-val widen : table -> unit
-val add_initializer : table -> (obj -> unit) -> unit
-val dummy_table : table
-val create_table : string array -> table
-val init_class : table -> unit
-val inherits :
+(* 04 *) val get_variable : table -> string -> int
+(* 05 *) val get_variables : table -> string array -> int array
+(* 06 *) val get_method_label : table -> string -> label
+(* 07 *) val get_method_labels : table -> string array -> label array
+(* 08 *) val get_method : table -> label -> meth
+(* 09 *) val set_method : table -> label -> meth -> unit
+(* 10 *) val set_methods : table -> label array -> unit
+(* 11 *) val narrow : table -> string array -> string array -> string array -> unit
+(* 12 *) val widen : table -> unit
+(* 13 *) val add_initializer : table -> (obj -> unit) -> unit
+(* 14 *) val dummy_table : table
+(* 15 *) val create_table : string array -> table
+(* 16 *) val init_class : table -> unit
+(* 17 *) val inherits :
     table -> string array -> string array -> string array ->
     (t * (table -> obj -> Obj.t) * obj) -> bool -> Obj.t array
-val make_class :
+(* 18 *) val make_class :
     string array -> (table -> Obj.t -> t) ->
     (t * (table -> Obj.t -> t) * Obj.t)
 type init_table
-val make_class_store :
+(* 19 *) val make_class_store :
     string array -> (table -> t) -> init_table -> unit
-val dummy_class :
+(* 20 *) val dummy_class :
     string * int * int ->
     (t * (table -> Obj.t -> t) * Obj.t)
 
 (** {1 Objects} *)
 
-val copy : (< .. > as 'a) -> 'a
-val create_object : table -> obj
-val create_object_opt : obj -> table -> obj
-val run_initializers : obj -> table -> unit
-val run_initializers_opt : obj -> obj -> table -> obj
-val create_object_and_run_initializers : obj -> table -> obj
+(* 21 *) val copy : (< .. > as 'a) -> 'a
+(* 22 *) val create_object : table -> obj
+(* 23 *) val create_object_opt : obj -> table -> obj
+(* 24 *) val run_initializers : obj -> table -> unit
+(* 25 *) val run_initializers_opt : obj -> obj -> table -> obj
+(* 26 *) val create_object_and_run_initializers : obj -> table -> obj
 external send : obj -> tag -> t = "%send"
 external sendcache : obj -> tag -> t -> int -> t = "%sendcache"
 external sendself : obj -> label -> t = "%sendself"
@@ -74,7 +74,7 @@ external get_public_method : obj -> tag -> closure
 (** {1 Table cache} *)
 
 type tables
-val lookup_tables : tables -> closure array -> tables
+(* 27 *) val lookup_tables : tables -> closure array -> tables
 
 (** {1 Builtins to reduce code size} *)
 
@@ -142,7 +142,7 @@ type params =
     mutable retry_count : int;
     mutable bucket_small_size : int }
 
-val params : params
+(* 28 *) val params : params
 
 (** {1 Statistics} *)
 
@@ -150,4 +150,4 @@ type stats =
   { classes : int;
     methods : int;
     inst_vars : int }
-val stats : unit -> stats
+(* 29 *) val stats : unit -> stats

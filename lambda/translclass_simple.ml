@@ -1,3 +1,90 @@
+(*
+   # Translation of class and object expressions
+
+   ## Objects
+
+   ### Memory layout
+
+   Objects are represented in memory using two layers:
+   - The outer layer is a block with tag [Obj.object_tag].
+     It has a first field pointing to the inner layer (the methods),
+     a second field acting as a unique identifier to allow
+     polymorphic comparison, and the rest of the block contains
+     the values of the instance variables, class parameters, and
+     other values that can vary between two objects of the same class.
+   - The inner layer is a regular block (with tag zero). It contains
+     all values that are shared between all objects of the same classes,
+     which means mostly methods. The first field corresponds to the number of
+     public methods, the second field is a mask used for optimising method
+     access (not relevant for this file), the following fields are
+     alternating between the methods themselves and the hash of their name
+     (sorted in increasing hash order). Additional fields are used for
+     private methods (and other values, but irrelevant for this file).
+
+   ### Primitives
+
+   Method access is compiled in one of three possible ways:
+   - Generic method access (outside a class, or to an object that is not
+     self or an ancestor) uses dynamic lookup. A dichotomic search in
+     the part of the method array that stores public methods finds
+     the expected method and calls it on the current object.
+   - Method access through the self object inside a class:
+     the (runtime) position of the method inside the inner layer block
+     has been computed at class creation time, so the method is fetched
+     from the block through a dynamic block load (like an array load)
+   - Accessing the method of an ancestor inside a class (ancestors are
+     variables bound by [inherits ... as ancestor] constructions):
+     at class creation time, the ancestor method is bound to a variable,
+     and the method call just calls this function without any (further)
+     dynamic lookup.
+
+   Instance variable access (getting and setting) also computes offsets
+   at class initialisation time, with those offsets used to index directly
+   in the outer layer of the object.
+
+   There are no other object primitives (objects cannot be allocated
+   in the IR directly, they are allocated in [CamlinternalOO])
+
+   ## Classes
+
+   Classes are stored as module fields. The runtime value that represents
+   classes is used in two contexts:
+
+   - When using the [new] construction, to generate an object from a class.
+   - When referencing a class inside another class (either through
+     inheritance or other class expressions).
+
+   This is done by storing classes as blocks where the first field
+   is used to generate objects, and the second field is used to derive
+   classes (in a general sense, not only for inheritance).
+   In practice classes also contain one other field, which is used to
+   implement some optimisations in the main compiler (to ensure that each
+   class only runs its initialisation code once in the whole program, even
+   if its definition is in a context that is expected to be run several
+   times like a functor). This file does not implement or document this
+   optimisation, but uses a compatible layout to allow mixing code compiled
+   by both backends.
+   So the block layout is the following:
+   - A field named [obj_init] that is used for creating objects
+   - A field named [class_init] that is used for deriving classes
+   - A field named [env] containing values for all the variables
+     captured by [Translobj.oo_wrap] calls (unused in this implementation).
+
+   As described earlier, each object contains an inner layer that is computed
+   only once at class initialisation time; it seems natural to store this
+   block in the runtime value of the class. However, given that creating an
+   object also involves setting up the instance variables and running the
+   initialisers, in practice the class only exports a function that creates
+   objects, and the block is captured in this function's closure.
+   Classes can have parameters, and like normal functions they can be
+   partially applied or overapplied if the type system allows it.
+   So in practice this object creation function takes a first unit parameter
+   (to ensure that it is always a function) and returns a regular OCaml value
+   that is either an object (if the class doesn't have parameters) or
+   a function which, given values for the class parameters, will return
+   an object.
+*)
+
 open Typedtree
 open Lambda
 
