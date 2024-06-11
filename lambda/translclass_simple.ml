@@ -33,7 +33,7 @@
      has been computed at class creation time, so the method is fetched
      from the block through a dynamic block load (like an array load)
    - Accessing the method of an ancestor inside a class (ancestors are
-     variables bound by [inherits ... as ancestor] constructions):
+     variables bound by [inherit ... as ancestor] constructions):
      at class creation time, the ancestor method is bound to a variable,
      and the method call just calls this function without any (further)
      dynamic lookup.
@@ -70,19 +70,96 @@
    - A field named [env] containing values for all the variables
      captured by [Translobj.oo_wrap] calls (unused in this implementation).
 
+   The module [CamlinternalOO] also defines a type [table] that represents
+   class layouts. Such values are not stored in the class block directly,
+   but the [obj_init] field captures the table for the class and [class_init]
+   manipulates such tables.
+
+   ### The [obj_init] field
+
    As described earlier, each object contains an inner layer that is computed
    only once at class initialisation time; it seems natural to store this
-   block in the runtime value of the class. However, given that creating an
+   block in the runtime value of the class (this block is one of the fields of
+   the [CamlinternalOO.table] type). However, given that creating an
    object also involves setting up the instance variables and running the
    initialisers, in practice the class only exports a function that creates
-   objects, and the block is captured in this function's closure.
-   Classes can have parameters, and like normal functions they can be
-   partially applied or overapplied if the type system allows it.
-   So in practice this object creation function takes a first unit parameter
-   (to ensure that it is always a function) and returns a regular OCaml value
-   that is either an object (if the class doesn't have parameters) or
-   a function which, given values for the class parameters, will return
-   an object.
+   objects, and the table is captured in this function's closure along with
+   any value necessary to properly initialise the object.
+   Classes can have parameters, so in practice this object creation function
+   takes a first unit parameter (to ensure that it is always a function)
+   and returns a regular OCaml value that is either an object (if the class
+   doesn't have parameters) or a function which, given values
+   for the class parameters, will return an object.
+
+   Here is the type of the [obj_init] function for a class which type is
+   [p1 -> ... -> pn -> object method m1 : t1 ... method mn : tn end]:
+   [unit -> p1 -> ... -> pn -> < m1 : t1; ... mn : tn >]
+   (If the class has instance variables or initialisers, they are not
+   reflected in the type of [obj_init]).
+
+   ### The [class_init] field
+
+   This field is used in two cases:
+   - When a class is defined in terms of another class, for instance as an
+     alias, a partial application, or some other kind of wrapper.
+   - When a class structure (i.e. the [object ... end] syntactic construction)
+     contains inheritance fields (e.g. [inherit cl as super]).
+
+   In both cases, we only have access to the other class' public type at
+   compile time, but we must still make sure all of the private fields
+   are setup correctly, in a way that is compatible with the current
+   class.
+
+   This is where tables come into play: the [class_init] field is a function
+   taking a table as parameter, updates it in-place, and returns a function
+   that is very similar to the [obj_init] function, except that instead of
+   taking [unit] as its first parameter and returning an object, it takes
+   a partially initialised object, and updates the parts of it that are
+   relevant for the corresponding class.
+
+   So the type of [class_init] is:
+   [table -> env -> Obj.t -> p1 -> ... -> pn -> unit]
+   The [env] parameter can be ignored for now; it is always of type [unit]
+   in this version of the algorithm. The full algorithm uses it to allow
+   separating variable and invariant parts of the class initialisation code,
+   making class construction cheaper under functors. By keeping this parameter,
+   we allow classes compiled with this algorithm and the full one to be
+   compatible, making it possible to link together files compiled with
+   different versions of the algorithm.
+
+   ### Compilation scheme
+
+   The algorithm implemented below aims at sharing code as much as possible
+   between the various similar parts of the class.
+
+   - The code of the [obj_init] function is very similar to the code of
+     the function returned by [class_init]. The main difference is that
+     [obj_init] starts from scratch, allocating then initialising the object,
+     while inside [class_init] we want to run initialisation code on an already
+     allocated object (that we don't need to return).
+     So in practice we will build a single function that, depending on the value
+     of its first parameter, will either do the allocation and return the object
+     (if the parameter is the integer constant 0), or assume the parameter is
+     an already allocated and update it.
+     The body of this function is the [obj_init] field of the record returned by
+     [build_class_init].
+   - The table for the current class (that [obj_init] will read from) is
+     computed by allocating a basic table, then passing it to [class_init],
+     and finally calling [CamlinternalOO.init_class] on it.
+     This means that all the code for setting up the class (computing instance
+     variable indices, calling inherited class initialisers, and so on) is only
+     generated once, in the [class_init] function.
+     Due to the order in which we traverse the class expression,
+     [build_class_init] returns in its [class_init] field a wrapper to put
+     around the [obj_init] function instead of returning the full expression
+     directly. This differs from the original algorithm, which first builds
+     [obj_init] and then builds [class_init] on top of it, but has the advantage
+     of requiring only one traversal of the class expression and making it
+     easier to synchronize the two pieces of code.
+
+   That's all for the high-level algorithm; the rest will be detailed close to
+   the corresponding code.
+
 *)
 
 open Typedtree
@@ -115,13 +192,6 @@ let transl_meth_list lst =
 let set_inst_var ~scopes self_id inst_var_id expr =
   Lprim(Psetfield_computed (Typeopt.maybe_pointer expr, Assignment),
     [Lvar self_id; Lvar inst_var_id; Translcore.transl_exp ~scopes expr], Loc_unknown)
-
-(* let rec place_toplevel_lets ~scopes cl lam = *)
-(*   match cl.cl_desc with *)
-(*     Tcl_let (rec_flag, defs, _vals, cl') -> *)
-(*       let lam = place_toplevel_lets ~scopes cl' lam in *)
-(*       Translcore.transl_let ~scopes rec_flag defs lam *)
-(*   | _ -> lam *)
 
 let transl_val tbl create name =
   mkappl (oo_prim (if create then "new_variable" else "get_variable"),
@@ -238,7 +308,7 @@ let rec build_class_init ~scopes cl_table must_constrain super free_ids_with_def
           Lprim(Pfield (1, Pointer, Mutable), [path_lam], Loc_unknown)
         in
         let env_expr =
-          Lprim(Pfield (3, Pointer, Mutable), [path_lam], Loc_unknown)
+          Lprim(Pfield (2, Pointer, Mutable), [path_lam], Loc_unknown)
         in
         Llet (Strict, Pgenval, obj_init_id,
               (* Load the [class_init] field of the class,
@@ -419,6 +489,17 @@ let rec build_class_init ~scopes cl_table must_constrain super free_ids_with_def
 
 let transl_class ~scopes rec_ids cl_id pub_meths cl vflag =
   let scopes = Debuginfo.Scoped_location.enter_class_definition ~scopes cl_id in
+  (* The manual specifies that toplevel lets *must* be evaluated outside of the class *)
+  let rec extract_toplevel_lets wrapper cl =
+    match cl.cl_desc with
+    | Tcl_let (rec_flag, defs, _vals, cl) ->
+        extract_toplevel_lets
+          (fun lam -> wrapper (Translcore.transl_let ~scopes rec_flag defs lam))
+          cl
+    | Tcl_open (_, cl) -> extract_toplevel_lets wrapper cl
+    | _ -> wrapper, cl
+  in
+  let place_toplevel_lets, cl = extract_toplevel_lets (fun lam -> lam) cl in
   (* Sort methods by hash *)
   let pub_meths =
     List.sort
@@ -469,7 +550,6 @@ let transl_class ~scopes rec_ids cl_id pub_meths cl vflag =
         Lprim(Pmakeblock(0, Immutable, None),
               [lambda_unit (* dummy *);
                class_init_func;
-               lambda_unit (* dummy *);
                lambda_unit],
               Loc_unknown),
         Value_rec_types.Static
@@ -501,17 +581,18 @@ let transl_class ~scopes rec_ids cl_id pub_meths cl vflag =
         in
         let class_block =
           Lprim(Pmakeblock(0, Immutable, None),
-                [mkappl (Lvar env_init_id, [lambda_unit]);
+                [mkappl (Lvar class_init_id, [lambda_unit]);
                  Lvar class_init_id;
-                 Lvar env_init_id;
                  lambda_unit],
                 Loc_unknown)
         in
         bind_table_id (bind_env_init_id (call_init_class class_block)),
         Value_rec_types.Static
   in
-  Llet(Strict, Pgenval, class_init_id, class_init_func, class_allocation),
-  rec_kind
+  let class_expr =
+    Llet(Strict, Pgenval, class_init_id, class_init_func, class_allocation)
+  in
+  place_toplevel_lets class_expr, rec_kind
 
 let () =
   if Translobj.simple_version then
@@ -523,7 +604,7 @@ let () =
          in
          mkappl (obj_init_expr, [lambda_unit]))
 
-open Format
+open Format_doc
 module Style = Misc.Style
 
 let report_error ppf = function

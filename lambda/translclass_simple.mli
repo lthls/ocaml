@@ -11,6 +11,6 @@ type error = Tags of string * string
 
 exception Error of Location.t * error
 
-open Format
+open Format_doc
 
 val report_error: formatter -> error -> unit
