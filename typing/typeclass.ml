@@ -581,7 +581,7 @@ let rec class_field_first_pass self_loc cl_num sign self_scope acc cf =
       with_attrs
         (fun () ->
            let parent =
-             class_expr cl_num val_env par_env
+             class_expr ~at_class_toplevel:false cl_num val_env par_env
                Virtual self_scope sparent
            in
            complete_class_type parent.cl_loc
@@ -1056,11 +1056,11 @@ and class_structure cl_num virt self_scope final val_env met_env loc
     cstr_type = sign;
     cstr_meths = meths; }
 
-and class_expr cl_num val_env met_env virt self_scope scl =
+and class_expr ~at_class_toplevel cl_num val_env met_env virt self_scope scl =
   Builtin_attributes.warning_scope scl.pcl_attributes
-    (fun () -> class_expr_aux cl_num val_env met_env virt self_scope scl)
+    (fun () -> class_expr_aux ~at_class_toplevel cl_num val_env met_env virt self_scope scl)
 
-and class_expr_aux cl_num val_env met_env virt self_scope scl =
+and class_expr_aux ~at_class_toplevel cl_num val_env met_env virt self_scope scl =
   match scl.pcl_desc with
   | Pcl_constr (lid, styl) ->
       let (path, decl) = Env.lookup_class ~loc:scl.pcl_loc lid.txt val_env in
@@ -1145,7 +1145,7 @@ and class_expr_aux cl_num val_env met_env virt self_scope scl =
           (* Note: we don't put the '#default' attribute, as it
              is not detected for class-level let bindings.  See #5975.*)
       in
-      class_expr cl_num val_env met_env virt self_scope sfun
+      class_expr ~at_class_toplevel:false cl_num val_env met_env virt self_scope sfun
   | Pcl_fun (l, None, spat, scl') ->
       let (pat, pv, val_env', met_env) =
         Ctype.with_local_level_generalize_structure_if_principal
@@ -1180,7 +1180,7 @@ and class_expr_aux cl_num val_env met_env virt self_scope scl =
       in
       let cl =
         Ctype.with_raised_nongen_level
-          (fun () -> class_expr cl_num val_env' met_env virt self_scope scl') in
+          (fun () -> class_expr ~at_class_toplevel:false cl_num val_env' met_env virt self_scope scl') in
       if Btype.is_optional l && not_nolabel_function cl.cl_type then
         Location.prerr_warning pat.pat_loc
           Warnings.Unerasable_optional_argument;
@@ -1195,7 +1195,7 @@ and class_expr_aux cl_num val_env met_env virt self_scope scl =
       assert (sargs <> []);
       let cl =
         Ctype.with_local_level_generalize_structure_if_principal
-          (fun () -> class_expr cl_num val_env met_env virt self_scope scl')
+          (fun () -> class_expr ~at_class_toplevel:false cl_num val_env met_env virt self_scope scl')
       in
       let rec nonopt_labels ls ty_fun =
         match ty_fun with
@@ -1300,6 +1300,8 @@ and class_expr_aux cl_num val_env met_env virt self_scope scl =
       let (defs, val_env) =
         Typecore.type_let In_class_def val_env rec_flag sdefs in
       let (vals, met_env) =
+        if at_class_toplevel then [], val_env
+        else
         List.fold_right
           (fun (id, _id_loc, _typ, _uid) (vals, met_env) ->
              let path = Pident id in
@@ -1333,7 +1335,7 @@ and class_expr_aux cl_num val_env met_env virt self_scope scl =
           (let_bound_idents_full defs)
           ([], met_env)
       in
-      let cl = class_expr cl_num val_env met_env virt self_scope scl' in
+      let cl = class_expr ~at_class_toplevel cl_num val_env met_env virt self_scope scl' in
       let defs = match rec_flag with
         | Recursive -> annotate_recursive_bindings val_env defs
         | Nonrecursive -> defs
@@ -1349,7 +1351,7 @@ and class_expr_aux cl_num val_env met_env virt self_scope scl =
         Ctype.with_local_level_for_class begin fun () ->
           let cl =
             Typetexp.TyVarEnv.with_local_scope begin fun () ->
-              let cl = class_expr cl_num val_env met_env virt self_scope scl' in
+              let cl = class_expr ~at_class_toplevel:false cl_num val_env met_env virt self_scope scl' in
               complete_class_type cl.cl_loc val_env virt Class_type cl.cl_type;
               cl
             end
@@ -1391,8 +1393,11 @@ and class_expr_aux cl_num val_env met_env virt self_scope scl =
   | Pcl_open (pod, e) ->
       let used_slot = ref false in
       let (od, new_val_env) = !type_open_descr ~used_slot val_env pod in
-      let ( _, new_met_env) = !type_open_descr ~used_slot met_env pod in
-      let cl = class_expr cl_num new_val_env new_met_env virt self_scope e in
+      let new_met_env =
+        if at_class_toplevel then new_val_env
+        else snd (!type_open_descr ~used_slot met_env pod)
+      in
+      let cl = class_expr ~at_class_toplevel cl_num new_val_env new_met_env virt self_scope e in
       rc {cl_desc = Tcl_open (od, cl);
           cl_loc = scl.pcl_loc;
           cl_type = cl.cl_type;
@@ -1866,7 +1871,7 @@ let class_declaration env virt sexpr =
   incr class_num;
   let self_scope = Ctype.get_current_level () in
   let expr =
-    class_expr (Int.to_string !class_num) env env virt self_scope sexpr
+    class_expr ~at_class_toplevel:true (Int.to_string !class_num) env env virt self_scope sexpr
   in
   complete_class_type expr.cl_loc env virt Class expr.cl_type;
   (expr, expr.cl_type)

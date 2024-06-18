@@ -203,21 +203,40 @@ let transl_vals tbl create strict vals rem =
       Llet(strict, Pgenval, id, transl_val tbl create name, rem))
     vals rem
 
+type inheritance_status =
+  | Normal (** Not under an [inherit] construct *)
+  | Inheriting of {
+      must_narrow : bool;
+      (** [false] if we already went through a call to [narrow] *)
+      method_getters : (Ident.t * lambda) list;
+      (** Ancestor methods are accessed through identifiers.
+          These identifiers are bound at class initialisation time,
+          by fetching the actual closures from the table just
+          after setting up the inherited class. *)
+      instance_vars : (string * Ident.t) list;
+      (** Inherited instance variables need to have their index bound
+          in the scope of the child class *)
+    }
+
 let meths_super tbl meths inh_meths =
   List.fold_right
     (fun (nm, id) rem ->
        try
-         (nm, id,
-          mkappl(oo_prim "get_method", [Lvar tbl; Lvar (Types.Meths.find nm meths)]))
+         (id,
+          mkappl(oo_prim "get_method",
+                 [Lvar tbl; Lvar (Types.Meths.find nm meths)]))
          :: rem
-       with Not_found -> rem)
+       with Not_found -> assert false)
     inh_meths []
 
-let bind_super tbl (vals, meths) cl_init =
-  transl_vals tbl false StrictOpt vals
-    (List.fold_right (fun (_nm, id, def) rem ->
-         Llet(StrictOpt, Pgenval, id, def, rem))
-       meths cl_init)
+let bind_super tbl super_opt cl_init =
+  match super_opt with
+  | Normal -> cl_init
+  | Inheriting { must_narrow = _; method_getters; instance_vars } ->
+    transl_vals tbl false StrictOpt instance_vars
+      (List.fold_right (fun (id, def) rem ->
+           Llet(StrictOpt, Pgenval, id, def, rem))
+         method_getters cl_init)
 
 let bind_methods tbl meths vals body =
   let methl = Types.Meths.fold (fun lab id tl -> (lab,id) :: tl) meths [] in
@@ -234,18 +253,16 @@ let bind_methods tbl meths vals body =
                                            lfield ids !i, lam))
          (methl @ vals) body)
 
-let output_methods tbl methods lam =
-  match methods with
-    [] -> lam
-  | [lab; code] ->
-      Lsequence (mkappl(oo_prim "set_method", [Lvar tbl; lab; code]), lam)
-  | _ ->
-      Lsequence (mkappl(oo_prim "set_methods",
-                        [Lvar tbl; Lprim(Pmakeblock(0,Immutable,None),
-                                         methods, Loc_unknown)]),
-                 lam)
+let output_method tbl lab code lam =
+  Lsequence (mkappl(oo_prim "set_method", [Lvar tbl; lab; code]), lam)
 
 let bind_id_as_val (id, _) = ("", id)
+
+let name_pattern default p =
+  match p.pat_desc with
+  | Tpat_var (id, _, _) -> id
+  | Tpat_alias(_, id, _, _) -> id
+  | _ -> Ident.create_local default
 
 (* [build_class_init] returns two values:
    - [obj_init] is an expression that creates and initialises new objects.
@@ -266,36 +283,27 @@ type build_class_init_result =
     class_init : lambda -> lambda
   }
 
-let create_object cl_table_id self_id init =
-  let allocated_self_id = Ident.create_local "self" in
-  let { obj_init; class_init } = init allocated_self_id in
-  { class_init;
-    obj_init =
-      Llet(Strict, Pgenval, allocated_self_id,
-           mkappl (oo_prim "create_object_opt", [Lvar self_id; Lvar cl_table_id]),
-           (* [obj_init] has type unit since [allocated_self_id] will always
-              be an allocated object *)
-           Lsequence
-             (obj_init,
-              (* [run_initializers_opt] only runs initializers if the first
-                 parameter (the original [self_id]) was not already allocated.
-                 This ensures that initializers are run exactly once for each
-                 object.
-                 If it does run the initializers, it returns the object.
-                 Otherwise, it should return unit (the current implementation
-                 returns the object too, but the invariants around [obj_init]
-                 ensure that it is never used). *)
-              mkappl (oo_prim "run_initializers_opt",
-                      [Lvar self_id; Lvar allocated_self_id; Lvar cl_table_id])))
-  }
-
-let name_pattern default p =
-  match p.pat_desc with
-  | Tpat_var (id, _, _) -> id
-  | Tpat_alias(_, id, _, _) -> id
-  | _ -> Ident.create_local default
-
-let rec build_class_init ~scopes cl_table must_constrain super free_ids_with_defs self_id cl =
+(** Build the class and object initialisation code.
+    Parameters:
+    - [scopes] corresponds to the location scopes (as in the rest of the translation code)
+    - [cl_table] is the variable to which the table for the current class is bound
+    - [must_narrow] is [false] when called from outside, but [true] when called
+      from an [inherit] field. Narrowing is necessary during inheritance to prevent
+      clashes between methods/variables in the child class and private methods/variables
+      in the parent.
+    - [super] stores, if we're building an inherited class, the variables and methods
+      exposed to the child. The variables need to have their associated index exposed,
+      and methods have to be bound in case the child refers to them through the ancestor
+      variables.
+    - [free_ids_with_defs] stores the anonymous instance variables associated with all variables
+      that occur inside the class definition but outside the [object ... end] structure:
+      class parameters and class let bindings. The definition is always the identifier
+      corresponding to the original variable.
+    - [self_id] is the parameter of the [obj_init] function we want to create. As explained
+      above at runtime it might point to either an already allocated object, when inheriting,
+      or a dummy zero value, when calling [new].
+    - [cl] is the class we're compiling *)
+let rec build_class_init ~scopes cl_table super free_ids_with_defs self_id cl =
   match cl.cl_desc with
   | Tcl_ident (path, _, _) ->
       (* The object initialiser for the class in [path], specialised
@@ -315,108 +323,164 @@ let rec build_class_init ~scopes cl_table must_constrain super free_ids_with_def
                  and apply it to our current table and the class' environment.
                  This gets us the object initialiser. *)
               mkappl(class_init_expr, [Lvar cl_table; env_expr]),
-              (* Bind the method and instance variable indices *)
+              (* The methods and variables for this class are fully registered
+                 in the table. If we are in an inheritance context, we can now
+                 bind everything. *)
               bind_super cl_table super body)
       in
       (* The object initialiser is passed the current object and will
          either allocate it or update it in place, as appropriate. *)
       let obj_init = mkappl(Lvar obj_init_id, [Lvar self_id]) in
+      (* Note: we don't need to bind [free_ids_with_defs] here, as they are
+         only used in structures. Outside structures (in class lets or
+         applications) we use the regular identifiers. *)
       { obj_init; class_init }
   | Tcl_structure str ->
-      create_object cl_table self_id (fun allocated_self_id ->
-          let init_acc =
-            { obj_init = Lvar allocated_self_id;
-              class_init = Fun.id
-            },
-            [],
-            []
-          in
-          let { obj_init; class_init }, unset_methods, instance_variables =
-            List.fold_right
-              (fun field ({ obj_init; class_init }, unset_methods, instance_variables) ->
-                 match field.cf_desc with
-                 | Tcf_inherit (_, cl, _, vals, meths) ->
-                     let { obj_init = obj_init_inh; class_init = class_init_inh } =
-                       let super =
-                         (vals, meths_super cl_table str.cstr_meths meths)
-                       in
-                       build_class_init ~scopes cl_table true super [] allocated_self_id cl
-                     in
-                     let obj_init =
-                       Lsequence (obj_init_inh, obj_init)
-                     in
-                     let class_init body =
-                       class_init_inh
-                         (output_methods cl_table unset_methods
-                            (class_init body))
-                     in
-                     { obj_init; class_init }, [], instance_variables
-                 | Tcf_val (name, _, id, def, over) ->
-                     let obj_init =
-                       match def with
-                       | Tcfk_concrete (_, exp) ->
-                           Lsequence (set_inst_var ~scopes allocated_self_id id exp,
-                                      obj_init)
-                       | _ -> obj_init
-                     in
-                     let instance_variables =
-                       if over
-                       then instance_variables
-                       else (name.txt, id) :: instance_variables
-                     in
-                     { obj_init; class_init }, unset_methods, instance_variables
-                 | Tcf_method (_, _, Tcfk_virtual _) ->
-                     { obj_init; class_init }, unset_methods, instance_variables
-                 | Tcf_method (name, _, Tcfk_concrete (_, exp)) ->
-                     let scopes = Debuginfo.Scoped_location.enter_method_definition ~scopes name.txt in
-                     let met_code = Translcore.transl_scoped_exp ~scopes exp in
-                     let met_code =
-                       (* Force correct naming of method for profiles *)
-                       let met = Ident.create_local ("method_" ^ name.txt) in
-                       Llet(Strict, Pgenval, met, met_code, Lvar met)
-                     in
-                     let unset_methods =
-                       Lvar(Types.Meths.find name.txt str.cstr_meths)
-                       :: met_code
-                       :: unset_methods
-                     in
-                     { obj_init; class_init }, unset_methods, instance_variables
-                 | Tcf_constraint _ | Tcf_attribute _ ->
-                     { obj_init; class_init }, unset_methods, instance_variables
-                 | Tcf_initializer exp ->
-                     let class_init body =
-                       Lsequence
-                         (mkappl (oo_prim "add_initializer",
-                                  [Lvar cl_table; Translcore.transl_exp ~scopes exp]),
-                          body)
-                     in
-                     { obj_init; class_init }, unset_methods, instance_variables
-              ) str.cstr_fields init_acc
-          in
-          (* Lifused optimisation *)
-          let obj_init =
-            List.fold_right
-              (fun (id, expr) obj_init ->
-                 begin match expr.exp_desc with
-                 | Texp_ident _ -> ()
-                 | _ -> Misc.fatal_error "effectful expression in binding for free variable"
-                 end;
-                 Lsequence (Lifused (id, set_inst_var ~scopes allocated_self_id id expr),
-                            obj_init))
-              free_ids_with_defs obj_init
-          in
-          let class_init body =
-            bind_methods cl_table str.cstr_meths instance_variables
-              (output_methods cl_table unset_methods
-                 (class_init body))
-          in
-          { obj_init; class_init }
-        )
-  | Tcl_fun (_, pat, vals, cl, partial) ->
-      let { obj_init; class_init } =
-        build_class_init ~scopes cl_table must_constrain super (vals @ free_ids_with_defs) self_id cl
+      (* Initialising a concrete class structure *)
+      (* [allocated_self_id] will be bound to the allocated object,
+         unlike [self_id] which might be zero if called directly from
+         an object creation expression. *)
+      let allocated_self_id = Ident.create_local "self" in
+      let init_acc =
+        (* The empty class simply returns the allocated object, with no
+           extra wrapper needed. *)
+        { obj_init = Lvar allocated_self_id;
+          class_init = Fun.id
+        },
+        []
+      in
+      let { obj_init; class_init }, instance_variables =
+        List.fold_right
+          (fun field ({ obj_init; class_init }, instance_variables) ->
+             match field.cf_desc with
+             | Tcf_inherit (_, cl, _, vals, meths) ->
+               let { obj_init = obj_init_inh; class_init = class_init_inh } =
+                 (* Build the initialisation code for the inherited class,
+                    plus its wrappers.
+                    Make sure the wrappers bind the inherited methods
+                    and variables. *)
+                 let super =
+                   Inheriting {
+                     must_narrow = true;
+                     method_getters = meths_super cl_table str.cstr_meths meths;
+                     instance_vars = vals
+                   }
+                 in
+                 (* Reset [free_ids_with_defs]. The current ones will be bound
+                    outside the structure. *)
+                 build_class_init ~scopes cl_table super [] allocated_self_id cl
+               in
+               let obj_init =
+                 (* Since [allocated_self_id] is bound to a concrete object,
+                    only the side-effects of [obj_init_inh] are relevant. *)
+                 Lsequence (obj_init_inh, obj_init)
+               in
+               let class_init body =
+                 class_init_inh (class_init body)
+               in
+               (* Note: instance variables inherited from the class are bound by
+                  [bind_super] in [class_init_inh] *)
+               { obj_init; class_init }, instance_variables
+             | Tcf_val (name, _, id, def, over) ->
+                 let obj_init =
+                   match def with
+                   | Tcfk_concrete (_, exp) ->
+                       Lsequence (set_inst_var ~scopes allocated_self_id id exp,
+                                  obj_init)
+                   | _ -> obj_init
+                 in
+                 let instance_variables =
+                   (* If this is an override, the variable is the same as
+                      the one from the earlier definition, and must not be
+                      bound again. *)
+                   if over
+                   then instance_variables
+                   else (name.txt, id) :: instance_variables
+                 in
+                 { obj_init; class_init }, instance_variables
+             | Tcf_method (_, _, Tcfk_virtual _) ->
+                 { obj_init; class_init }, instance_variables
+             | Tcf_method (name, _, Tcfk_concrete (_, exp)) ->
+                 let scopes = Debuginfo.Scoped_location.enter_method_definition ~scopes name.txt in
+                 let met_code = Translcore.transl_scoped_exp ~scopes exp in
+                 let met_code =
+                   (* Force correct naming of method for profiles *)
+                   let met = Ident.create_local ("method_" ^ name.txt) in
+                   Llet(Strict, Pgenval, met, met_code, Lvar met)
+                 in
+                 let class_init body =
+                   output_method cl_table
+                     (Lvar(Types.Meths.find name.txt str.cstr_meths))
+                     met_code
+                     (class_init body)
+                 in
+                 { obj_init; class_init }, instance_variables
+             | Tcf_constraint _ | Tcf_attribute _ ->
+                 { obj_init; class_init }, instance_variables
+             | Tcf_initializer exp ->
+                 let class_init body =
+                   Lsequence
+                     (mkappl (oo_prim "add_initializer",
+                              [Lvar cl_table; Translcore.transl_exp ~scopes exp]),
+                      body)
+                 in
+                 { obj_init; class_init }, instance_variables
+          ) str.cstr_fields init_acc
+      in
+      (* Set the instance variables associated to the class parameters and
+         let bindings to their expected value. *)
+      let obj_init =
+        List.fold_right
+          (fun (id, expr) obj_init ->
+             begin match expr.exp_desc with
+             | Texp_ident _ -> ()
+             | _ -> Misc.fatal_error "effectful expression in binding for free variable"
+             end;
+             (* Note on Lifused: the instance variable index bound to [id] is
+                only used inside methods and initializers. So any occurrences
+                of [id] must be in the class initialization part, and [obj_init]
+                itself will never use it directly. This is why the
+                simplification of Lifused only looks for uses above the
+                expression, and not after. *)
+             Lsequence (Lifused (id, set_inst_var ~scopes allocated_self_id id expr),
+                        obj_init))
+          free_ids_with_defs obj_init
       in
       let obj_init =
+        Llet(Strict, Pgenval, allocated_self_id,
+             mkappl (oo_prim "create_object_opt", [Lvar self_id; Lvar cl_table]),
+             (* [obj_init] has type unit since [allocated_self_id] will always
+                be an allocated object *)
+             Lsequence
+               (obj_init,
+                (* [run_initializers_opt] only runs initializers if the first
+                   parameter (the original [self_id]) was not already allocated.
+                   This ensures that initializers are run exactly once for each
+                   object.
+                   If it does run the initializers, it returns the object.
+                   Otherwise, it should return unit (the current implementation
+                   returns the object too, but the invariants around [obj_init]
+                   ensure that it is never used). *)
+                mkappl (oo_prim "run_initializers_opt",
+                        [Lvar self_id; Lvar allocated_self_id; Lvar cl_table])))
+      in
+      let class_init body =
+        (* In order of execution at runtime:
+           - Bind the method and variable indices for the current class
+           - Run the code for setting up the individual fields
+           - If we are in an inheritance context, bind the inherited variables
+             and methods for use in the child *)
+        bind_methods cl_table str.cstr_meths instance_variables
+          (class_init (bind_super cl_table super body))
+      in
+      { obj_init; class_init }
+  | Tcl_fun (_, pat, vals, cl, partial) ->
+      let { obj_init; class_init } =
+        (* [vals] maps all pattern variables to idents for use inside methods *)
+        build_class_init ~scopes cl_table super (vals @ free_ids_with_defs) self_id cl
+      in
+      let obj_init =
+        (* Build a function *)
         let build params body =
           let param = name_pattern "param" pat in
           Lambda.lfunction
@@ -431,41 +495,55 @@ let rec build_class_init ~scopes cl_table must_constrain super free_ids_with_def
         | Lfunction { kind = Curried; params; body } -> build params body
         | body                                           -> build [] body
       in
-      let vals = List.map bind_id_as_val vals in
       let class_init body =
+        (* Create anonymous instance variables and define them in the table *)
+        let vals = List.map bind_id_as_val vals in
         transl_vals cl_table true StrictOpt vals
           (class_init body)
       in
       { obj_init; class_init }
   | Tcl_apply (cl, oexprs) ->
       let { obj_init; class_init } =
-        build_class_init ~scopes cl_table must_constrain super free_ids_with_defs self_id cl
+        build_class_init ~scopes cl_table super free_ids_with_defs self_id cl
       in
       let obj_init =
         Translcore.transl_apply ~scopes obj_init oexprs Loc_unknown
       in
       { obj_init; class_init }
   | Tcl_let (rec_flag, defs, vals, cl) ->
+      (* See comment on the [Tcl_fun] case for the meaning of [vals] *)
       let { obj_init; class_init } =
-        build_class_init ~scopes cl_table must_constrain super (vals @ free_ids_with_defs) self_id cl
+        build_class_init ~scopes cl_table super (vals @ free_ids_with_defs) self_id cl
       in
       let obj_init =
         Translcore.transl_let ~scopes rec_flag defs obj_init
       in
-      let vals = List.map bind_id_as_val vals in
       let class_init body =
+        let vals = List.map bind_id_as_val vals in
         transl_vals cl_table true StrictOpt vals
           (class_init body)
       in
       { obj_init; class_init }
   | Tcl_open (_, cl) ->
-      build_class_init ~scopes cl_table must_constrain super free_ids_with_defs self_id cl
+      (* Class local opens are restricted to paths only, so no code is generated *)
+      build_class_init ~scopes cl_table super free_ids_with_defs self_id cl
   | Tcl_constraint (cl, _, vals, meths, concr_meths) ->
-      let { obj_init; class_init } =
-        build_class_init ~scopes cl_table false super free_ids_with_defs self_id cl
+      (* Skip narrowing if we're not directly under [inherit] *)
+      let must_narrow, super =
+        match super with
+        | Normal -> false, super
+        | Inheriting inh ->
+          (* No need to narrow further *)
+          inh.must_narrow, Inheriting { inh with must_narrow = false }
       in
+      let { obj_init; class_init } =
+        build_class_init ~scopes cl_table super free_ids_with_defs self_id cl
+      in
+      (* Note: we should be passing only [meths], as [narrow] doesn't need
+         to know about wirtual methods anymore *)
       let virt_meths =
-        List.filter (fun lab -> not (Types.MethSet.mem lab concr_meths)) meths in
+        List.filter (fun lab -> not (Types.MethSet.mem lab concr_meths)) meths
+      in
       let concr_meths = Types.MethSet.elements concr_meths in
       let narrow_args =
         [ Lvar cl_table;
@@ -474,7 +552,7 @@ let rec build_class_init ~scopes cl_table must_constrain super free_ids_with_def
           transl_meth_list concr_meths ]
       in
       let class_init =
-        if must_constrain then
+        if must_narrow then
           (fun body ->
              Lsequence
                (mkappl (oo_prim "narrow", narrow_args),
@@ -518,7 +596,7 @@ let transl_class ~scopes rec_ids cl_id pub_meths cl vflag =
   let table_id = Ident.create_local "table" in
   let self_id = Ident.create_local "self" in
   let { obj_init; class_init } =
-    build_class_init ~scopes table_id false ([],[]) [] self_id cl
+    build_class_init ~scopes table_id Normal [] self_id cl
   in
   let obj_init_func =
     (Lambda.lfunction
@@ -539,14 +617,16 @@ let transl_class ~scopes rec_ids cl_id pub_meths cl vflag =
       ~params:[(table_id, Pgenval); (unused_env_id, Pgenval)]
       ~body:(class_init obj_init_func)
   in
+  (* The toplevel lets are allowed to refer to the classes being defined,
+     so we need to insert them before the free variables computation. *)
+  let class_init_func = place_toplevel_lets class_init_func in
   let fv = free_variables class_init_func in
   let recursive = List.exists (fun id -> Ident.Set.mem id fv) rec_ids in
   let class_allocation, rec_kind =
     match (vflag : Asttypes.virtual_flag) with
     | Virtual ->
       (* Virtual classes only need to provide the [class_init] and [env]
-         fields. [obj_init] and [env_init] are filled with dummy
-         [lambda_unit] values. *)
+         fields. [obj_init] is filled with a dummy [lambda_unit] value. *)
         Lprim(Pmakeblock(0, Immutable, None),
               [lambda_unit (* dummy *);
                class_init_func;
@@ -581,7 +661,7 @@ let transl_class ~scopes rec_ids cl_id pub_meths cl vflag =
         in
         let class_block =
           Lprim(Pmakeblock(0, Immutable, None),
-                [mkappl (Lvar class_init_id, [lambda_unit]);
+                [mkappl (Lvar env_init_id, [lambda_unit]);
                  Lvar class_init_id;
                  lambda_unit],
                 Loc_unknown)
@@ -589,10 +669,7 @@ let transl_class ~scopes rec_ids cl_id pub_meths cl vflag =
         bind_table_id (bind_env_init_id (call_init_class class_block)),
         Value_rec_types.Static
   in
-  let class_expr =
-    Llet(Strict, Pgenval, class_init_id, class_init_func, class_allocation)
-  in
-  place_toplevel_lets class_expr, rec_kind
+  Llet(Strict, Pgenval, class_init_id, class_init_func, class_allocation), rec_kind
 
 let () =
   if Translobj.simple_version then
