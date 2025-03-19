@@ -22,10 +22,47 @@ open Arch
 
 (* Local binding of complex expressions *)
 
+let is_simple_expression = function
+  | Cvar _
+  | Cconst_int _
+  | Cconst_natint _
+  | Cconst_symbol _
+    -> true
+  | Cconst_float _
+  | Cvar_mut _
+  | Clet _
+  | Clet_mut _
+  | Cphantom_let _
+  | Cassign _
+  | Ctuple _
+  | Cop _
+  | Csequence _
+  | Cifthenelse _
+  | Cswitch _
+  | Ccatch _
+  | Cexit _
+  | Ctrywith _
+  | Creturn_addr
+    -> false
+
 let bind name arg fn =
-  match arg with
-    Cvar _ | Cconst_int _ | Cconst_natint _ | Cconst_symbol _ -> fn arg
-  | _ -> let id = V.create_local name in Clet(VP.create id, arg, fn (Cvar id))
+  if is_simple_expression arg then fn arg
+  else
+    let id = V.create_local name in Clet(VP.create id, arg, fn (Cvar id))
+
+let bind_right_to_left name args fn =
+  let rec aux prev_args_rev next_args fn =
+    match next_args with
+    | [] -> fn (List.rev prev_args_rev)
+    | arg :: next_args ->
+        if is_simple_expression arg
+        then aux (arg :: prev_args_rev) next_args fn
+        else
+          let id = V.create_local name in
+          let fn args = Clet (VP.create id, arg, fn args) in
+          aux (Cvar id :: prev_args_rev) next_args fn
+  in
+  aux [] args fn
 
 let bind_load name arg fn =
   match arg with
@@ -1736,17 +1773,21 @@ let direct_apply lbl args dbg =
   Cop(Capply typ_val, Cconst_symbol (lbl, dbg) :: args, dbg)
 
 let generic_apply mut clos args dbg =
-  match args with
-  | [arg] ->
+  (* The closure will be passed after all the arguments, but we want to enforce
+     an evaluation order where the closure is evaluated last.
+     To do that, we first bind all the arguments, and leave the closure
+     expression as it is (it will be bound if it needs to be duplicated). *)
+  bind_right_to_left "arg" args (function
+    | [arg] ->
       bind "fun" clos (fun clos ->
         Cop(Capply typ_val, [get_field_codepointer mut clos 0 dbg; arg; clos],
           dbg))
-  | _ ->
+    | args ->
       let arity = List.length args in
       let cargs =
         Cconst_symbol(apply_function_sym arity, dbg) :: args @ [clos]
       in
-      Cop(Capply typ_val, cargs, dbg)
+      Cop(Capply typ_val, cargs, dbg))
 
 let send kind met obj args dbg =
   let call_met obj args clos =
