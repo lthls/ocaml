@@ -32,6 +32,10 @@ Working version
   (Nicolás Ojeda Bär, review by Daniel Bünzli, Gabriel Scherer and David
   Allsopp)
 
+- #14043: Lazy.Atomic_repeating.t: concurrency-safe lazy thunks that may
+  repeat initialization computation on forcing races.
+  (Gabriel Scherer, review by KC Sivaramakrishnan and ??)
+
 ### Other libraries:
 
 - #14020: Add Unix.unsetenv.
