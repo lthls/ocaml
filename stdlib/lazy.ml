@@ -91,8 +91,14 @@ module Atomic_repeating = struct
 
   type 'a ops = {
     make : unit -> 'a;
-    discard : 'a -> unit;
+    wait : unit -> unit;
+    broadcast : unit -> unit
   }
+
+  type race_behaviour =
+    | Busy_wait
+    | Synchronise of { wait : unit -> unit; broadcast : unit -> unit }
+    | Fail
 
   type 'a state =
     | Thunk of 'a ops
@@ -103,8 +109,15 @@ module Atomic_repeating = struct
   type 'a t = 'a state Atomic.t
 
   let from_val v = Atomic.make (Val v)
-  let from_fun ?(discard = ignore) f =
-    Atomic.make (Thunk { make = f; discard })
+  let from_fun ?(race_behaviour = Fail) f =
+    let wait, broadcast =
+      match race_behaviour with
+      | Busy_wait ->
+          Fun.id, Fun.id
+      | Synchronise { wait; broadcast } -> wait, broadcast
+      | Fail -> (fun () -> raise Undefined), Fun.id
+    in
+    Atomic.make (Thunk { make = f; wait; broadcast })
 
   let rec force th =
     match Atomic.get th with
@@ -114,28 +127,55 @@ module Atomic_repeating = struct
     | (Thunk ops) as thunk ->
       (* [compare_and_set] returns [false] when another domain has
          set the thunk to [Forcing] or a finished state. *)
-      ignore (Atomic.compare_and_set th thunk (Forcing ops));
-      force th
-    | (Forcing ops) as forcing ->
-        begin match ops.make () with
+      if Atomic.compare_and_set th thunk (Forcing ops)
+      then begin
+        match ops.make () with
         | exception exn ->
-            let bt = get_raw_backtrace () in
-            let failed = Failed (exn, bt) in
-            (* [compare_and_set] returns [false] when another domain
-               has set the thunk to a finished state. We re-raise our
-               exception in any case to avoid losing it. *)
-            ignore (Atomic.compare_and_set th forcing failed);
-            raise_with_backtrace exn bt
+          let bt = get_raw_backtrace () in
+          let failed = Failed (exn, bt) in
+          (* [compare_and_set] cannot return false, as only the thread that
+             managed to set to forcing can try to update it again. *)
+          ignore (Atomic.compare_and_set th forcing failed);
+          ops.broadcast ();
+          raise_with_backtrace exn bt
         | v ->
-            (* [compare_and_set] returns [false] when another domain
-               has set the thunk to a finished state. In this case we
-               [discard] our value, and reuse the finished state. *)
-            if Atomic.compare_and_set th forcing (Val v)
-            then v
-            else begin
-              (* Exceptions from [discard] are propagated to the caller. *)
-              ops.discard v;
-              force th
-            end
-        end
+          (* [compare_and_set] cannot return false, as only the thread that
+             managed to set to forcing can try to update it again. *)
+          ignore (Atomic.compare_and_set th forcing (Val v));
+          v
+      end
+      else force th
+    | (Forcing ops) as forcing ->
+      ops.wait ();
+      force th
+
+  let rec force_non_blocking th =
+    match Atomic.get th with
+    | Val v -> Some v
+    | Failed (exn, bt) ->
+      raise_with_backtrace exn bt
+    | (Thunk ops) as thunk ->
+      (* [compare_and_set] returns [false] when another domain has
+         set the thunk to [Forcing] or a finished state. *)
+      if Atomic.compare_and_set th thunk (Forcing ops)
+      then begin
+        match ops.make () with
+        | exception exn ->
+          let bt = get_raw_backtrace () in
+          let failed = Failed (exn, bt) in
+          (* [compare_and_set] cannot return false, as only the thread that
+             managed to set to forcing can try to update it again. *)
+          ignore (Atomic.compare_and_set th forcing failed);
+          ops.broadcast ();
+          raise_with_backtrace exn bt
+        | v ->
+          (* [compare_and_set] cannot return false, as only the thread that
+             managed to set to forcing can try to update it again. *)
+          ignore (Atomic.compare_and_set th forcing (Val v));
+          ops.broadcast ();
+          Some v
+      end
+      else force th
+    | (Forcing ops) as forcing ->
+      None
 end
