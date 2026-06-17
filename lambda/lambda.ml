@@ -926,6 +926,14 @@ let rename idmap lam =
   let s = Ident.Map.map (fun new_id -> Lvar new_id) idmap in
   subst update_env s lam
 
+let subst_by_pure_binding s lam =
+  (* Introduce a renaming to avoid multiple bindings
+     of the same variable *)
+  let renaming = Ident.Map.mapi (fun id _ -> Ident.rename id) s in
+  Ident.Map.fold (fun var def body ->
+      Llet (Alias, Pgenval, (Ident.Map.find var renaming), def, body))
+    s (rename renaming lam)
+
 let duplicate_function =
   (build_substs
      (fun _ _ env -> env)

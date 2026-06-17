@@ -473,7 +473,18 @@ val subst:
 
     [freshen_bound_variables], which defaults to [false], freshens
     the bound variables within [lt].
- *)
+*)
+
+val subst_by_pure_binding: lambda Ident.Map.t -> lambda -> lambda
+(** [subst_by_pure_binding s lt]
+    applies a substitution [s] to the lambda-term [lt] by
+    pre-pending let-bindings for the variables substituted away.
+
+    Assumes that the image of the substitution is out of reach
+    of the bound variables of the lambda-term (no capture), and
+    that the bound expressions are pure (no side-effects, no dependency on
+    mutable state).
+*)
 
 val rename : Ident.t Ident.Map.t -> lambda -> lambda
 (** A version of [subst] specialized for the case where we're just renaming
